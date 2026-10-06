@@ -221,8 +221,21 @@ impl Game {
             None => {
                 let meteor_left = (0..self.finds.len())
                     .any(|i| !self.caught[i] && matches!(self.finds[i].target, Target::Meteor(_)));
+                // Nowhere to turn to: say so, so the key isn't met with
+                // silence.
                 if meteor_left {
                     self.guide_meteor_left(real);
+                    self.status("No meteor just then. Keep watching".into(), real);
+                } else if self.session.all_found() {
+                    self.status(
+                        "That's all of tonight's sky. W winds down when you're ready".into(),
+                        real,
+                    );
+                } else {
+                    self.status(
+                        "What's left isn't up just now. W winds down when you're ready".into(),
+                        real,
+                    );
                 }
             }
         }

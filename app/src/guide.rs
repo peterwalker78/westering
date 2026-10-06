@@ -197,6 +197,20 @@ impl Guide {
     }
 }
 
+impl Guide {
+    /// What the wisp is saying, until when, and how much more is queued,
+    /// for tests.
+    #[cfg(test)]
+    pub(crate) fn said(&self) -> (Option<(&str, UnixMs)>, usize) {
+        (
+            self.line
+                .as_ref()
+                .map(|l| (l.text.as_str(), l.shown + l.hold)),
+            self.queue.len(),
+        )
+    }
+}
+
 impl Game {
     pub(crate) fn seen(&self, key: &str) -> bool {
         self.journal.settings.seen.iter().any(|k| k == key)

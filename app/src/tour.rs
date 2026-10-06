@@ -160,6 +160,7 @@ impl Game {
             return false;
         }
         self.steps[i] += 1;
+        self.space_caught = true;
         self.catch.progress = 0.0;
         self.catch.target = None;
         self.catch.holding = false;

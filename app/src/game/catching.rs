@@ -26,6 +26,7 @@ impl Game {
 
     pub(crate) fn caught_one(&mut self, i: usize, real: UnixMs) {
         self.caught[i] = true;
+        self.space_caught = true;
         if !matches!(self.finds[i].target, Target::Meteor(_)) {
             self.track = Some(i);
         }

@@ -8,6 +8,8 @@ mod finds;
 mod input;
 mod photos;
 mod sky;
+#[cfg(test)]
+mod walk;
 
 pub(crate) use detail::Subject;
 
@@ -208,6 +210,8 @@ pub struct Game {
     pub(crate) last_input: UnixMs,
     /// When Space went down, to tell a tap from a hold.
     pub(crate) space_since: Option<UnixMs>,
+    /// Whether the press of Space now down has caught something.
+    pub(crate) space_caught: bool,
     /// Something the user did wants drawing now.
     pub urgent: bool,
     /// After a story or a walk, the ring rests until the view moves on.
@@ -336,8 +340,8 @@ pub(crate) fn compact(width: f64, height: f64) -> bool {
 /// A card up at least this long has been seen.
 const VIEWED_MS: UnixMs = 3_000;
 
-/// A press of Space shorter than this is a tap: it carries on rather than
-/// catches.
+/// A press of Space on something in the ring, let go sooner than this, is
+/// a tap rather than the start of a catch.
 const TAP_MS: UnixMs = 350;
 
 /// How many finds a visit in the small hours offers.
@@ -570,6 +574,7 @@ impl Game {
             finale_turned: false,
             last_input: real_now,
             space_since: None,
+            space_caught: false,
             urgent: false,
             ring_resting: false,
             free_since: real_now,

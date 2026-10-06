@@ -219,9 +219,11 @@ impl Game {
             gdk::Key::plus | gdk::Key::equal | gdk::Key::KP_Add => self.held.zoom_in = true,
             gdk::Key::minus | gdk::Key::KP_Subtract => self.held.zoom_out = true,
             gdk::Key::Shift_L | gdk::Key::Shift_R => self.held.fast = true,
-            // Space held catches; tapped, like Enter and Tab, it carries on.
+            // Space held on what's in the ring catches it; otherwise, like
+            // Enter and Tab, it carries on, when it's let go.
             gdk::Key::space => {
                 self.space_since = Some(real);
+                self.space_caught = false;
                 if self.card.is_none()
                     && self.talk.prompt.is_none()
                     && !self.more_now()
@@ -321,14 +323,20 @@ impl Game {
             gdk::Key::space => {
                 self.held.space = false;
                 self.catch.holding = false;
-                // A tap, not a hold: carry on. A hold that caught something
-                // has made a card, which the release mustn't put away.
+                // Letting go carries on, however long the key was down,
+                // unless the press was spent on the ring: one that caught
+                // something has made a card, which mustn't be put away, and
+                // one let go part-way is told to keep holding.
                 if let Some(down) = self.space_since.take()
-                    && at - down < TAP_MS
                     && !self.by_day()
                     && !self.winding()
                 {
-                    self.carry_on(at);
+                    if std::mem::take(&mut self.space_caught) {
+                    } else if self.catch.progress > 0.0 && at - down >= TAP_MS {
+                        self.status("Keep Space held until the ring closes".into(), at);
+                    } else {
+                        self.carry_on(at);
+                    }
                 }
             }
             _ => {}
