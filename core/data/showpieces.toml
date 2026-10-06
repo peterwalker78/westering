@@ -104,13 +104,13 @@ more = ["Its brightest member, Mirfak, is a yellow supergiant among blue stars."
 
 [[showpiece]]
 id = "m13"
-name = "Hercules Cluster (M13)"
+name = "Great Hercules Cluster (M13)"
 kind = "cluster"
 ra = 250.423
 dec = 36.461
 mag = 5.8
 size = 20.0
-fact = "Several hundred thousand stars about 24,000 light years away; the 1974 Arecibo message was beamed towards it."
+fact = "A globular cluster: several hundred thousand old stars packed into a ball, about 25,000 light years away. The 1974 Arecibo message was beamed towards it."
 more = ["Edmond Halley discovered it in 1714.", "Its stars are packed so tightly that some collide and merge into hotter, bluer stars, called blue stragglers."]
 
 [[showpiece]]

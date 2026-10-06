@@ -207,8 +207,8 @@ title = "Hercules and the dragon"
 anchor = 6212
 mirror = "The Arecibo message will take 25,000 years to reach M13. Some things are worth doing even if we never see where they end up."
 lines = [
-  { hr = 6406, say = "Hercules hangs upside down in our sky, kneeling, his head down at Rasalgethi and a foot near the Dragon's head." },
-  { showpiece = "m13", say = "In his side is M13, several hundred thousand stars in a ball." },
+  { hr = 6406, say = "Hercules hangs upside down in our sky, kneeling, a foot near the Dragon's head. His head is this star, Rasalgethi, just beyond the lines drawn for him." },
+  { showpiece = "m13", say = "In his side is M13, the Great Hercules Cluster: several hundred thousand stars in a ball." },
   { showpiece = "m13", say = "In 1974 the Arecibo radio telescope beamed a message towards it. It will take about 25,000 years to arrive." },
 ]
 
