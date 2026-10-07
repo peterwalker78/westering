@@ -266,3 +266,28 @@ fn looking_back_meets_every_answer_alike() {
     assert_eq!(w.game.guide.said().1, before + 1, "said once, ever");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Winding down ends on one line, with a few words above it saying that
+/// nothing needs writing; a story heard to its end comes back as that line.
+#[test]
+fn a_story_heard_to_its_end_comes_back_as_the_last_thought() {
+    let dir = scratch("echo");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    w.wait(2_000);
+    let shown = |w: &mut Walker| -> Vec<String> {
+        w.game.start_breathing(w.real);
+        w.game.wind_next(w.real);
+        let texts = w.game.wind_texts(w.real + 5_000);
+        w.game.wind_next(w.real);
+        texts.into_iter().map(|t| t.text).collect()
+    };
+    let mirror = w.game.sky.tours.stories[0].mirror.clone();
+    let plain = shown(&mut w);
+    assert!(plain.iter().any(|t| t.contains("Nothing to write down")));
+    assert!(!plain.contains(&mirror));
+    w.game.story_heard = Some(0);
+    let echoed = shown(&mut w);
+    assert!(echoed.contains(&mirror), "{echoed:?}");
+    assert!(echoed.iter().any(|t| t.contains("tonight's story")));
+    let _ = std::fs::remove_dir_all(&dir);
+}

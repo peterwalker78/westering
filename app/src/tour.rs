@@ -329,6 +329,13 @@ impl Game {
             // The story's over: the ring waits until the view moves on,
             // rather than coming back over what it left on screen.
             self.ring_resting = true;
+            if let Target::Story(s) = self.finds[tour.find].target
+                && tour.on_last_page()
+            {
+                // Heard to its end: the thought it closed on comes back
+                // at the end of the evening.
+                self.story_heard = Some(s);
+            }
             if let Target::MoonWalk = self.finds[tour.find].target {
                 let visited: Vec<String> = tour
                     .pages

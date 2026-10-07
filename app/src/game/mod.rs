@@ -271,6 +271,8 @@ pub struct Game {
     pub(crate) steps: Vec<usize>,
     /// A find being told a card at a time.
     pub(crate) tour: Option<crate::tour::Tour>,
+    /// Tonight's story, once it's been heard to its last page.
+    pub(crate) story_heard: Option<usize>,
     /// Tonight's places on the Moon, by index into the features.
     pub(crate) moon_stops: Vec<usize>,
     /// Algol's place among the prepared stars: it dims now and then.
@@ -611,6 +613,7 @@ impl Game {
             eye_alpha: 0.0,
             steps,
             tour: None,
+            story_heard: None,
             moon_stops,
             algol,
             marks: Vec::new(),

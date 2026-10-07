@@ -53,6 +53,8 @@ pub struct WindDown {
     pub skip: String,
     /// Said small above the line to think over.
     pub kicker: String,
+    /// The same, when the line is the thought tonight's story closed on.
+    pub story_kicker: String,
     #[serde(rename = "reflection")]
     reflections: Vec<Reflection>,
 }

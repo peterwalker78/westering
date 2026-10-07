@@ -15,6 +15,9 @@ skip = "Enter or a click moves on · Esc stops · K keeps you company instead"
 # Said small above the line to think over, so nobody wonders whether
 # they're meant to answer.
 kicker = "One last thought. Nothing to write down."
+# When tonight's story was heard to its end, the thought it closed on comes
+# back as the last one, so the evening has one thread running through it.
+story-kicker = "One last thought, from tonight's story. Nothing to write down."
 
 # One is chosen each night, by what the evening has already been about, so
 # nothing is asked twice: someone who set weights down isn't asked what

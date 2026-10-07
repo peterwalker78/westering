@@ -21,8 +21,10 @@ pub enum Stage {
 pub struct Wind {
     pub(crate) words: WindDown,
     pub(crate) stage: Option<Stage>,
-    /// Tonight's line, chosen once the breaths are done.
+    /// Tonight's line, chosen once the breaths are done, and the few
+    /// words above it saying what it is.
     line: String,
+    kicker: String,
 }
 
 impl Wind {
@@ -31,6 +33,7 @@ impl Wind {
             words: WindDown::bundled(),
             stage: None,
             line: String::new(),
+            kicker: String::new(),
         }
     }
 }
@@ -60,9 +63,16 @@ impl Game {
         self.wind.stage = Some(Stage::Breathing(real));
     }
 
-    /// The line to think over, chosen now the evening's been had, so it
-    /// never goes back to something tonight was already about.
-    fn wind_line(&self) -> String {
+    /// The line to think over and the words above it, chosen now the
+    /// evening's been had. A story heard to its end comes back as the
+    /// thought it closed on; otherwise it's a line that doesn't go back to
+    /// something tonight was already about.
+    fn wind_line(&self) -> (String, String) {
+        let words = &self.wind.words;
+        if let Some(story) = self.story_heard {
+            let mirror = self.sky.tours.stories[story].mirror.clone();
+            return (mirror, words.story_kicker.clone());
+        }
         let mut covered = Vec::new();
         if !self.page.weights.is_empty() {
             covered.push(About::Leave);
@@ -77,7 +87,8 @@ impl Game {
                 covered.push(about);
             }
         }
-        self.wind.words.reflection(&self.night, &covered).to_owned()
+        let line = words.reflection(&self.night, &covered).to_owned();
+        (line, words.kicker.clone())
     }
 
     /// On to the next part: from the breaths to the line, and then how
@@ -85,7 +96,7 @@ impl Game {
     pub(crate) fn wind_next(&mut self, real: UnixMs) {
         self.wind.stage = match self.wind.stage {
             Some(Stage::Breathing(_)) => {
-                self.wind.line = self.wind_line();
+                (self.wind.line, self.wind.kicker) = self.wind_line();
                 Some(Stage::Reflecting(real))
             }
             _ => None,
@@ -165,7 +176,14 @@ impl Game {
         if let Some(line) = line {
             let a = smoothstep((real - since) as f64 / 1_500.0);
             out.push(
-                Text::new(w / 2.0, h * 0.4 - 38.0, words.kicker.clone(), 13.0, 0.5 * a).centred(),
+                Text::new(
+                    w / 2.0,
+                    h * 0.4 - 38.0,
+                    self.wind.kicker.clone(),
+                    13.0,
+                    0.5 * a,
+                )
+                .centred(),
             );
             out.push(
                 Text::new(w / 2.0, h * 0.4, line, 23.0, a)
