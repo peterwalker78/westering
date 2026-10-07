@@ -242,6 +242,9 @@ pub struct Game {
     told_tab: bool,
     /// 0-1, eased: how far the keys in the corner are showing.
     legend_mix: f64,
+    /// The table of keys, up or put away, and since when.
+    pub(crate) help: bool,
+    pub(crate) help_changed: UnixMs,
     /// Key releases wait a moment: X11's auto-repeat sends a release before
     /// every repeated press, and a real release has no press behind it.
     pub(crate) releases: Vec<(gdk::Key, UnixMs)>,
@@ -588,6 +591,8 @@ impl Game {
             viewed,
             told_tab: false,
             legend_mix: 0.0,
+            help: false,
+            help_changed: 0,
             releases: Vec::new(),
             esc_armed: 0,
             last_real: real_now,

@@ -610,10 +610,7 @@ impl Game {
                 }
             }
             gdk::Key::w | gdk::Key::W => self.day_end(real),
-            gdk::Key::question | gdk::Key::F1 => {
-                let help = self.guide.lines().day.help.clone();
-                self.say_at(Aim::Near(0.32, 0.5), help, real, 12_000);
-            }
+            gdk::Key::question | gdk::Key::F1 => self.guide_help(real),
             gdk::Key::k | gdk::Key::K => self.toggle_company(real),
             gdk::Key::m | gdk::Key::M => self.toggle_music(real),
             gdk::Key::l | gdk::Key::L => {
@@ -796,6 +793,7 @@ impl Game {
         let (sprites, bubble, embers) = self.guide_frame(real, gain.max(0.3));
         let card = self.card_view(real);
         crate::view::Frame {
+            legend: self.help_table(real),
             glows: Vec::new(),
             points: std::mem::take(&mut self.points),
             silhouettes: self.day_life(real),

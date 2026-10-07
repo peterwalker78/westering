@@ -582,6 +582,10 @@ impl Game {
     /// The keys in the corner while looking round the sky, stepping aside
     /// for anything else that needs the room.
     pub(super) fn legend(&mut self, dt: f64) -> Option<crate::view::Legend> {
+        if let Some(table) = self.help_table(self.last_real) {
+            self.legend_mix = 0.0;
+            return Some(table);
+        }
         let wanted = self.hunting()
             && !self.keeping()
             && !self.winding()
@@ -610,6 +614,7 @@ impl Game {
                     (vec!["+".into(), "−".into()], "zoom in and out".into()),
                     (vec!["← ↑ ↓ →".into()], "aim the ring".into()),
                     (vec!["Space".into()], "carry on; hold to catch".into()),
+                    (vec!["Tab".into()], "back to what you skipped".into()),
                 ];
                 // Free look only once the wisp has handed the sky over.
                 if self.handed_over {
@@ -619,6 +624,78 @@ impl Game {
                 rows
             },
             alpha: self.legend_mix,
+            whole: false,
+        })
+    }
+
+    /// Every key and what it does, as a table in the middle of the screen,
+    /// while it's asked for and as it fades away after.
+    pub(crate) fn help_table(&self, real: UnixMs) -> Option<crate::view::Legend> {
+        let since = smoothstep((real - self.help_changed) as f64 / 220.0);
+        let alpha = if self.help { since } else { 1.0 - since };
+        if alpha < 0.01 {
+            return None;
+        }
+        let row = |keys: &[&str], what: &str| {
+            (
+                keys.iter().map(|k| (*k).to_owned()).collect::<Vec<_>>(),
+                what.to_owned(),
+            )
+        };
+        let mut rows = if self.by_day() {
+            vec![
+                row(&["Click"], "Anything on the ground, or on the list"),
+                row(&["Space", "Enter"], "Carry on, a card at a time"),
+                row(&["Esc"], "Put a card away"),
+            ]
+        } else if self.free_look() {
+            vec![
+                row(&["Drag"], "Look around"),
+                row(&["Scroll"], "Zoom in and out"),
+                row(&["Click"], "A closer look at anything that glows"),
+                row(&["Esc"], "Back out again"),
+                row(&["F"], "The guided way, with the wisp"),
+            ]
+        } else {
+            vec![
+                row(&["← ↑ ↓ →"], "Look around (or drag)"),
+                row(&["+", "−"], "Zoom in and out (or scroll)"),
+                row(&["Space", "Enter"], "Carry on: the next word, card or find"),
+                row(&["Hold Space"], "Catch what's in the ring"),
+                row(&["Tab"], "Back to anything you skipped"),
+                row(&["Click"], "Something on the list, to turn to it"),
+                row(&["Esc"], "Put a card away"),
+                row(
+                    &["F"],
+                    if self.handed_over {
+                        "Free look, with the mouse"
+                    } else {
+                        "Free look, once we've looked together a while"
+                    },
+                ),
+                row(&["C"], "Draw a constellation of your own"),
+            ]
+        };
+        rows.extend([
+            row(&["L"], "The logbook"),
+            row(&["M"], "Music: the next style, then off"),
+            row(&["K"], "Keep me company in the background"),
+            row(
+                &["W"],
+                if self.by_day() {
+                    "Back to your day"
+                } else {
+                    "Wind down for the night"
+                },
+            ),
+            row(&["Ctrl", ","], "Settings"),
+            row(&["F11"], "Full screen"),
+            row(&["?"], "These keys, and away again"),
+        ]);
+        Some(crate::view::Legend {
+            rows,
+            alpha,
+            whole: true,
         })
     }
 

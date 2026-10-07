@@ -185,12 +185,15 @@ pub struct Bubble {
     pub more: Option<(f64, &'static str)>,
 }
 
-/// A small, faint reminder of the keys, in a corner.
+/// The keys and what they do: a small, faint reminder in a corner, or,
+/// when asked for, the whole table in the middle of the screen.
 #[derive(Clone)]
 pub struct Legend {
     /// Each row: its keys, drawn as caps, and what they do.
     pub rows: Vec<(Vec<String>, String)>,
     pub alpha: f64,
+    /// The whole table: in the middle, under a heading, and easy to read.
+    pub whole: bool,
 }
 
 #[derive(Default, Clone)]
@@ -318,27 +321,60 @@ fn draw_legend(widget: &gtk::Widget, snapshot: &gtk::Snapshot, w: f32, h: f32, l
         .iter()
         .map(|l| l.pixel_size().0 as f32)
         .fold(0.0f32, f32::max);
+    // The whole table has a heading, more room round it, and full ink.
+    let (pad, gap) = if l.whole { (18.0, 16.0) } else { (pad, gap) };
+    let heading = l.whole.then(|| layout(widget, "KEYS", 11.0, true, None));
+    let head_h = if l.whole { 26.0 } else { 0.0 };
     let width = pad * 2.0 + caps_w + gap + words_w;
-    let height = pad * 2.0 + row_h * l.rows.len() as f32 - 4.0;
-    let (x, y) = (w - width - 16.0, h - height - 16.0);
+    let height = pad * 2.0 + head_h + row_h * l.rows.len() as f32 - 4.0;
+    let (x, y) = if l.whole {
+        ((w - width) / 2.0, ((h - height) / 2.0).max(8.0))
+    } else {
+        (w - width - 16.0, h - height - 16.0)
+    };
+    let (backing, caps, ink) = if l.whole {
+        (1.0, 1.0, 0.92)
+    } else {
+        (0.6, 0.8, 0.65)
+    };
+    if l.whole {
+        // The sky steps back, and nothing shows through the table.
+        snapshot.append_color(
+            &gdk::RGBA::new(0.0, 0.0, 0.02, 0.45 * a),
+            &graphene::Rect::new(0.0, 0.0, w, h),
+        );
+        let rect = graphene::Rect::new(x, y, width, height);
+        snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(rect, 10.0));
+        snapshot.append_color(&gdk::RGBA::new(0.045, 0.055, 0.1, a), &rect);
+        snapshot.pop();
+    }
     panel(
         snapshot,
         &graphene::Rect::new(x, y, width, height),
         10.0,
-        0.6 * a,
+        backing * a,
     );
+    if let Some(heading) = &heading {
+        text_at(
+            snapshot,
+            heading,
+            x + pad,
+            y + pad - 2.0,
+            gdk::RGBA::new(0.86, 0.88, 0.93, 0.5 * a),
+        );
+    }
     for (i, ((keys, _), said)) in l.rows.iter().zip(&words).enumerate() {
-        let ry = y + pad + row_h * i as f32;
+        let ry = y + pad + head_h + row_h * i as f32;
         let mut cx = x + pad;
         for k in keys {
-            cx += keycap(widget, snapshot, k, cx, ry, 0.8 * a) + 4.0;
+            cx += keycap(widget, snapshot, k, cx, ry, caps * a) + 4.0;
         }
         text_at(
             snapshot,
             said,
             x + pad + caps_w + gap,
             ry + 2.0,
-            gdk::RGBA::new(0.86, 0.88, 0.93, 0.65 * a),
+            gdk::RGBA::new(0.86, 0.88, 0.93, ink * a),
         );
     }
 }
@@ -926,6 +962,7 @@ mod imp {
             }
             if let Some(l) = &frame.legend
                 && l.alpha > 0.004
+                && !l.whole
             {
                 draw_legend(widget.upcast_ref(), snapshot, w, h, l);
             }
@@ -977,6 +1014,13 @@ mod imp {
                 snapshot.append_layout(&layout, &gdk::RGBA::new(c[0], c[1], c[2], t.alpha as f32));
                 snapshot.pop();
                 snapshot.restore();
+            }
+            // The whole table of keys goes over everything else on the sky.
+            if let Some(l) = &frame.legend
+                && l.alpha > 0.004
+                && l.whole
+            {
+                draw_legend(widget.upcast_ref(), snapshot, w, h, l);
             }
             if frame.veil > 0.0 {
                 snapshot.append_color(

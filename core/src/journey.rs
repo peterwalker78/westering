@@ -62,7 +62,6 @@ pub struct DayLines {
     pub ending: String,
     pub outside: String,
     pub dusk: String,
-    pub help: String,
 }
 
 /// What the wisp says in free look, where it mostly keeps quiet.

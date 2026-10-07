@@ -889,18 +889,20 @@ impl Game {
         );
     }
 
+    /// Puts the table of keys up, or away again.
     pub(crate) fn guide_help(&mut self, real: UnixMs) {
-        let free = if self.handed_over {
-            "F switches to free look: drag to look around, and click anything that glows to close in on it and read all about it; Esc, or a click on the sky, zooms back out. In free look the wisp keeps quiet; F brings it back."
-        } else {
-            "Once we've looked together a while, F opens free look, for wandering with the mouse."
-        };
-        self.say_at(
-            Aim::Near(0.32, 0.5),
-            format!("Arrows or a drag look around. Tapping Space carries on: the wisp's next word, then past a card, then to the next find (Enter does the same, and so does a click while a card is up). Tab goes back to the first thing on the list you haven't seen yet. Hold Space, or press and hold on the ring, to catch whatever's in it; click the list to turn to something. {free} Point at anything to see what it is. C draws, L opens the logbook, M changes the music's style (and after the last, turns it off), K keeps you company in the background, and W winds down. The button top left opens the menu."),
-            real,
-            15_000,
-        );
+        self.help = !self.help;
+        self.help_changed = real;
+    }
+
+    /// Puts the table of keys away, if it's up. Says whether it was.
+    pub(crate) fn help_away(&mut self, real: UnixMs) -> bool {
+        let was = self.help;
+        if was {
+            self.help = false;
+            self.help_changed = real;
+        }
+        was
     }
 
     pub(crate) fn guide_phase(&mut self, phase: Phase, real: UnixMs) {

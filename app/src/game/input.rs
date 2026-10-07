@@ -112,6 +112,21 @@ impl Game {
         if self.typing() {
             return false;
         }
+        // Any key puts the table of keys away; the ones that only ever
+        // carry on or put things away do no more than that.
+        if !matches!(key, gdk::Key::question | gdk::Key::F1)
+            && self.help_away(real)
+            && matches!(
+                key,
+                gdk::Key::Escape
+                    | gdk::Key::space
+                    | gdk::Key::Return
+                    | gdk::Key::KP_Enter
+                    | gdk::Key::Tab
+            )
+        {
+            return true;
+        }
         self.releases.retain(|(k, _)| *k != key);
         if key == gdk::Key::space {
             if self.held.space {
@@ -416,6 +431,9 @@ impl Game {
     /// A click on something turns the view to it.
     pub fn click(&mut self, x: f64, y: f64, real: UnixMs) {
         self.input(real);
+        if self.help_away(real) {
+            return;
+        }
         if self.winding() {
             self.wind_next(real);
             return;
