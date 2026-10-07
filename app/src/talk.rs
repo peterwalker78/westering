@@ -108,6 +108,8 @@ const MAX_WEIGHTS: usize = 3;
 
 /// How an old weight sits now.
 const LOOKS: [&str; 4] = ["Lighter", "Much the same", "Heavier", "It's behind me"];
+pub(crate) const LOOK_HEAVIER: usize = 2;
+pub(crate) const LOOK_BEHIND: usize = 3;
 
 /// "The Moon" becomes "the Moon"; names stay as they are.
 pub(crate) fn lower_first(name: &str) -> String {
@@ -834,7 +836,7 @@ impl Game {
                         night,
                         answer: answer.into(),
                     });
-                    if chip == 3 {
+                    if chip == LOOK_BEHIND {
                         w.sorted = true;
                     }
                 }

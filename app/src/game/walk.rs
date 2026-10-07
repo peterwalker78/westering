@@ -244,3 +244,25 @@ fn space_carries_a_first_evening_through() {
 fn an_unhurried_press_carries_on_too() {
     walk("unhurried", &[october(11, 22.5)], 500);
 }
+
+/// Looking back at an old weight: no answer is met better than another,
+/// and the way to chart a course is pointed out once, ever.
+#[test]
+fn looking_back_meets_every_answer_alike() {
+    let dir = scratch("look-back");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    w.wait(2_000);
+    for chip in [0, 1, 3] {
+        let before = w.game.guide.said().1;
+        w.game.guide_looked_back(chip, w.real);
+        assert_eq!(w.game.guide.said().1, before, "answer {chip} got a word");
+        let word = w.game.hint.as_ref().map(|h| h.text.clone());
+        assert!(word.is_some_and(|t| t.contains("logbook")), "answer {chip}");
+    }
+    let before = w.game.guide.said().1;
+    w.game.guide_looked_back(2, w.real);
+    assert_eq!(w.game.guide.said().1, before + 1);
+    w.game.guide_looked_back(2, w.real);
+    assert_eq!(w.game.guide.said().1, before + 1, "said once, ever");
+    let _ = std::fs::remove_dir_all(&dir);
+}

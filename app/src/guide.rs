@@ -10,7 +10,7 @@ use crate::flight::Flight;
 use crate::game::{Game, envelope};
 use crate::idle::{Idle, Kind, Scene};
 use crate::sprite::{FLYING, NOOK, SIZE, render_flying, render_moss};
-use crate::talk::{Flow, lower_first};
+use crate::talk::{Flow, LOOK_BEHIND, LOOK_HEAVIER, lower_first};
 use crate::view::{Bubble, Point, Sprite};
 use westering_core::coords::{angles, apply, observe, unit};
 use westering_core::finale::whereabouts;
@@ -866,18 +866,26 @@ impl Game {
         self.say_at(Aim::Near(0.4, 0.4), line, real + 300, 9_000);
     }
 
-    /// A word after an old weight has been looked at again.
+    /// After an old weight has been looked at again. Every answer is met
+    /// the same way, so none of them is the right one: a glow, and a word
+    /// about where it's kept.
     pub(crate) fn guide_looked_back(&mut self, chip: usize, real: UnixMs) {
-        let line = match chip {
-            0 | 3 => "Good. Whatever helped lighten it is worth remembering.",
-            1 => {
-                "Some things take longer to lighten. You can set it down again any night you like."
-            }
-            _ => {
-                "If you'd like, the logbook can help you chart a small plan for it: find it there and choose Chart a course. Only if you want to."
-            }
+        self.wisp_moved(real);
+        let kept = if chip == LOOK_BEHIND {
+            "Kept in your logbook. It won't be brought back again"
+        } else {
+            "Kept beside it in your logbook"
         };
-        self.say_at(Aim::Near(0.3, 0.55), line, real + 500, 8_000);
+        self.status_for(kept.into(), real, 6_000);
+        if chip == LOOK_HEAVIER {
+            self.say_once(
+                "course-offer",
+                Aim::Near(0.3, 0.55),
+                "If you'd like, the logbook can help you chart a small plan for it: find it there and choose Chart a course. Only if you want to.",
+                real + 500,
+                10_000,
+            );
+        }
     }
 
     pub(crate) fn guide_drawing(&mut self, real: UnixMs) {
