@@ -291,3 +291,37 @@ fn a_story_heard_to_its_end_comes_back_as_the_last_thought() {
     assert!(echoed.iter().any(|t| t.contains("tonight's story")));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// What a catch keeps for the logbook's chart is where the find really
+/// stood: put back into tonight's sky, it lands where the find is.
+#[test]
+fn a_find_is_kept_where_it_stood() {
+    use westering_core::coords::{alt_az, apply, horizon, precession, unit};
+    let dir = scratch("spots");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    w.wait(2_000);
+    let now = w.game.sky_now(w.real);
+    let hz = horizon(w.game.observer, now);
+    let prec = precession(now);
+    let mut placed = 0;
+    for i in 0..w.game.finds.len() {
+        w.game.note_spot(i, w.real);
+        let Some(v) = w.game.find_dir(i, now, &hz, &prec) else {
+            continue;
+        };
+        let name = &w.game.finds[i].name;
+        let spot = w.game.page.spots.iter().find(|s| &s.name == name);
+        let spot = spot.unwrap_or_else(|| panic!("{name} has no place kept"));
+        let (alt, az) = alt_az(apply(&hz, unit(spot.ra, spot.dec)));
+        let (alt0, az0) = alt_az(v);
+        assert!((alt - alt0).abs() < 1e-6, "{name}: {alt} for {alt0}");
+        assert!(
+            ((az - az0 + 180.0).rem_euclid(360.0) - 180.0).abs() < 1e-4,
+            "{name}"
+        );
+        placed += 1;
+    }
+    assert!(placed > 3, "{placed} finds placed");
+    assert_eq!(w.game.page.at, Some(now));
+    let _ = std::fs::remove_dir_all(&dir);
+}

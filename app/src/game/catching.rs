@@ -26,7 +26,7 @@ impl Game {
 
     /// Keeps where a find stood among the stars, and when the first one
     /// was found, for the chart on tonight's page of the logbook.
-    fn note_spot(&mut self, i: usize, real: UnixMs) {
+    pub(super) fn note_spot(&mut self, i: usize, real: UnixMs) {
         if self.by_day() {
             return;
         }
