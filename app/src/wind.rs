@@ -1,5 +1,5 @@
 //! Winding down, asked plainly: a few slow breaths with the wisp, if
-//! wanted, and a few lines to think over, before the night's ending. The
+//! wanted, and a line to think over, before the night's ending. The
 //! evening waits while they happen, and Esc, or choosing something else,
 //! lets them go at any point.
 
@@ -7,31 +7,30 @@ use crate::game::{Game, smoothstep};
 use crate::talk::{Flow, Prompt};
 use crate::view::{Point, Text};
 use westering_core::time::UnixMs;
-use westering_core::winddown::WindDown;
+use westering_core::winddown::{About, WindDown};
 
 /// A line to think over moves on by itself after this long.
 const LINE_MS: UnixMs = 25_000;
 
 pub enum Stage {
     Breathing(UnixMs),
-    /// Which line, and since when.
-    Reflecting(usize, UnixMs),
+    /// The line to think over, and since when.
+    Reflecting(UnixMs),
 }
 
 pub struct Wind {
     pub(crate) words: WindDown,
     pub(crate) stage: Option<Stage>,
-    lines: Vec<String>,
+    /// Tonight's line, chosen once the breaths are done.
+    line: String,
 }
 
 impl Wind {
-    pub fn new(night: &str) -> Wind {
-        let words = WindDown::bundled();
-        let lines = words.reflections(night);
+    pub fn bundled() -> Wind {
         Wind {
-            words,
+            words: WindDown::bundled(),
             stage: None,
-            lines,
+            line: String::new(),
         }
     }
 }
@@ -61,13 +60,33 @@ impl Game {
         self.wind.stage = Some(Stage::Breathing(real));
     }
 
-    /// On to the next part: from the breaths to the lines, line by line,
-    /// and then how the night ends.
+    /// The line to think over, chosen now the evening's been had, so it
+    /// never goes back to something tonight was already about.
+    fn wind_line(&self) -> String {
+        let mut covered = Vec::new();
+        if !self.page.weights.is_empty() {
+            covered.push(About::Leave);
+        }
+        if !self.page.plans.is_empty() {
+            covered.push(About::Ahead);
+        }
+        let answered = self.page.answers.iter().map(|a| &a.question);
+        for id in self.talk.asked_now.iter().chain(answered) {
+            let thread = self.talk.bank.iter().find(|q| &q.id == id);
+            if let Some(about) = thread.and_then(|q| About::of_thread(&q.thread)) {
+                covered.push(about);
+            }
+        }
+        self.wind.words.reflection(&self.night, &covered).to_owned()
+    }
+
+    /// On to the next part: from the breaths to the line, and then how
+    /// the night ends.
     pub(crate) fn wind_next(&mut self, real: UnixMs) {
         self.wind.stage = match self.wind.stage {
-            Some(Stage::Breathing(_)) => Some(Stage::Reflecting(0, real)),
-            Some(Stage::Reflecting(i, _)) if i + 1 < self.wind.lines.len() => {
-                Some(Stage::Reflecting(i + 1, real))
+            Some(Stage::Breathing(_)) => {
+                self.wind.line = self.wind_line();
+                Some(Stage::Reflecting(real))
             }
             _ => None,
         };
@@ -95,7 +114,7 @@ impl Game {
             Some(Stage::Breathing(since)) if self.wind.words.breath(real - since).is_none() => {
                 self.wind_next(real)
             }
-            Some(Stage::Reflecting(_, since)) if real - since > LINE_MS => self.wind_next(real),
+            Some(Stage::Reflecting(since)) if real - since > LINE_MS => self.wind_next(real),
             _ => {}
         }
         // The wisp breathes in time.
@@ -140,11 +159,14 @@ impl Game {
                 );
                 (None, since)
             }
-            Some(Stage::Reflecting(i, since)) => (self.wind.lines.get(i).cloned(), since),
+            Some(Stage::Reflecting(since)) => (Some(self.wind.line.clone()), since),
             None => return out,
         };
         if let Some(line) = line {
             let a = smoothstep((real - since) as f64 / 1_500.0);
+            out.push(
+                Text::new(w / 2.0, h * 0.4 - 38.0, words.kicker.clone(), 13.0, 0.5 * a).centred(),
+            );
             out.push(
                 Text::new(w / 2.0, h * 0.4, line, 23.0, a)
                     .centred()

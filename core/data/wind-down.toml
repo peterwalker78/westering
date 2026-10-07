@@ -12,14 +12,49 @@ in-words = "Breathe in"
 out-words = "and slowly out"
 skip = "Enter or a click moves on · Esc stops · K keeps you company instead"
 
-# One is chosen each night. Nothing is written down or kept.
-reflections = [
-  "Think back over today. What's one small thing that went all right?",
-  "Who made today a little easier, even in a small way?",
-  "Is there anything you'd like to leave here tonight, rather than take to bed?",
-  "What's one thing you're looking forward to, even a small one?",
-  "Let your shoulders drop, and your jaw. There's nothing more to do tonight.",
-  "Whatever's left can wait until the morning. It will keep, and so will you.",
-  "Where did you feel most like yourself today?",
-  "Is there someone you'd like to hear from tomorrow?",
-]
+# Said small above the line to think over, so nobody wonders whether
+# they're meant to answer.
+kicker = "One last thought. Nothing to write down."
+
+# One is chosen each night, by what the evening has already been about, so
+# nothing is asked twice: someone who set weights down isn't asked what
+# they'd like to leave here, and a thread the sky asked a question on
+# isn't gone back to. Nothing is written down or kept.
+#
+# about:  day     how the day went
+#         people  who was in it
+#         ahead   something to look forward to
+#         leave   something to leave here for the night
+#         rest    nothing asked: these are always there to choose from
+
+[[reflection]]
+about = "day"
+text = "Think back over today. What's one small thing that went all right?"
+
+[[reflection]]
+about = "people"
+text = "Who made today a little easier, even in a small way?"
+
+[[reflection]]
+about = "leave"
+text = "Is there anything you'd like to leave here tonight, rather than take to bed?"
+
+[[reflection]]
+about = "ahead"
+text = "What's one thing you're looking forward to, even a small one?"
+
+[[reflection]]
+about = "rest"
+text = "Let your shoulders drop, and your jaw. There's nothing more to do tonight."
+
+[[reflection]]
+about = "rest"
+text = "Whatever's left can wait until the morning. It will keep, and so will you."
+
+[[reflection]]
+about = "day"
+text = "Where did you feel most like yourself today?"
+
+[[reflection]]
+about = "people"
+text = "Is there someone you'd like to hear from tomorrow?"

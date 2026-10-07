@@ -6,6 +6,39 @@ use serde::Deserialize;
 use crate::finds::stable_hash;
 use crate::time::UnixMs;
 
+/// What a line to think over is about.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum About {
+    /// How the day went.
+    Day,
+    People,
+    /// Something to look forward to.
+    Ahead,
+    /// Something to leave here for the night.
+    Leave,
+    /// Nothing asked: letting go.
+    Rest,
+}
+
+impl About {
+    /// What a question on this thread has already been about.
+    pub fn of_thread(thread: &str) -> Option<About> {
+        match thread {
+            "people" => Some(About::People),
+            "plans" => Some(About::Ahead),
+            "perspective" => Some(About::Day),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct Reflection {
+    about: About,
+    text: String,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct WindDown {
@@ -18,7 +51,10 @@ pub struct WindDown {
     pub in_words: String,
     pub out_words: String,
     pub skip: String,
-    reflections: Vec<String>,
+    /// Said small above the line to think over.
+    pub kicker: String,
+    #[serde(rename = "reflection")]
+    reflections: Vec<Reflection>,
 }
 
 /// Where a breath is: which one (from zero), whether breathing in, and how
@@ -69,11 +105,15 @@ impl WindDown {
     }
 
     /// Tonight's line to think over: one, so the evening winds down
-    /// rather than opening up again.
-    pub fn reflections(&self, night: &str) -> Vec<String> {
-        let mut all: Vec<&String> = self.reflections.iter().collect();
-        all.sort_by_key(|r| stable_hash((0, 0, 11), &format!("{night}:{r}")));
-        all.into_iter().take(1).cloned().collect()
+    /// rather than opening up again, and never about something the evening
+    /// has already been about. The lines that ask nothing are always there.
+    pub fn reflection(&self, night: &str, covered: &[About]) -> &str {
+        self.reflections
+            .iter()
+            .filter(|r| r.about == About::Rest || !covered.contains(&r.about))
+            .min_by_key(|r| stable_hash((0, 0, 11), &format!("{night}:{}", r.text)))
+            .map(|r| r.text.as_str())
+            .unwrap_or_default()
     }
 }
 
@@ -99,12 +139,66 @@ mod tests {
     #[test]
     fn one_line_a_night_that_never_names_the_feeling() {
         let w = WindDown::bundled();
-        let tonight = w.reflections("2026-09-29");
-        assert_eq!(tonight.len(), 1);
-        assert_eq!(tonight, w.reflections("2026-09-29"));
+        let tonight = w.reflection("2026-09-29", &[]);
+        assert!(!tonight.is_empty());
+        assert_eq!(tonight, w.reflection("2026-09-29", &[]));
         let all = include_str!("../data/wind-down.toml").to_lowercase();
         for word in UNSAID {
             assert!(!all.contains(word), "{word}");
+        }
+    }
+
+    fn nights() -> impl Iterator<Item = String> {
+        (1..=28).flat_map(|d| (1..=12).map(move |m| format!("2026-{m:02}-{d:02}")))
+    }
+
+    fn about(w: &WindDown, text: &str) -> About {
+        w.reflections
+            .iter()
+            .find(|r| r.text == text)
+            .expect("a line from the file")
+            .about
+    }
+
+    #[test]
+    fn nothing_the_evening_was_already_about_is_asked_again() {
+        let w = WindDown::bundled();
+        let mut seen = Vec::new();
+        for night in nights() {
+            // Weights were set down, and the sky asked about someone.
+            let line = w.reflection(&night, &[About::Leave, About::People]);
+            let a = about(&w, line);
+            assert!(a != About::Leave && a != About::People, "{night}: {line}");
+            if !seen.contains(&a) {
+                seen.push(a);
+            }
+        }
+        // The rest still come round.
+        for a in [About::Day, About::Ahead, About::Rest] {
+            assert!(seen.contains(&a), "{a:?} never chosen");
+        }
+    }
+
+    #[test]
+    fn a_full_evening_still_ends_on_a_line() {
+        let w = WindDown::bundled();
+        let all = [
+            About::Day,
+            About::People,
+            About::Ahead,
+            About::Leave,
+            About::Rest,
+        ];
+        for night in nights() {
+            let line = w.reflection(&night, &all);
+            assert_eq!(about(&w, line), About::Rest, "{night}");
+        }
+    }
+
+    #[test]
+    fn question_threads_are_all_accounted_for() {
+        for q in crate::questions::bundled() {
+            assert!(About::of_thread(&q.thread).is_some(), "{}", q.thread);
         }
     }
 }

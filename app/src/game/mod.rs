@@ -546,7 +546,7 @@ impl Game {
         let steps = vec![0; finds.len()];
         // Anything caught earlier tonight was seen then.
         let viewed = caught.clone();
-        let wind = crate::wind::Wind::new(&night);
+        let wind = crate::wind::Wind::bundled();
         let mut game = Game {
             sky,
             prepared,
