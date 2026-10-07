@@ -23,6 +23,9 @@ pub struct Timings {
     pub after_last_find: UnixMs,
     /// The hunt winds down by itself after this long.
     pub hunt_most: UnixMs,
+    /// How long into the hunt winding down is first offered: a visit is
+    /// meant to be a quarter of an hour, not the whole list.
+    pub offer: UnixMs,
     pub dimming: UnixMs,
     /// The time-lapse through the rest of the night.
     pub lapse: UnixMs,
@@ -40,6 +43,7 @@ impl Timings {
         arrival: 4_500,
         after_last_find: 6 * MINUTE,
         hunt_most: 25 * MINUTE,
+        offer: 12 * MINUTE,
         dimming: 40_000,
         lapse: 22_000,
         hold: 14_000,
@@ -57,6 +61,7 @@ impl Timings {
             arrival: s.arrival,
             after_last_find: s.after_last_find / f,
             hunt_most: s.hunt_most / f,
+            offer: s.offer / f,
             dimming: s.dimming / f,
             lapse: s.lapse,
             hold: s.hold / f.min(2),
@@ -417,6 +422,14 @@ mod tests {
         assert!(!s.all_found());
         let changes = run_until(&mut s, 20_000, 20 * MINUTE);
         assert!(changes.is_empty(), "{changes:?}");
+    }
+
+    #[test]
+    fn winding_down_is_offered_well_before_the_hunt_ends_itself() {
+        for t in [Timings::STANDARD, Timings::quick(10)] {
+            assert!(t.offer * 2 <= t.hunt_most, "{t:?}");
+        }
+        assert_eq!(Timings::quick(10).offer * 10, Timings::STANDARD.offer);
     }
 
     #[test]

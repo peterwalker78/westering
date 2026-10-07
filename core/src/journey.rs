@@ -77,10 +77,18 @@ pub struct FreeLines {
     pub wait: String,
 }
 
+/// What's said about the evening itself.
+#[derive(Deserialize)]
+pub struct EveningLines {
+    /// The way to wind down, offered once.
+    pub offer: String,
+}
+
 #[derive(Deserialize)]
 pub struct Lines {
     pub day: DayLines,
     pub free: FreeLines,
+    pub evening: EveningLines,
     greeting: Vec<Greeting>,
     pub round: Round,
     pub news: News,

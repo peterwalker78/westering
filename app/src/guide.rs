@@ -1021,18 +1021,19 @@ impl Game {
             let line = self.guide.lines.free.suggest.clone();
             self.say_at(Aim::Home, line, real, 12_000);
         }
-        // A long look: offer to wind down, once.
+        // A quarter of an hour in: the way to wind down, offered once, in
+        // a pause. Once the list's done the wisp has said it already.
         if hunting
             && !self.by_day()
-            && self.session.in_phase(real) > self.session.timings.hunt_most * 4 / 5
+            && self.tour.is_none()
+            && self.session.in_phase(real) > self.session.timings.offer
             && !self.offered_wind_down()
+            && !self.session.all_found()
+            && !self.wisp_busy(real)
         {
             self.set_offered_wind_down();
-            self.status_for(
-                "It's getting late: W winds down whenever you're ready".into(),
-                real,
-                8_000,
-            );
+            let line = self.guide.lines.evening.offer.clone();
+            self.status_for(line, real, 10_000);
         }
         let mode = match self.session.phase() {
             Phase::LightsOut | Phase::Over => Mode::Away,

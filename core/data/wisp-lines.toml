@@ -140,6 +140,11 @@ risen = "{name} has come up since you put me on, {where}."
 late = "It's getting late. Whenever you're ready, W winds down and I'll see you off to bed."
 closing = "That's been a good long while. I'll wind down now, and the music with me."
 
+# A quarter of an hour or so in, once: the way out, offered at the foot of
+# the screen. It says what winding down is, and never how long it's been.
+[evening]
+offer = "Ready to stop? Press W, or Wind down at the top left, for a few slow breaths and then lights out"
+
 # Free look, where the wisp keeps quiet: once, after a good while looking
 # around, it suggests a moment of the guided evening.
 [free]
