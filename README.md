@@ -143,7 +143,8 @@ name, that person can have a star.
 Now and then the sky brings back a weight from a week or a month ago and asks
 how it sits now: lighter, the same, heavier, or behind you.
 
-Everything goes into a **logbook**: a page for each night, and contents pages
+Everything goes into a **logbook**: a page for each night, with a small chart
+of that evening's sky showing where each find stood, and contents pages
 that gather what keeps coming back, including the people whose names come up
 again and again. Any weight can have a **course** charted for it, only if you
 ask: a wish, the best of it, what gets in the way, and an if-then plan, with

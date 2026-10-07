@@ -24,6 +24,28 @@ impl Game {
         }
     }
 
+    /// Keeps where a find stood among the stars, and when the first one
+    /// was found, for the chart on tonight's page of the logbook.
+    fn note_spot(&mut self, i: usize, real: UnixMs) {
+        if self.by_day() {
+            return;
+        }
+        let now = self.sky_now(real);
+        let hz = horizon(self.observer, now);
+        let prec = precession(now);
+        let Some(v) = self.find_dir(i, now, &hz, &prec) else {
+            return;
+        };
+        let (ra, dec) = westering_core::coords::angles(apply(&transpose(&hz), v));
+        let name = self.finds[i].name.clone();
+        self.page.at.get_or_insert(now);
+        if !self.page.spots.iter().any(|s| s.name == name) {
+            self.page
+                .spots
+                .push(westering_core::journal::Spot { name, ra, dec });
+        }
+    }
+
     pub(crate) fn caught_one(&mut self, i: usize, real: UnixMs) {
         self.caught[i] = true;
         self.space_caught = true;
@@ -38,6 +60,7 @@ impl Game {
         if !self.page.finds.contains(&find.name) {
             self.page.finds.push(find.name.clone());
         }
+        self.note_spot(i, real);
         self.save_page();
         if self.begin_tour(i, real) {
             // A story or a walk is its own showing: nothing to come back to.

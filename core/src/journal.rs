@@ -143,6 +143,14 @@ pub struct NightWeight {
     pub dec: f64,
 }
 
+/// Where something found stood among the stars when it was found.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct Spot {
+    pub name: String,
+    pub ra: f64,
+    pub dec: f64,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Answer {
     pub question: String,
@@ -160,8 +168,15 @@ pub struct Night {
     pub key: String,
     #[serde(default)]
     pub moon: String,
+    /// When the first thing was found, for the page's chart of the sky.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<i64>,
     #[serde(default)]
     pub finds: Vec<String>,
+    /// Where each find stood, for the same chart. Pages from before this
+    /// was kept have none, and no chart.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spots: Vec<Spot>,
     #[serde(default)]
     pub weights: Vec<NightWeight>,
     #[serde(default)]
@@ -836,7 +851,13 @@ mod tests {
         let night = Night {
             key: "2026-09-28".into(),
             moon: "Waxing gibbous".into(),
+            at: Some(1_790_634_000_000),
             finds: vec!["Jupiter".into()],
+            spots: vec![Spot {
+                name: "Jupiter".into(),
+                ra: 131.5,
+                dec: 18.2,
+            }],
             weights: vec![NightWeight {
                 weight: w,
                 ra: 250.0,
@@ -858,6 +879,12 @@ mod tests {
         let page = fs::read_to_string(dir.join("logbook/2026-09-28.md")).unwrap();
         assert!(page.contains("# Monday 28 September 2026"));
         assert!(page.contains("- The boiler"));
+        // A page written before finds' places were kept still opens.
+        let old = "+++\nkey = \"2026-09-20\"\nmoon = \"Full Moon\"\nfinds = [\"Saturn\"]\n+++\n\n# A night\n";
+        fs::write(dir.join("logbook/2026-09-20.md"), old).unwrap();
+        let before = again.night("2026-09-20").expect("the older page");
+        assert_eq!(before.finds, vec!["Saturn".to_owned()]);
+        assert!(before.at.is_none() && before.spots.is_empty());
         let _ = fs::remove_dir_all(&dir);
     }
 

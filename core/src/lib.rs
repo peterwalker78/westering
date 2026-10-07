@@ -5,6 +5,7 @@
 pub mod canvas;
 pub mod care;
 pub mod catalogues;
+pub mod chart;
 pub mod company;
 pub mod coords;
 pub mod ephem;

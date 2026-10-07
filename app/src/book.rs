@@ -8,6 +8,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::cell::RefCell;
 use std::rc::Rc;
+use westering_core::chart::{Chart, chart};
 use westering_core::journal::{Journal, long_date, short_date};
 use westering_core::questions::days_between;
 
@@ -168,7 +169,7 @@ impl Book {
             "coming" => self.coming(journal, g.night()),
             "weights" => self.weights(journal),
             "courses" => self.courses(journal),
-            night if night.len() == 10 => self.night(journal, night),
+            night if night.len() == 10 => self.night(&g, night),
             _ => {}
         }
     }
@@ -229,7 +230,8 @@ impl Book {
         self.content.append(&l);
     }
 
-    fn night(&self, journal: &Journal, key: &str) {
+    fn night(&self, game: &Game, key: &str) {
+        let journal = game.journal();
         let date = long_date(key);
         let title = label(&date, "book-title");
         let owned = key.to_owned();
@@ -263,8 +265,48 @@ impl Book {
         }
         if !night.finds.is_empty() {
             self.heading("FOUND");
-            self.content
-                .append(&label(&night.finds.join(" · "), "book-body"));
+            let chart = chart(&game.sky, game.observer, &night, &journal.drawings);
+            // Numbered where the chart shows them, so each can be found on it.
+            let number = |name: &String| {
+                let chart = chart.as_ref()?;
+                chart.finds.iter().position(|(_, _, n)| n == name)
+            };
+            let names: Vec<String> = night
+                .finds
+                .iter()
+                .map(|name| {
+                    // Each name stays whole, with its number, when the list wraps.
+                    let name_safe = glib::markup_escape_text(name).replace(' ', "\u{a0}");
+                    match number(name) {
+                        Some(n) => {
+                            format!("<span alpha=\"55%\">{}</span>\u{a0}{name_safe}", n + 1)
+                        }
+                        None => name_safe,
+                    }
+                })
+                .collect();
+            if let Some(chart) = chart {
+                let mut says = vec![
+                    "The sky that evening, as if you were lying on your back looking up: the edge is the horizon all round, and the numbers are what you found.",
+                ];
+                if !chart.lines.is_empty() {
+                    says.push("The lines are the shape you drew.");
+                }
+                if !chart.weights.is_empty() {
+                    says.push("The warm dots low in the west are what you set down.");
+                }
+                let area = gtk::DrawingArea::new();
+                area.set_content_width(300);
+                area.set_content_height(300);
+                area.set_halign(gtk::Align::Start);
+                area.set_margin_top(6);
+                area.set_draw_func(move |_, cr, w, h| draw_chart(cr, w as f64, h as f64, &chart));
+                self.content.append(&area);
+                self.content.append(&label(&says.join(" "), "book-quiet"));
+            }
+            let list = label("", "book-body");
+            list.set_markup(&names.join("  ·  "));
+            self.content.append(&list);
         }
         if !night.weights.is_empty() {
             self.heading("WEIGHTS");
@@ -727,4 +769,70 @@ fn draw_moon(cr: &gtk::cairo::Context, w: f64, h: f64, age: f64) {
     cr.close_path();
     cr.set_source_rgba(0.98, 0.94, 0.84, 0.92);
     let _ = cr.fill();
+}
+
+/// A night's sky on its page: bright stars for the lie of it, each find
+/// numbered where it stood, any shape drawn, and the weights low in the west.
+fn draw_chart(cr: &gtk::cairo::Context, w: f64, h: f64, chart: &Chart) {
+    use std::f64::consts::TAU;
+    let (cx, cy) = (w / 2.0, h / 2.0);
+    let r = w.min(h) / 2.0 - 18.0;
+    let at = |x: f64, y: f64| (cx + x * r, cy + y * r);
+    let dot = |x: f64, y: f64, radius: f64, rgba: (f64, f64, f64, f64)| {
+        cr.set_source_rgba(rgba.0, rgba.1, rgba.2, rgba.3);
+        cr.arc(x, y, radius, 0.0, TAU);
+        let _ = cr.fill();
+    };
+    dot(cx, cy, r, (0.5, 0.58, 0.85, 0.07));
+    cr.set_source_rgba(0.82, 0.85, 0.94, 0.25);
+    cr.set_line_width(1.0);
+    cr.arc(cx, cy, r, 0.0, TAU);
+    let _ = cr.stroke();
+    cr.set_font_size(10.0);
+    let words = |text: &str, x: f64, y: f64, alpha: f64| {
+        let (tw, th) = cr
+            .text_extents(text)
+            .map(|e| (e.width(), e.height()))
+            .unwrap_or((6.0, 8.0));
+        cr.set_source_rgba(0.86, 0.88, 0.95, alpha);
+        cr.move_to(x - tw / 2.0, y + th / 2.0);
+        let _ = cr.show_text(text);
+    };
+    // East is on the left, as it is looking up.
+    for (name, x, y) in [
+        ("N", 0.0, -1.0),
+        ("E", -1.0, 0.0),
+        ("S", 0.0, 1.0),
+        ("W", 1.0, 0.0),
+    ] {
+        words(name, cx + x * (r + 10.0), cy + y * (r + 10.0), 0.55);
+    }
+    for &(x, y, mag) in &chart.stars {
+        let mag = mag as f64;
+        let (px, py) = at(x, y);
+        dot(
+            px,
+            py,
+            (1.9 - 0.36 * mag).clamp(0.5, 2.2),
+            (0.86, 0.89, 1.0, (0.8 - 0.13 * mag).clamp(0.25, 0.85)),
+        );
+    }
+    cr.set_source_rgba(0.78, 0.84, 1.0, 0.55);
+    for [a, b] in &chart.lines {
+        let (a, b) = (at(a.0, a.1), at(b.0, b.1));
+        cr.move_to(a.0, a.1);
+        cr.line_to(b.0, b.1);
+        let _ = cr.stroke();
+    }
+    for &(x, y) in &chart.weights {
+        let (px, py) = at(x, y);
+        dot(px, py, 6.0, (1.0, 0.72, 0.4, 0.16));
+        dot(px, py, 2.4, (1.0, 0.78, 0.45, 0.95));
+    }
+    for (n, (x, y, _)) in chart.finds.iter().enumerate() {
+        let (px, py) = at(*x, *y);
+        dot(px, py, 7.0, (1.0, 0.94, 0.84, 0.14));
+        dot(px, py, 2.8, (1.0, 0.95, 0.86, 1.0));
+        words(&(n + 1).to_string(), px + 9.0, py - 7.0, 0.9);
+    }
 }
