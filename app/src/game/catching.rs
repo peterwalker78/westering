@@ -83,6 +83,11 @@ impl Game {
                 }
             }
         }
+        if let Target::Star(hr) = self.finds[i].target
+            && let Some((_, Some(wide))) = self.star_picture(hr)
+        {
+            body = format!("{body}\n\n{wide}");
+        }
         self.card = Some(Card {
             footnote: None,
             picture: self.card_picture(i),

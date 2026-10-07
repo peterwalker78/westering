@@ -2202,3 +2202,704 @@ source = "https://commons.wikimedia.org/wiki/File:VirgoCC.jpg"
 card_only = true
 constellation = "Vir"
 checked = "2026-09-29"
+
+[[image]]
+id = "ant"
+title = "Antlia"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Antlia.jpg"
+card_only = true
+constellation = "Ant"
+checked = "2026-10-07"
+
+[[image]]
+id = "aps"
+title = "Apus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Apus.jpg"
+card_only = true
+constellation = "Aps"
+checked = "2026-10-07"
+
+[[image]]
+id = "aqr"
+title = "Aquarius"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:AquariusCC.jpg"
+card_only = true
+constellation = "Aqr"
+checked = "2026-10-07"
+
+[[image]]
+id = "ara"
+title = "Ara"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Ara.jpg"
+card_only = true
+constellation = "Ara"
+checked = "2026-10-07"
+
+[[image]]
+id = "cmi"
+title = "Canis Minor"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CanisMinorCC.jpg"
+card_only = true
+constellation = "CMi"
+checked = "2026-10-07"
+
+[[image]]
+id = "cvn"
+title = "Canes Venatici"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CanesVenaticiCC.jpg"
+card_only = true
+constellation = "CVn"
+checked = "2026-10-07"
+
+[[image]]
+id = "cae"
+title = "Caelum"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Caelum.jpg"
+card_only = true
+constellation = "Cae"
+checked = "2026-10-07"
+
+[[image]]
+id = "cam"
+title = "Camelopardalis"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CamelopardalisCC.jpg"
+card_only = true
+constellation = "Cam"
+checked = "2026-10-07"
+
+[[image]]
+id = "cap"
+title = "Capricornus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CapricornusCC.jpg"
+card_only = true
+constellation = "Cap"
+checked = "2026-10-07"
+
+[[image]]
+id = "cep"
+title = "Cepheus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CepheusCC.jpg"
+card_only = true
+constellation = "Cep"
+checked = "2026-10-07"
+
+[[image]]
+id = "cha"
+title = "Chamaeleon"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Chamaeleon.jpg"
+card_only = true
+constellation = "Cha"
+checked = "2026-10-07"
+
+[[image]]
+id = "cir"
+title = "Circinus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Circinus.jpg"
+card_only = true
+constellation = "Cir"
+checked = "2026-10-07"
+
+[[image]]
+id = "cnc"
+title = "Cancer"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CancerCC.jpg"
+card_only = true
+constellation = "Cnc"
+checked = "2026-10-07"
+
+[[image]]
+id = "col"
+title = "Columba"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Columba.jpg"
+card_only = true
+constellation = "Col"
+checked = "2026-10-07"
+
+[[image]]
+id = "com"
+title = "Coma Berenices"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:ComaBerenicesCC.jpg"
+card_only = true
+constellation = "Com"
+checked = "2026-10-07"
+
+[[image]]
+id = "cra"
+title = "Corona Australis"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Corona_Australis.jpg"
+card_only = true
+constellation = "CrA"
+checked = "2026-10-07"
+
+[[image]]
+id = "crt"
+title = "Crater"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:CraterCC.jpg"
+card_only = true
+constellation = "Crt"
+checked = "2026-10-07"
+
+[[image]]
+id = "del"
+title = "Delphinus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:DelphinusCC.jpg"
+card_only = true
+constellation = "Del"
+checked = "2026-10-07"
+
+[[image]]
+id = "dor"
+title = "Dorado"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Dorado.jpg"
+card_only = true
+constellation = "Dor"
+checked = "2026-10-07"
+
+[[image]]
+id = "dra"
+title = "Draco"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:DracoCC.jpg"
+card_only = true
+constellation = "Dra"
+checked = "2026-10-07"
+
+[[image]]
+id = "equ"
+title = "Equuleus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:EquuleusCC.jpg"
+card_only = true
+constellation = "Equ"
+checked = "2026-10-07"
+
+[[image]]
+id = "for"
+title = "Fornax"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Fornax.jpg"
+card_only = true
+constellation = "For"
+checked = "2026-10-07"
+
+[[image]]
+id = "gru"
+title = "Grus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Grus.jpg"
+card_only = true
+constellation = "Gru"
+checked = "2026-10-07"
+
+[[image]]
+id = "her"
+title = "Hercules"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:HerculesCC.jpg"
+card_only = true
+constellation = "Her"
+checked = "2026-10-07"
+
+[[image]]
+id = "hor"
+title = "Horologium"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Horologium.jpg"
+card_only = true
+constellation = "Hor"
+checked = "2026-10-07"
+
+[[image]]
+id = "hya"
+title = "Hydra"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:HydraCC.jpg"
+card_only = true
+constellation = "Hya"
+checked = "2026-10-07"
+
+[[image]]
+id = "hyi"
+title = "Hydrus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Hydrus.jpg"
+card_only = true
+constellation = "Hyi"
+checked = "2026-10-07"
+
+[[image]]
+id = "ind"
+title = "Indus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Indus.jpg"
+card_only = true
+constellation = "Ind"
+checked = "2026-10-07"
+
+[[image]]
+id = "lmi"
+title = "Leo Minor"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:LeoMinorCC.jpg"
+card_only = true
+constellation = "LMi"
+checked = "2026-10-07"
+
+[[image]]
+id = "lac"
+title = "Lacerta"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:LacertaCC.jpg"
+card_only = true
+constellation = "Lac"
+checked = "2026-10-07"
+
+[[image]]
+id = "lep"
+title = "Lepus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:LepusCC.jpg"
+card_only = true
+constellation = "Lep"
+checked = "2026-10-07"
+
+[[image]]
+id = "lib"
+title = "Libra"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:LibraCC.jpg"
+card_only = true
+constellation = "Lib"
+checked = "2026-10-07"
+
+[[image]]
+id = "lup"
+title = "Lupus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Lupus.jpg"
+card_only = true
+constellation = "Lup"
+checked = "2026-10-07"
+
+[[image]]
+id = "lyn"
+title = "Lynx"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Lynx.jpg"
+card_only = true
+constellation = "Lyn"
+checked = "2026-10-07"
+
+[[image]]
+id = "men"
+title = "Mensa"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Mensa.jpg"
+card_only = true
+constellation = "Men"
+checked = "2026-10-07"
+
+[[image]]
+id = "mic"
+title = "Microscopium"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Microscopium.jpg"
+card_only = true
+constellation = "Mic"
+checked = "2026-10-07"
+
+[[image]]
+id = "mon"
+title = "Monoceros"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:MonocerosCC.jpg"
+card_only = true
+constellation = "Mon"
+checked = "2026-10-07"
+
+[[image]]
+id = "mus"
+title = "Musca"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Musca.jpg"
+card_only = true
+constellation = "Mus"
+checked = "2026-10-07"
+
+[[image]]
+id = "nor"
+title = "Norma"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Norma.jpg"
+card_only = true
+constellation = "Nor"
+checked = "2026-10-07"
+
+[[image]]
+id = "oct"
+title = "Octans"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Octans.jpg"
+card_only = true
+constellation = "Oct"
+checked = "2026-10-07"
+
+[[image]]
+id = "oph"
+title = "Ophiuchus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:OphiuchusCC.jpg"
+card_only = true
+constellation = "Oph"
+checked = "2026-10-07"
+
+[[image]]
+id = "pav"
+title = "Pavo"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Pavo.jpg"
+card_only = true
+constellation = "Pav"
+checked = "2026-10-07"
+
+[[image]]
+id = "phe"
+title = "Phoenix"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Phoenix.jpg"
+card_only = true
+constellation = "Phe"
+checked = "2026-10-07"
+
+[[image]]
+id = "pic"
+title = "Pictor"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Pictor.jpg"
+card_only = true
+constellation = "Pic"
+checked = "2026-10-07"
+
+[[image]]
+id = "psa"
+title = "Piscis Austrinus"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:PiscisAustrinusCC.jpg"
+card_only = true
+constellation = "PsA"
+checked = "2026-10-07"
+
+[[image]]
+id = "psc"
+title = "Pisces"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:PiscesCC.jpg"
+card_only = true
+constellation = "Psc"
+checked = "2026-10-07"
+
+[[image]]
+id = "pup"
+title = "Puppis"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:PuppisCC.jpg"
+card_only = true
+constellation = "Pup"
+checked = "2026-10-07"
+
+[[image]]
+id = "pyx"
+title = "Pyxis"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Pyxis.jpg"
+card_only = true
+constellation = "Pyx"
+checked = "2026-10-07"
+
+[[image]]
+id = "ret"
+title = "Reticulum"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Reticulum.jpg"
+card_only = true
+constellation = "Ret"
+checked = "2026-10-07"
+
+[[image]]
+id = "scl"
+title = "Sculptor"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Sculptor.jpg"
+card_only = true
+constellation = "Scl"
+checked = "2026-10-07"
+
+[[image]]
+id = "sct"
+title = "Scutum"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:ScutumCC.jpg"
+card_only = true
+constellation = "Sct"
+checked = "2026-10-07"
+
+[[image]]
+id = "ser"
+title = "Serpens"
+caption = "Two photographs with a camera lens: the serpent's head on the left, its tail on the right. The thin lines joining the stars and the names are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:SerpensCaputCC.jpg and https://commons.wikimedia.org/wiki/File:SerpensCaudaCC.jpg"
+card_only = true
+constellation = "Ser"
+checked = "2026-10-07"
+
+[[image]]
+id = "sex"
+title = "Sextans"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:SextansCC.jpg"
+card_only = true
+constellation = "Sex"
+checked = "2026-10-07"
+
+[[image]]
+id = "sge"
+title = "Sagitta"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:SagittaCC.jpg"
+card_only = true
+constellation = "Sge"
+checked = "2026-10-07"
+
+[[image]]
+id = "tel"
+title = "Telescopium"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Telescopium.jpg"
+card_only = true
+constellation = "Tel"
+checked = "2026-10-07"
+
+[[image]]
+id = "tra"
+title = "Triangulum Australe"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Triangulum_Australe.jpg"
+card_only = true
+constellation = "TrA"
+checked = "2026-10-07"
+
+[[image]]
+id = "tri"
+title = "Triangulum"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:TriangulumCC.jpg"
+card_only = true
+constellation = "Tri"
+checked = "2026-10-07"
+
+[[image]]
+id = "tuc"
+title = "Tucana"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Tucana.jpg"
+card_only = true
+constellation = "Tuc"
+checked = "2026-10-07"
+
+[[image]]
+id = "vel"
+title = "Vela"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Vela.jpg"
+card_only = true
+constellation = "Vel"
+checked = "2026-10-07"
+
+[[image]]
+id = "vol"
+title = "Volans"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:Constellation_Volans.jpg"
+card_only = true
+constellation = "Vol"
+checked = "2026-10-07"
+
+[[image]]
+id = "vul"
+title = "Vulpecula"
+caption = "A photograph with a camera lens; the thin lines joining the stars and the name are drawn on."
+credit = "Till Credner"
+licence = "CC BY-SA 3.0"
+source = "https://commons.wikimedia.org/wiki/File:VulpeculaCC.jpg"
+card_only = true
+constellation = "Vul"
+checked = "2026-10-07"
+
+[[image]]
+id = "m32"
+title = "M32, the Andromeda Galaxy's small companion"
+caption = "A black-and-white photograph taken in 1975 with the 4-metre Mayall telescope at Kitt Peak."
+credit = "NOIRLab/NSF/AURA"
+licence = "CC BY 4.0"
+source = "https://noirlab.edu/public/images/noao-02326/"
+card_only = true
+checked = "2026-10-07"
+
+[[image]]
+id = "ic2391"
+title = "The Omicron Velorum Cluster (IC 2391)"
+caption = "A long exposure through a telescope: the spikes on the bright stars are made by the telescope."
+credit = "YayLol123, via Wikimedia Commons"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:O_Velorum_Cluster_iTelescope.png"
+card_only = true
+checked = "2026-10-07"
+
+[[image]]
+id = "ngc2451"
+title = "NGC 2451"
+caption = "A long exposure through a 10-inch telescope, half an hour in all."
+credit = "Jesús Piñeiro"
+licence = "CC BY-SA 4.0"
+source = "https://commons.wikimedia.org/wiki/File:NGC_2451_Jesus_Pi%C3%B1eiro_V.jpg"
+card_only = true
+checked = "2026-10-07"

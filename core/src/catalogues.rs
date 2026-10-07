@@ -63,6 +63,8 @@ pub struct NamedStar {
     pub hr: u16,
     pub name: String,
     pub bayer: String,
+    /// The constellation it belongs to, by abbreviation.
+    pub constellation: String,
     #[serde(default)]
     pub fact: Option<String>,
     /// How far away, when it's known well enough to say.

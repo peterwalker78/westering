@@ -198,3 +198,63 @@ fn lit(photo: &gdk::Texture, phase: Phase) -> gdk::Texture {
     )
     .upcast()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use westering_core::sky::Sky;
+
+    /// Anything that can be found or clicked has a photograph to show:
+    /// its own, or for a named star its constellation's.
+    #[test]
+    fn everything_findable_is_pictured() {
+        let photos = Photos::load();
+        let dir = photos.dir.clone().expect("the photographs' folder");
+        assert!(photos.credits.len() > 200, "credits.toml didn't load");
+        for c in &photos.credits {
+            let file = dir.join(format!("{}.jpg", c.id));
+            assert!(file.is_file(), "no photograph on disk for {}", c.id);
+        }
+        let sky = Sky::bundled();
+        let mut without = Vec::new();
+        for figure in &sky.figures {
+            if photos.of_constellation(&figure.abbrev).is_none() {
+                without.push(figure.name.clone());
+            }
+        }
+        for piece in &sky.lists.showpieces {
+            if photos.credit(&piece.id).is_none() {
+                without.push(piece.name.clone());
+            }
+        }
+        for body in &sky.lists.bodies {
+            if photos.credit(&body.id).is_none() {
+                without.push(body.id.clone());
+            }
+        }
+        for star in &sky.lists.stars {
+            if photos.credit(&star.name.to_lowercase()).is_none()
+                && photos.of_constellation(&star.constellation).is_none()
+            {
+                without.push(star.name.clone());
+            }
+        }
+        assert!(without.is_empty(), "nothing to show for: {without:?}");
+    }
+
+    /// Every photograph says whose it is, under what licence, and where
+    /// it came from.
+    #[test]
+    fn every_photograph_is_credited() {
+        for c in Photos::load().credits() {
+            assert!(!c.credit.trim().is_empty(), "{} has no credit", c.id);
+            assert!(c.source.starts_with("https://"), "{} has no source", c.id);
+            assert!(
+                c.licence.starts_with("CC") || c.licence.starts_with("Public domain"),
+                "{}: {}",
+                c.id,
+                c.licence
+            );
+        }
+    }
+}

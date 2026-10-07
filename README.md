@@ -169,7 +169,7 @@ journal, not therapy or a crisis service.
 | Click one in the list | Turn towards it |
 | `C` | Draw a constellation: arrows step between stars, `Enter` joins, `C` finishes |
 | `L` | The logbook |
-| `?`, or click the wisp | What the keys do; a click also hurries the wisp on when it has more to say |
+| `?`, or click the wisp | A table of the keys and what they do, and away again; a click also hurries the wisp on when it has more to say |
 | Point at anything | What it is; click it to hear more |
 | `M` | The next style of music; after the last, off; then round again |
 | `K` | Keep me company: the sky rests and the music plays on in the background; `K` again brings the sky back. While it keeps you company, the arrow keys (or `+` and `-`) set the volume |
@@ -250,13 +250,15 @@ shortens the visit itself, `--place=LAT,LON` stands somewhere else, and
 Zooming in on a planet, the Moon, a cluster, a nebula or a galaxy lets a real
 photograph take over from the dots, at its true size on the sky and turned as
 it sits there tonight, with the view following it as the sky turns; the Moon
-and Mercury wear tonight's real phase. Nearly every object in the deep-sky
-list has one. Constellations and a few stars (Betelgeuse's surface, Sirius
-and its companion, Fomalhaut's dust rings) have a photograph in their card
-instead. There are over 200 pictures, from NASA (public domain), ESA/Hubble,
-ESA/Webb, ESO and NOIRLab/NSF/AURA (CC BY 4.0), and Wikimedia Commons (CC0,
-public domain, CC BY and CC BY-SA), among them Till Credner's wide-field
-constellation photographs (CC BY-SA 3.0), which carry thin drawn lines.
+and Mercury wear tonight's real phase. Every object in the deep-sky list has
+one. Every constellation has a photograph in its card instead, and so does
+every named star: a close-up of its own for a few (Betelgeuse's surface,
+Sirius and its companion, Fomalhaut's dust rings), and for the rest the
+photograph of its constellation, which the card says. There are over 270
+pictures, from NASA (public domain), ESA/Hubble, ESA/Webb, ESO and
+NOIRLab/NSF/AURA (CC BY 4.0), and Wikimedia Commons (CC0, public domain,
+CC BY and CC BY-SA), among them Till Credner's wide-field constellation
+photographs (CC BY-SA 3.0 and 4.0), which carry thin drawn lines.
 Each one's credit shows while it's in view, and every title, credit, licence and source
 page is in [`app/data/images/credits.toml`](app/data/images/credits.toml) and
 in Settings. The pictures are cropped and resized; the CC BY-SA ones stay

@@ -8,6 +8,7 @@
 hr = 424
 name = "Polaris"
 bayer = "alpha Ursae Minoris"
+constellation = "UMi"
 fact = "The North Star."
 light_years = 436
 more = ["A triple star: William Herschel found its faint companion in August 1779.", "The closest Cepheid variable to us, it pulses gently in brightness every four days."]
@@ -16,16 +17,19 @@ more = ["A triple star: William Herschel found its faint companion in August 177
 hr = 5563
 name = "Kochab"
 bayer = "beta Ursae Minoris"
+constellation = "UMi"
 
 [[star]]
 hr = 5735
 name = "Pherkad"
 bayer = "gamma Ursae Minoris"
+constellation = "UMi"
 
 [[star]]
 hr = 4301
 name = "Dubhe"
 bayer = "alpha Ursae Majoris"
+constellation = "UMa"
 light_years = 123
 more = ["Its name comes from the Arabic for 'bear', from 'the back of the Greater Bear'.", "Unlike most of the Plough's stars, it does not travel with the Ursa Major moving group."]
 
@@ -33,21 +37,25 @@ more = ["Its name comes from the Arabic for 'bear', from 'the back of the Greate
 hr = 4295
 name = "Merak"
 bayer = "beta Ursae Majoris"
+constellation = "UMa"
 
 [[star]]
 hr = 4554
 name = "Phecda"
 bayer = "gamma Ursae Majoris"
+constellation = "UMa"
 
 [[star]]
 hr = 4660
 name = "Megrez"
 bayer = "delta Ursae Majoris"
+constellation = "UMa"
 
 [[star]]
 hr = 4905
 name = "Alioth"
 bayer = "epsilon Ursae Majoris"
+constellation = "UMa"
 light_years = 83
 more = ["The brightest star in the Great Bear: the star of the Plough's handle closest to the bowl.", "Its strange spectral lines change as it turns, once every 5.1 days."]
 
@@ -55,6 +63,7 @@ more = ["The brightest star in the Great Bear: the star of the Plough's handle c
 hr = 5054
 name = "Mizar"
 bayer = "zeta Ursae Majoris"
+constellation = "UMa"
 fact = "Mizar and its companion Alcor both lie about 80 light years away."
 more = ["In 1617 Benedetto Castelli asked Galileo to look at it; it may be the first double star seen through a telescope.", "Mizar A was the first spectroscopic binary ever found; its orbit was published in 1890."]
 
@@ -62,11 +71,13 @@ more = ["In 1617 Benedetto Castelli asked Galileo to look at it; it may be the f
 hr = 5062
 name = "Alcor"
 bayer = "g Ursae Majoris"
+constellation = "UMa"
 
 [[star]]
 hr = 5191
 name = "Alkaid"
 bayer = "eta Ursae Majoris"
+constellation = "UMa"
 light_years = 104
 more = ["Its name means 'the leader of the daughters of the bier': the handle's three stars are mourners following the bowl.", "A young star, about six million years old, spinning so fast that it bulges at the equator."]
 
@@ -74,16 +85,19 @@ more = ["Its name means 'the leader of the daughters of the bier': the handle's 
 hr = 168
 name = "Schedar"
 bayer = "alpha Cassiopeiae"
+constellation = "Cas"
 
 [[star]]
 hr = 21
 name = "Caph"
 bayer = "beta Cassiopeiae"
+constellation = "Cas"
 
 [[star]]
 hr = 264
 name = "Navi"
 bayer = "gamma Cassiopeiae"
+constellation = "Cas"
 fact = "Nicknamed Navi by astronaut Gus Grissom: his middle name, Ivan, spelled backwards."
 more = ["In 1866 it became the first star ever seen with bright emission lines in its spectrum.", "It spins at about 450 kilometres a second at its equator, bulging as it turns."]
 
@@ -91,16 +105,19 @@ more = ["In 1866 it became the first star ever seen with bright emission lines i
 hr = 403
 name = "Ruchbah"
 bayer = "delta Cassiopeiae"
+constellation = "Cas"
 
 [[star]]
 hr = 542
 name = "Segin"
 bayer = "epsilon Cassiopeiae"
+constellation = "Cas"
 
 [[star]]
 hr = 2061
 name = "Betelgeuse"
 bayer = "alpha Orionis"
+constellation = "Ori"
 fact = "Somewhere around 400 to 550 light years away, so its light left between roughly 1480 and 1620."
 more = ["Placed where the Sun is, it would swallow the orbits of Mercury, Venus, Earth and Mars.", "Between October 2019 and February 2020 it faded to about a third of its usual brightness, then recovered."]
 
@@ -108,6 +125,7 @@ more = ["Placed where the Sun is, it would swallow the orbits of Mercury, Venus,
 hr = 1713
 name = "Rigel"
 bayer = "beta Orionis"
+constellation = "Ori"
 fact = "About 850 light years away."
 light_years = 846
 more = ["A blue supergiant somewhere between 61,500 and 363,000 times as luminous as the Sun.", "Really a system of at least four stars; a faint triple lies 9.5 arcseconds from it."]
@@ -116,6 +134,7 @@ more = ["A blue supergiant somewhere between 61,500 and 363,000 times as luminou
 hr = 1790
 name = "Bellatrix"
 bayer = "gamma Orionis"
+constellation = "Ori"
 light_years = 256
 more = ["Its name is Latin for 'female warrior'.", "The closest of Orion's major stars."]
 
@@ -123,31 +142,37 @@ more = ["Its name is Latin for 'female warrior'.", "The closest of Orion's major
 hr = 1852
 name = "Mintaka"
 bayer = "delta Orionis"
+constellation = "Ori"
 
 [[star]]
 hr = 1903
 name = "Alnilam"
 bayer = "epsilon Orionis"
+constellation = "Ori"
 
 [[star]]
 hr = 1948
 name = "Alnitak"
 bayer = "zeta Orionis"
+constellation = "Ori"
 
 [[star]]
 hr = 2004
 name = "Saiph"
 bayer = "kappa Orionis"
+constellation = "Ori"
 
 [[star]]
 hr = 1879
 name = "Meissa"
 bayer = "lambda Orionis"
+constellation = "Ori"
 
 [[star]]
 hr = 7001
 name = "Vega"
 bayer = "alpha Lyrae"
+constellation = "Lyr"
 light_years = 25
 more = ["The first star other than the Sun to be photographed, and the first to have its spectrum photographed.", "A disc of dust circles it, much like the Kuiper belt around the Sun."]
 
@@ -155,6 +180,7 @@ more = ["The first star other than the Sun to be photographed, and the first to 
 hr = 7924
 name = "Deneb"
 bayer = "alpha Cygni"
+constellation = "Cyg"
 fact = "So remote that its distance is still disputed: somewhere between about 1,400 and 2,600 light years."
 more = ["Its name comes from the Arabic for 'tail', from 'the tail of the hen'.", "Somewhere between 55,000 and 196,000 times as luminous as the Sun, it rivals Rigel as the most luminous first-magnitude star."]
 
@@ -162,6 +188,7 @@ more = ["Its name comes from the Arabic for 'tail', from 'the tail of the hen'."
 hr = 7557
 name = "Altair"
 bayer = "alpha Aquilae"
+constellation = "Aql"
 light_years = 17
 more = ["It spins once in under eight hours; the Sun's equator takes more than 25 days.", "Its name is Arabic for 'the flying eagle'."]
 
@@ -169,21 +196,25 @@ more = ["It spins once in under eight hours; the Sun's equator takes more than 2
 hr = 7417
 name = "Albireo"
 bayer = "beta Cygni"
+constellation = "Cyg"
 
 [[star]]
 hr = 7796
 name = "Sadr"
 bayer = "gamma Cygni"
+constellation = "Cyg"
 
 [[star]]
 hr = 7949
 name = "Aljanah"
 bayer = "epsilon Cygni"
+constellation = "Cyg"
 
 [[star]]
 hr = 3982
 name = "Regulus"
 bayer = "alpha Leonis"
+constellation = "Leo"
 light_years = 79
 more = ["Its name is Latin for 'prince' or 'little king'.", "It lies closer to the Sun's path than any other bright star, so the Moon often passes in front of it."]
 
@@ -191,6 +222,7 @@ more = ["Its name is Latin for 'prince' or 'little king'.", "It lies closer to t
 hr = 4534
 name = "Denebola"
 bayer = "beta Leonis"
+constellation = "Leo"
 light_years = 36
 more = ["Its name comes from the Arabic for 'tail of the lion'.", "Al-Biruni wrote of it: 'The heat turns away when it rises, and the cold turns away when it disappears.'"]
 
@@ -198,31 +230,37 @@ more = ["Its name comes from the Arabic for 'tail of the lion'.", "Al-Biruni wro
 hr = 4057
 name = "Algieba"
 bayer = "gamma Leonis"
+constellation = "Leo"
 
 [[star]]
 hr = 4357
 name = "Zosma"
 bayer = "delta Leonis"
+constellation = "Leo"
 
 [[star]]
 hr = 4359
 name = "Chertan"
 bayer = "theta Leonis"
+constellation = "Leo"
 
 [[star]]
 hr = 4031
 name = "Adhafera"
 bayer = "zeta Leonis"
+constellation = "Leo"
 
 [[star]]
 hr = 3905
 name = "Rasalas"
 bayer = "mu Leonis"
+constellation = "Leo"
 
 [[star]]
 hr = 6134
 name = "Antares"
 bayer = "alpha Scorpii"
+constellation = "Sco"
 fact = "Roughly 550 light years away; its light left around 1470, give or take a century."
 more = ["A red supergiant: placed where the Sun is, it would reach somewhere into the asteroid belt.", "It is really two stars: the red supergiant and a hot companion of magnitude 5.5."]
 
@@ -230,31 +268,37 @@ more = ["A red supergiant: placed where the Sun is, it would reach somewhere int
 hr = 5984
 name = "Acrab"
 bayer = "beta Scorpii"
+constellation = "Sco"
 
 [[star]]
 hr = 5953
 name = "Dschubba"
 bayer = "delta Scorpii"
+constellation = "Sco"
 
 [[star]]
 hr = 6553
 name = "Sargas"
 bayer = "theta Scorpii"
+constellation = "Sco"
 
 [[star]]
 hr = 6527
 name = "Shaula"
 bayer = "lambda Scorpii"
+constellation = "Sco"
 
 [[star]]
 hr = 6508
 name = "Lesath"
 bayer = "upsilon Scorpii"
+constellation = "Sco"
 
 [[star]]
 hr = 2491
 name = "Sirius"
 bayer = "alpha Canis Majoris"
+constellation = "CMa"
 fact = "The brightest star in the night sky."
 light_years = 8.6
 more = ["Its name comes from the Greek for 'glowing' or 'scorching'.", "It will stay the brightest star in our sky for about another 210,000 years."]
@@ -263,11 +307,13 @@ more = ["Its name comes from the Greek for 'glowing' or 'scorching'.", "It will 
 hr = 2294
 name = "Mirzam"
 bayer = "beta Canis Majoris"
+constellation = "CMa"
 
 [[star]]
 hr = 2618
 name = "Adhara"
 bayer = "epsilon Canis Majoris"
+constellation = "CMa"
 light_years = 406
 more = ["About 4.7 million years ago it was the brightest star in the night sky, at magnitude −3.99.", "Its name comes from the Arabic for 'virgins'."]
 
@@ -275,16 +321,19 @@ more = ["About 4.7 million years ago it was the brightest star in the night sky,
 hr = 2693
 name = "Wezen"
 bayer = "delta Canis Majoris"
+constellation = "CMa"
 
 [[star]]
 hr = 2827
 name = "Aludra"
 bayer = "eta Canis Majoris"
+constellation = "CMa"
 
 [[star]]
 hr = 2943
 name = "Procyon"
 bayer = "alpha Canis Minoris"
+constellation = "CMi"
 light_years = 11.5
 more = ["A faint white dwarf circles it; the pair go round each other every 41 years.", "With Sirius and Betelgeuse it makes the Winter Triangle."]
 
@@ -292,6 +341,7 @@ more = ["A faint white dwarf circles it; the pair go round each other every 41 y
 hr = 2891
 name = "Castor"
 bayer = "alpha Geminorum"
+constellation = "Gem"
 light_years = 51
 more = ["James Pound first recorded it as a double star in 1718.", "Its two brightest pairs have drifted from about 2 to about 6 arcseconds apart since 1970."]
 
@@ -299,6 +349,7 @@ more = ["James Pound first recorded it as a double star in 1718.", "Its two brig
 hr = 2990
 name = "Pollux"
 bayer = "beta Geminorum"
+constellation = "Gem"
 light_years = 34
 more = ["The closest giant star to the Sun.", "Its planet, found in 2006, is named Thestias, a name for Leda, the twins' mother."]
 
@@ -306,11 +357,13 @@ more = ["The closest giant star to the Sun.", "Its planet, found in 2006, is nam
 hr = 2421
 name = "Alhena"
 bayer = "gamma Geminorum"
+constellation = "Gem"
 
 [[star]]
 hr = 1708
 name = "Capella"
 bayer = "alpha Aurigae"
+constellation = "Aur"
 light_years = 43
 more = ["Really four stars: two yellow giants circling every 104 days, and a distant pair of red dwarfs.", "One of the brightest X-ray sources in the sky."]
 
@@ -318,11 +371,13 @@ more = ["Really four stars: two yellow giants circling every 104 days, and a dis
 hr = 2088
 name = "Menkalinan"
 bayer = "beta Aurigae"
+constellation = "Aur"
 
 [[star]]
 hr = 1457
 name = "Aldebaran"
 bayer = "alpha Tauri"
+constellation = "Tau"
 light_years = 67
 more = ["A red giant 45 times the Sun's width, yet of about the same mass.", "It turns slowly, taking 520 days to spin once."]
 
@@ -330,6 +385,7 @@ more = ["A red giant 45 times the Sun's width, yet of about the same mass.", "It
 hr = 1791
 name = "Elnath"
 bayer = "beta Tauri"
+constellation = "Tau"
 light_years = 136
 more = ["Its name comes from the Arabic for 'the butting': the tip of the bull's horn.", "Ptolemy counted it in both Taurus and Auriga, so it was once also called gamma Aurigae."]
 
@@ -337,11 +393,13 @@ more = ["Its name comes from the Arabic for 'the butting': the tip of the bull's
 hr = 1165
 name = "Alcyone"
 bayer = "eta Tauri"
+constellation = "Tau"
 
 [[star]]
 hr = 5340
 name = "Arcturus"
 bayer = "alpha Bootis"
+constellation = "Boo"
 light_years = 37
 more = ["In 1635 Jean-Baptiste Morin saw it through a telescope in full daylight, the first star besides the Sun recorded that way.", "A red giant about 7.1 billion years old, swollen to 25 times the Sun's size."]
 
@@ -349,6 +407,7 @@ more = ["In 1635 Jean-Baptiste Morin saw it through a telescope in full daylight
 hr = 5056
 name = "Spica"
 bayer = "alpha Virginis"
+constellation = "Vir"
 light_years = 246
 more = ["Its name means 'the virgin's ear of grain'.", "It is believed to be the star that led Hipparchus to discover the precession of the equinoxes."]
 
@@ -356,11 +415,13 @@ more = ["Its name means 'the virgin's ear of grain'.", "It is believed to be the
 hr = 4825
 name = "Porrima"
 bayer = "gamma Virginis"
+constellation = "Vir"
 
 [[star]]
 hr = 1017
 name = "Mirfak"
 bayer = "alpha Persei"
+constellation = "Per"
 light_years = 506
 more = ["Its name comes from the Arabic for 'elbow'.", "In Native Hawaiian astronomy it is Hinaliʻi, named in memory of a great tsunami."]
 
@@ -368,96 +429,115 @@ more = ["Its name comes from the Arabic for 'elbow'.", "In Native Hawaiian astro
 hr = 936
 name = "Algol"
 bayer = "beta Persei"
+constellation = "Per"
 
 [[star]]
 hr = 15
 name = "Alpheratz"
 bayer = "alpha Andromedae"
+constellation = "And"
 
 [[star]]
 hr = 337
 name = "Mirach"
 bayer = "beta Andromedae"
+constellation = "And"
 
 [[star]]
 hr = 603
 name = "Almach"
 bayer = "gamma Andromedae"
+constellation = "And"
 
 [[star]]
 hr = 617
 name = "Hamal"
 bayer = "alpha Arietis"
+constellation = "Ari"
 
 [[star]]
 hr = 8781
 name = "Markab"
 bayer = "alpha Pegasi"
+constellation = "Peg"
 
 [[star]]
 hr = 8775
 name = "Scheat"
 bayer = "beta Pegasi"
+constellation = "Peg"
 
 [[star]]
 hr = 39
 name = "Algenib"
 bayer = "gamma Pegasi"
+constellation = "Peg"
 
 [[star]]
 hr = 8308
 name = "Enif"
 bayer = "epsilon Pegasi"
+constellation = "Peg"
 
 [[star]]
 hr = 6556
 name = "Rasalhague"
 bayer = "alpha Ophiuchi"
+constellation = "Oph"
 
 [[star]]
 hr = 6705
 name = "Eltanin"
 bayer = "gamma Draconis"
+constellation = "Dra"
 
 [[star]]
 hr = 5291
 name = "Thuban"
 bayer = "alpha Draconis"
+constellation = "Dra"
 
 [[star]]
 hr = 8162
 name = "Alderamin"
 bayer = "alpha Cephei"
+constellation = "Cep"
 
 [[star]]
 hr = 5793
 name = "Alphecca"
 bayer = "alpha Coronae Borealis"
+constellation = "CrB"
 
 [[star]]
 hr = 6406
 name = "Rasalgethi"
 bayer = "alpha Herculis"
+constellation = "Her"
 
 [[star]]
 hr = 4915
 name = "Cor Caroli"
 bayer = "alpha Canum Venaticorum"
+constellation = "CVn"
 
 [[star]]
 hr = 681
 name = "Mira"
 bayer = "omicron Ceti"
+constellation = "Cet"
 
 [[star]]
 hr = 188
 name = "Diphda"
 bayer = "beta Ceti"
+constellation = "Cet"
 
 [[star]]
 hr = 8728
 name = "Fomalhaut"
 bayer = "alpha Piscis Austrini"
+constellation = "PsA"
 light_years = 25
 more = ["Its name comes from the Arabic for 'the mouth of the southern fish'.", "A disc of dust surrounds it; what was hailed as a photographed planet now seems to be debris from a collision."]
 
@@ -465,21 +545,25 @@ more = ["Its name comes from the Arabic for 'the mouth of the southern fish'.", 
 hr = 3748
 name = "Alphard"
 bayer = "alpha Hydrae"
+constellation = "Hya"
 
 [[star]]
 hr = 5531
 name = "Zubenelgenubi"
 bayer = "alpha Librae"
+constellation = "Lib"
 
 [[star]]
 hr = 5685
 name = "Zubeneschamali"
 bayer = "beta Librae"
+constellation = "Lib"
 
 [[star]]
 hr = 6879
 name = "Kaus Australis"
 bayer = "epsilon Sagittarii"
+constellation = "Sgr"
 light_years = 146
 more = ["Its name means 'the southern part of the bow'.", "It spins at 95% of the speed that would tear it apart, the fastest rate yet measured for a star in the Milky Way."]
 
@@ -487,16 +571,19 @@ more = ["Its name means 'the southern part of the bow'.", "It spins at 95% of th
 hr = 7121
 name = "Nunki"
 bayer = "sigma Sagittarii"
+constellation = "Sgr"
 
 [[star]]
 hr = 7194
 name = "Ascella"
 bayer = "zeta Sagittarii"
+constellation = "Sgr"
 
 [[star]]
 hr = 2326
 name = "Canopus"
 bayer = "alpha Carinae"
+constellation = "Car"
 fact = "The second-brightest star in the night sky."
 light_years = 306
 more = ["Chinese astronomers called it the Old Man of the South Pole; in ancient India it was named after the sage Agastya.", "A bright giant more than 10,000 times as luminous as the Sun."]
@@ -505,6 +592,7 @@ more = ["Chinese astronomers called it the Old Man of the South Pole; in ancient
 hr = 3685
 name = "Miaplacidus"
 bayer = "beta Carinae"
+constellation = "Car"
 light_years = 113
 more = ["The brightest star of the Diamond Cross, a pattern often mistaken for the Southern Cross.", "The meaning of its name is uncertain: perhaps 'placid waters', from Arabic and Latin."]
 
@@ -512,11 +600,13 @@ more = ["The brightest star of the Diamond Cross, a pattern often mistaken for t
 hr = 3307
 name = "Avior"
 bayer = "epsilon Carinae"
+constellation = "Car"
 
 [[star]]
 hr = 472
 name = "Achernar"
 bayer = "alpha Eridani"
+constellation = "Eri"
 light_years = 136
 more = ["Its name comes from the Arabic for 'the end of the river'.", "The hottest and bluest of the ten brightest stars, spinning so fast that it is flattened."]
 
@@ -524,6 +614,7 @@ more = ["Its name comes from the Arabic for 'the end of the river'.", "The hotte
 hr = 4730
 name = "Acrux"
 bayer = "alpha Crucis"
+constellation = "Cru"
 light_years = 346
 more = ["Really a system of seven stars; in 1685 it became the second star system ever recognised as a binary.", "The southernmost first-magnitude star, 2.3 degrees further south than Alpha Centauri."]
 
@@ -531,6 +622,7 @@ more = ["Really a system of seven stars; in 1685 it became the second star syste
 hr = 4853
 name = "Mimosa"
 bayer = "beta Crucis"
+constellation = "Cru"
 light_years = 276
 more = ["Its name comes from the Latin for 'actor', perhaps by way of the flower.", "Only 8 to 11 million years old; in Greek and Roman times it could be seen from as far north as 40 degrees."]
 
@@ -538,6 +630,7 @@ more = ["Its name comes from the Latin for 'actor', perhaps by way of the flower
 hr = 4763
 name = "Gacrux"
 bayer = "gamma Crucis"
+constellation = "Cru"
 light_years = 89
 more = ["The nearest M-type red giant to us, swollen to 73 times the Sun's width.", "In Brazil it is called Rubídea, 'ruby-like', for its colour."]
 
@@ -545,11 +638,13 @@ more = ["The nearest M-type red giant to us, swollen to 73 times the Sun's width
 hr = 4656
 name = "Imai"
 bayer = "delta Crucis"
+constellation = "Cru"
 
 [[star]]
 hr = 5459
 name = "Rigil Kentaurus"
 bayer = "alpha Centauri A"
+constellation = "Cen"
 fact = "Part of the nearest star system to the Sun."
 light_years = 4.37
 more = ["A little larger than the Sun: 1.1 times its mass and 1.5 times its brightness.", "Its name comes from the Arabic for 'the foot of the centaur'."]
@@ -558,6 +653,7 @@ more = ["A little larger than the Sun: 1.1 times its mass and 1.5 times its brig
 hr = 5267
 name = "Hadar"
 bayer = "beta Centauri"
+constellation = "Cen"
 light_years = 396
 more = ["The Boorong people of Victoria saw it and Alpha Centauri as two brothers who speared the Emu, the Coalsack.", "Its old name, Agena, is thought to come from the Latin for 'knees': it marks the centaur's left knee."]
 
@@ -565,16 +661,19 @@ more = ["The Boorong people of Victoria saw it and Alpha Centauri as two brother
 hr = 5288
 name = "Menkent"
 bayer = "theta Centauri"
+constellation = "Cen"
 
 [[star]]
 hr = 7790
 name = "Peacock"
 bayer = "alpha Pavonis"
+constellation = "Pav"
 
 [[star]]
 hr = 8425
 name = "Alnair"
 bayer = "alpha Gruis"
+constellation = "Gru"
 light_years = 101
 more = ["Its name comes from the Arabic for 'the bright one'.", "One of the 58 stars chosen for celestial navigation."]
 
@@ -582,6 +681,7 @@ more = ["Its name comes from the Arabic for 'the bright one'.", "One of the 58 s
 hr = 6217
 name = "Atria"
 bayer = "alpha Trianguli Australis"
+constellation = "TrA"
 light_years = 391
 more = ["A huge orange star: placed where the Sun is, it would reach almost to the orbit of Venus.", "It marks one corner of the Southern Triangle, with beta and gamma Trianguli Australis."]
 
@@ -589,13 +689,16 @@ more = ["A huge orange star: placed where the Sun is, it would reach almost to t
 hr = 99
 name = "Ankaa"
 bayer = "alpha Phoenicis"
+constellation = "Phe"
 
 [[star]]
 hr = 3634
 name = "Suhail"
 bayer = "lambda Velorum"
+constellation = "Vel"
 
 [[star]]
 hr = 3165
 name = "Naos"
 bayer = "zeta Puppis"
+constellation = "Pup"
