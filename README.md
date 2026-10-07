@@ -135,8 +135,8 @@ As the sky comes up it asks if anything is heavy tonight. Write two or three
 things and each becomes a warm star you hang low in the west. At the end the
 sky time-lapses through the rest of the night, and you watch them set.
 
-Now and then, at most twice a visit and never on your first night, the sky asks
-a question as you catch something. They are small and specific, and they tend
+Now and then the sky asks a question as you catch something: one on your first
+night, at most two a visit after that. They are small and specific, and they tend
 to be about people, and about things to look forward to. When the answer is a
 name, that person can have a star.
 

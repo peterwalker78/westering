@@ -1,5 +1,5 @@
 //! Choosing what the sky asks, and when. At most two questions a visit,
-//! none on the first night, none repeated within thirty days, and each one
+//! one on the first night, none repeated within thirty days, and each one
 //! riding on something just caught.
 
 use crate::catalogues::Kind;
