@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The core is the sky, the session and the logbook with no user interface.
+  # This is what says so: it builds and runs its tests with no GTK in sight.
+  core:
+    name: the core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --locked -p westering-core
+      - run: cargo clippy --locked -p westering-core --all-targets -- -D warnings
+
+  # The GTK build, on the toolchain it is developed against.
+  app:
+    name: the GTK app
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            cargo rust clippy rustfmt gcc pkgconf-pkg-config \
+            gtk4-devel glib2-devel git tar findutils
+      - uses: actions/checkout@v4
+      # There is no distrobox here, so this runs where it stands.
+      - name: Check
+        run: scripts/check
