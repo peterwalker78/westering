@@ -3,6 +3,10 @@
 
 use super::*;
 
+/// How long after a card's put away the view turns to the next find by
+/// itself: long enough to see what was caught back in its sky.
+const MOVE_ON_AFTER_CARD_MS: UnixMs = 2_000;
+
 impl Game {
     pub(crate) fn reticle_radius(&self) -> f64 {
         (self.camera.width.min(self.camera.height) * 0.055).max(26.0)
@@ -173,6 +177,8 @@ impl Game {
         if self.session.all_found() && self.hunting() {
             self.guide_all_found(real);
         }
+        // The guided evening carries on by itself from here.
+        self.move_on = Some(real + MOVE_ON_AFTER_CARD_MS);
     }
 
     pub(super) fn update_catch(

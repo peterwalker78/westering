@@ -325,3 +325,85 @@ fn a_find_is_kept_where_it_stood() {
     assert_eq!(w.game.page.at, Some(now));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// One tap puts a card away, and the evening then turns to the next find
+/// by itself; answering what the sky asks carries on the same way.
+#[test]
+fn the_guided_evening_carries_itself_on() {
+    let dir = scratch("carry");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    // Through the first evening's hello and the weights, to a first catch.
+    let mut caught = false;
+    for _ in 0..400 {
+        if w.game.card.is_some() && w.game.tour.is_none() {
+            caught = true;
+            break;
+        }
+        w.act();
+    }
+    assert!(caught, "nothing was caught: {}", w.seen());
+    let facing = |w: &Walker| w.game.look.as_ref().map(|l| (l.az as i64, l.alt as i64));
+    // Read the card, hear the wisp out, and put the card away with one tap.
+    w.wait(6_000);
+    for _ in 0..20 {
+        if w.game.card.is_none() {
+            break;
+        }
+        w.tap(gdk::Key::space);
+    }
+    assert!(w.game.card.is_none());
+    assert!(w.game.move_on.is_some(), "nothing set to carry on");
+    let before = facing(&w);
+    // Whatever's asked is let pass, and the wisp has its say; no more taps.
+    for _ in 0..60 {
+        w.wait(1_000);
+        if w.game.talk.prompt.is_some() {
+            w.game.skip_prompt(w.real);
+        } else if w.game.more_now() {
+            // Hearing the wisp out doesn't take the evening over.
+            w.tap(gdk::Key::space);
+        }
+        if w.game.move_on.is_none() {
+            break;
+        }
+    }
+    assert!(w.game.move_on.is_none(), "still waiting: {}", w.seen());
+    let turned = facing(&w) != before || w.game.catch.target.is_some();
+    assert!(turned, "the view stayed where it was: {}", w.seen());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// With the whole list found, Tab has nothing to go back for: it says the
+/// sky's done, and doesn't swing round to a card that went by quickly.
+#[test]
+fn tab_with_everything_found_says_so() {
+    let dir = scratch("tab-done");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    for _ in 0..200 {
+        if w.game.hunting() && w.game.talk.prompt.is_none() {
+            break;
+        }
+        w.act();
+    }
+    assert!(w.game.hunting(), "{}", w.seen());
+    for i in 0..w.game.finds.len() {
+        if !w.game.caught[i] {
+            w.game.caught[i] = true;
+            w.game.session.found_one(w.real);
+        }
+    }
+    // None of the cards was up long enough to count as read.
+    assert!(w.game.viewed.iter().any(|v| !v));
+    let mut told = false;
+    for _ in 0..40 {
+        w.tap(gdk::Key::Tab);
+        assert!(w.game.card.is_none(), "taken back to a card: {}", w.seen());
+        let word = w.game.hint.as_ref().map(|h| h.text.clone());
+        if word.is_some_and(|t| t.contains("all of tonight's sky")) {
+            told = true;
+            break;
+        }
+    }
+    assert!(told, "{}", w.seen());
+    let _ = std::fs::remove_dir_all(&dir);
+}

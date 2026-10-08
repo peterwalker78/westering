@@ -102,6 +102,8 @@ pub struct Talk {
     pub(crate) caring: bool,
     pub(crate) first_night: bool,
     pub(crate) checked_back: bool,
+    /// Whether a question was up at the last tick, to notice it going.
+    pub(crate) asking: bool,
 }
 
 const MAX_WEIGHTS: usize = 3;

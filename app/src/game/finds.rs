@@ -258,6 +258,8 @@ impl Game {
         if self.card.is_some() {
             self.dismiss_card(real);
         }
+        // Turned to on purpose: the view stays with it.
+        self.move_on = None;
         if let Target::Meteor(_) = self.finds[i].target {
             self.guide_meteor_left(real);
             return;
@@ -369,9 +371,15 @@ impl Game {
 
     /// Tab: back to the first thing on the list not yet seen, whether it
     /// was never reached or its card was put away before it could be read;
-    /// with nothing missed, it carries on like Space.
+    /// with nothing missed, it carries on like Space. Once the whole list
+    /// is found there's nothing to go back for: it says so instead.
     pub(super) fn back_to_skipped(&mut self, real: UnixMs) -> bool {
         if !self.hunting() || self.more_now() || self.talk.prompt.is_some() {
+            return self.carry_on(real);
+        }
+        let done = (0..self.finds.len())
+            .all(|i| self.caught[i] || matches!(self.finds[i].target, Target::Meteor(_)));
+        if done && self.card.is_none() {
             return self.carry_on(real);
         }
         let now = self.sky_now(real);
@@ -385,12 +393,19 @@ impl Game {
                     .find_dir(i, now, &hz, &prec)
                     .is_some_and(|v| alt_az(v).0 > 0.0)
         });
-        let Some(i) = missed else {
+        let Some(i) = missed.filter(|_| !done) else {
             return self.carry_on(real);
         };
         self.turn_to(i, real);
         if self.caught[i] {
             self.show_find_card(i, real);
+            // Said, so going back doesn't seem to come from nowhere.
+            let name = self.finds[i].name.clone();
+            self.status_for(
+                format!("Back to {name}: its card went by before it could be read"),
+                real,
+                6_000,
+            );
         }
         true
     }

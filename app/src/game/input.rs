@@ -7,9 +7,15 @@ use super::*;
 /// A press shorter than this is a click, not a hold.
 const CLICK_MS: UnixMs = 250;
 
+/// The beat between a card going away, or a question being answered, and
+/// the view turning to the next find by itself.
+const MOVE_ON_MS: UnixMs = 1_600;
+
 impl Game {
     pub(crate) fn input(&mut self, real: UnixMs) {
         self.last_input = real;
+        // The user's steering now: nothing moves on by itself.
+        self.move_on_was = self.move_on.take().is_some();
         // Whatever the user does shows at once, not at the next paced frame.
         self.urgent = true;
     }
@@ -299,11 +305,60 @@ impl Game {
         }
     }
 
+    /// The guided evening carries itself on: a beat after a card is put
+    /// away, or a question is answered or let pass, the view turns to the
+    /// next thing to find, as a tap of Space would. It waits for the wisp
+    /// to finish and for anything being asked, and gives way to whatever
+    /// the user does first.
+    pub(crate) fn tick_move_on(&mut self, real: UnixMs) {
+        let asking = matches!(
+            self.talk.flow,
+            Some(
+                crate::talk::Flow::Question { .. }
+                    | crate::talk::Flow::NameStar { .. }
+                    | crate::talk::Flow::PlanWho { .. }
+                    | crate::talk::Flow::PlanOutcome { .. }
+                    | crate::talk::Flow::CourseCheck { .. }
+                    | crate::talk::Flow::LookBack { .. }
+            )
+        );
+        if std::mem::replace(&mut self.talk.asking, asking) && !asking {
+            self.move_on = Some(real + MOVE_ON_MS);
+        }
+        let Some(at) = self.move_on else {
+            return;
+        };
+        let guided = self.hunting() && !self.free_look() && !self.by_day() && !self.keeping();
+        if !guided || self.card.is_some() || self.tour.is_some() || self.drawing.is_some() {
+            self.move_on = None;
+            return;
+        }
+        // Something's being asked, or about to be, or said: after that.
+        if self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_busy(real) {
+            self.move_on = Some(at.max(real + MOVE_ON_MS));
+            return;
+        }
+        if real < at {
+            return;
+        }
+        self.move_on = None;
+        // Nothing left to turn to, or something's already in the ring.
+        let in_ring = self.catch.target.is_some() && !self.ring_resting;
+        if !self.session.all_found() && !in_ring {
+            self.turn_to_next(real);
+        }
+    }
+
     /// The one way on, whatever's showing, a step at a time so nothing is
     /// missed: the wisp's next word first, then past a card or a story's
     /// page, then round to the next thing to find.
     pub(crate) fn carry_on(&mut self, real: UnixMs) -> bool {
         if self.more_now() {
+            // Only hearing the wisp out: the evening still carries on
+            // by itself once it's done, if it was about to.
+            if self.move_on_was {
+                self.move_on = Some(real + MOVE_ON_MS);
+            }
             return self.guide_next(real);
         }
         if self.card.is_some() {

@@ -208,6 +208,12 @@ pub struct Game {
     pub(crate) handoff: Option<Handoff>,
     pub(crate) finale_turned: bool,
     pub(crate) last_input: UnixMs,
+    /// When the guided evening next turns to something to find by itself:
+    /// a beat after a card's put away, or a question's answered or let
+    /// pass. Anything the user does in the meantime takes over instead.
+    pub(crate) move_on: Option<UnixMs>,
+    /// Whether it was about to when the user last did something.
+    pub(crate) move_on_was: bool,
     /// When Space went down, to tell a tap from a hold.
     pub(crate) space_since: Option<UnixMs>,
     /// Whether the press of Space now down has caught something.
@@ -638,6 +644,8 @@ impl Game {
             handoff: None,
             finale_turned: false,
             last_input: real_now,
+            move_on: None,
+            move_on_was: false,
             space_since: None,
             space_caught: false,
             urgent: false,
@@ -903,6 +911,7 @@ impl Game {
         if !self.keeping() {
             self.tick_talk(real);
         }
+        self.tick_move_on(real);
         self.wind_tick(real);
         self.guide_tick(real);
     }
