@@ -22,7 +22,7 @@
       <li>The sky is worked out on your computer from your time zone: no location service</li>
       <li>A few things to find each night, and then the sky is done until it turns</li>
       <li>Set down what's weighing on you, and watch it set in the west</li>
-      <li>A logbook kept as plain files you can read, copy or delete</li>
+      <li>A logbook kept as plain files you can read, copy or delete, with a small chart of each evening's sky</li>
       <li>No network access at all: nothing you write leaves your computer</li>
     </ul>
   </description>
@@ -33,6 +33,20 @@
   <url type="homepage">https://github.com/peterwalker78/westering</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.5.0" date="2026-10-08">
+      <description>
+        <p>An evening that carries itself along, ends on a thought that fits it, and leaves a chart of its sky in the logbook.</p>
+        <ul>
+          <li>The guided evening carries on by itself: put a card away, or answer what the sky asks, and the view turns to the next find</li>
+          <li>Winding down is offered about a quarter of an hour in, ends on one last thought that never repeats the evening, and settles onto one of the five calmest pieces of music</li>
+          <li>Each night's page in the logbook has a chart of that evening's sky, with what you found, drew and set down</li>
+          <li>On the night of a plan, a mark on the horizon shows where to look, or where it will rise and when</li>
+          <li>Looking back at an old weight meets every answer the same way</li>
+          <li>A photograph for everything that can be found, and the keys as a table under ?</li>
+          <li>Space always carries on, Tab says when the sky is done, and the wisp's words stay clear of tonight's list</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-09-29">
       <description>
         <p>Guided or free look, company in the background, and the ground by day.</p>

@@ -29,7 +29,8 @@ really runs. Sweep across it and catch the night's finds: planets, clusters, gal
 constellations to find by their shape, listed at the top right with where to
 look for each as the sky turns. Hold Space on one and the view closes in; a
 card says something true about it, and something new each time you find it
-again.
+again. Put the card away and the evening carries on by itself: after a
+moment the view turns to the next find.
 
 Some finds take a few minutes:
 
@@ -51,8 +52,10 @@ Every evening has the same three parts, shown at the top left: **set it down**
 story, now and then a small question about your life), and **wind down**,
 when you choose. The wisp asks whether you'd like a few slow breaths and a
 moment to think back over the day: if so, it breathes with you (in for four,
-out for six) while a ring swells and settles, then offers one short line to
-think over. Nothing is written or kept. Then the screen
+out for six) while a ring swells and settles, then offers one last thought:
+the one tonight's story closed on, if you heard it to the end, and otherwise
+a line that doesn't go back over what the evening was already about. Nothing
+is written or kept. Then the screen
 dims, you say whether the night ends outside or in bed, and the sky
 time-lapses your weights down behind the horizon. `K` at any point keeps you
 company instead. Going
@@ -109,6 +112,9 @@ so here so there's no trick in it.
   a visit, towards the speed of slow breathing. Nothing announces it. The
   wisp's own breath slows to about five and a half a minute, which is easy
   to fall in with without noticing.
+- **It offers the way out.** About a quarter of an hour in, once, a line at
+  the foot of the screen says how to wind down and what that is. It never
+  says how long you've been here.
 - **Late nights are short.** In the small hours there are fewer things to
   find, and the wisp says the way to wind down.
 - **It dims before the end.** Bright light keeps a mind awake, and eyes take
@@ -141,7 +147,12 @@ to be about people, and about things to look forward to. When the answer is a
 name, that person can have a star.
 
 Now and then the sky brings back a weight from a week or a month ago and asks
-how it sits now: lighter, the same, heavier, or behind you.
+how it sits now: lighter, the same, heavier, or behind you. Every answer is
+met the same way, so there's no right one.
+
+A plan made under the sky is mentioned as its night comes near. On the night
+itself a warm mark sits on the horizon under where to look, or, if it hasn't
+risen yet, where it will come up and about when.
 
 Everything goes into a **logbook**: a page for each night, with a small chart
 of that evening's sky showing where each find stood, and contents pages
@@ -149,6 +160,8 @@ that gather what keeps coming back, including the people whose names come up
 again and again. Any weight can have a **course** charted for it, only if you
 ask: a wish, the best of it, what gets in the way, and an if-then plan, with
 your own earlier words to hand.
+
+<img src="data/screenshots/logbook.png" alt="A night's page in the logbook: a round chart of that evening's sky with the six things found numbered on it, a small shape drawn near the north, and two warm dots low in the west for what was set down; beneath it the list of finds and the weights">
 
 If anything you write sounds like real trouble, a helpline sits quietly beside
 the sky: Samaritans 116 123 in the UK and Ireland, or findahelpline.com
