@@ -9,7 +9,7 @@ use crate::sky::{Sky, limiting_magnitude, see, sun_altitude};
 use crate::time::{HOUR, UnixMs, civil_date};
 
 /// A moment as a local clock time, like "10:40 pm".
-fn civil_time(at: UnixMs, offset_s: i32) -> String {
+pub fn civil_time(at: UnixMs, offset_s: i32) -> String {
     let minutes = ((at / 60_000) + offset_s as i64 / 60).rem_euclid(24 * 60);
     let (h, m) = (minutes / 60, minutes % 60);
     let half = if h < 12 { "am" } else { "pm" };

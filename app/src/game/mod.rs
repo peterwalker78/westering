@@ -301,7 +301,7 @@ pub struct Game {
     /// The guide has offered to wind down.
     offered_wind_down: bool,
     /// Plans whose night is tonight: what, and where in the sky it happens.
-    pub(crate) plan_marks: Vec<(String, PlanWhere)>,
+    pub(crate) plan_marks: Vec<PlanMark>,
     /// Keeping the user company in the background.
     pub(crate) keep: crate::keep::Keep,
     /// A visit while the Sun is up, looking down at the ground.
@@ -330,8 +330,40 @@ pub struct Game {
 #[derive(Clone, Debug)]
 pub(crate) enum PlanWhere {
     Body(Body),
-    /// A meteor shower's radiant, J2000.
-    Radiant(f64, f64),
+    /// A fixed place among the stars, J2000: a meteor shower's radiant, or
+    /// a constellation.
+    Stars(f64, f64),
+}
+
+/// Tonight's plan, marked on the horizon under where it happens.
+#[derive(Clone, Debug)]
+pub(crate) struct PlanMark {
+    /// "Tonight: watching the Geminids, with Sam".
+    pub(crate) words: String,
+    /// What to look for, as it starts a sentence: "The Moon", "Saturn",
+    /// "Orion"; for a shower, its name alone.
+    pub(crate) name: String,
+    pub(crate) shower: bool,
+    pub(crate) place: PlanWhere,
+    /// When it comes up and at what bearing, if it was down as the
+    /// evening began and rises before morning.
+    pub(crate) rise: Option<(UnixMs, f64)>,
+}
+
+impl PlanWhere {
+    /// Its altitude and azimuth for someone at a moment.
+    pub(crate) fn seen(&self, observer: Observer, at: UnixMs) -> (f64, f64) {
+        match *self {
+            PlanWhere::Body(b) => {
+                let s = see(b, observer, at);
+                (s.alt, s.az)
+            }
+            PlanWhere::Stars(ra, dec) => alt_az(apply(
+                &horizon(observer, at),
+                apply(&precession(at), unit(ra, dec)),
+            )),
+        }
+    }
 }
 
 pub(crate) const WARM: Rgb = [1.0, 0.86, 0.66];
@@ -498,23 +530,51 @@ impl Game {
             .iter()
             .filter(|p| p.date == night)
             .filter_map(|p| {
-                let event = around.iter().find(|e| e.title == p.event)?;
-                let place = match &event.kind {
-                    westering_core::events::Kind::FullMoon => PlanWhere::Body(Body::Moon),
-                    westering_core::events::Kind::Pairing(_) => PlanWhere::Body(Body::Moon),
-                    westering_core::events::Kind::Opposition(b) => PlanWhere::Body(*b),
-                    westering_core::events::Kind::Shower { id, .. } => {
-                        let s = sky.lists.showers.iter().find(|s| &s.id == id)?;
-                        PlanWhere::Radiant(s.ra, s.dec)
+                use westering_core::events::Kind as Event;
+                let (name, shower, place) = if p.event == westering_core::questions::ORION_RETURN {
+                    let orion = sky.figures.iter().find(|f| f.abbrev == "Ori")?;
+                    let (ra, dec) = westering_core::coords::angles(orion.centre(&sky.stars)?.0);
+                    ("Orion".to_owned(), false, PlanWhere::Stars(ra, dec))
+                } else {
+                    match &around.iter().find(|e| e.title == p.event)?.kind {
+                        Event::FullMoon => {
+                            ("The Moon".to_owned(), false, PlanWhere::Body(Body::Moon))
+                        }
+                        Event::Pairing(b) => (
+                            format!("The Moon, with {} beside it,", b.name()),
+                            false,
+                            PlanWhere::Body(Body::Moon),
+                        ),
+                        Event::Opposition(b) => (b.name().to_owned(), false, PlanWhere::Body(*b)),
+                        Event::Shower { id, .. } => {
+                            let s = sky.lists.showers.iter().find(|s| &s.id == id)?;
+                            (s.name.clone(), true, PlanWhere::Stars(s.ra, s.dec))
+                        }
+                        Event::NewMoon => return None,
                     }
-                    westering_core::events::Kind::NewMoon => return None,
                 };
                 let who = p
                     .who
                     .as_deref()
                     .map(|w| format!(", with {w}"))
                     .unwrap_or_default();
-                Some((format!("Tonight: {}{who}", p.what), place))
+                // Still down: the mark goes where it comes up, if that's
+                // before the morning, and says when.
+                let rise = (place.seen(observer, now).0 <= 0.0)
+                    .then(|| {
+                        westering_core::sky::rising(now, 12 * westering_core::time::HOUR, |t| {
+                            place.seen(observer, t)
+                        })
+                    })
+                    .flatten()
+                    .filter(|(at, _)| westering_core::sky::sun_altitude(observer, *at) < -6.0);
+                Some(PlanMark {
+                    words: format!("Tonight: {}{who}", p.what),
+                    name,
+                    shower,
+                    place,
+                    rise,
+                })
             })
             .collect();
         let star_dirs = sky.stars.precessed(&precession(now));

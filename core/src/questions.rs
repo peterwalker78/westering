@@ -195,6 +195,10 @@ fn event_for<'a>(on: &str, ctx: &'a Context) -> Option<&'a SkyEvent> {
 }
 
 /// The pretend event for the one seasonal plan: Orion's return by December.
+/// The one plan that hangs on a constellation coming back, not on a date
+/// in the sky's calendar.
+pub const ORION_RETURN: &str = "Orion's return";
+
 fn season_event(ctx: &Context) -> Option<SkyEvent> {
     let (y, m, _) = civil_date(ctx.now, ctx.offset_s);
     if !(9..=11).contains(&m) {
@@ -204,7 +208,7 @@ fn season_event(ctx: &Context) -> Option<SkyEvent> {
     let event = SkyEvent {
         at,
         kind: EventKind::NewMoon,
-        title: "Orion's return".into(),
+        title: ORION_RETURN.into(),
     };
     let date = key_of(at, ctx.offset_s);
     (!ctx

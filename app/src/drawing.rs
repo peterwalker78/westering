@@ -11,6 +11,7 @@ use gtk::gdk;
 use westering_core::coords::{Mat3, Vec3, alt_az, apply, unit};
 use westering_core::finds::Target;
 use westering_core::journal::Drawing as Drawn;
+use westering_core::session::Phase;
 use westering_core::time::UnixMs;
 
 /// The constellation being drawn.
@@ -442,25 +443,36 @@ impl Game {
     }
 
     /// Tonight's plans: a warm mark on the horizon below where each
-    /// event happens, with its words.
-    pub(crate) fn plan_mark_frame(
-        &mut self,
-        now: UnixMs,
-        hz: &Mat3,
-        prec: &Mat3,
-        real: UnixMs,
-    ) -> Vec<Text> {
+    /// event happens, or where it will come up, with the plan's words and
+    /// what the mark is for.
+    pub(crate) fn plan_mark_frame(&mut self, now: UnixMs, real: UnixMs) -> Vec<Text> {
         let mut out = Vec::new();
         let t = real as f64 / 1000.0;
-        for (words, place) in self.plan_marks.clone() {
-            let v = match place {
-                crate::game::PlanWhere::Body(b) => {
-                    let s = westering_core::sky::see(b, self.observer, now);
-                    westering_core::coords::from_alt_az(s.alt, s.az)
-                }
-                crate::game::PlanWhere::Radiant(ra, dec) => apply(hz, apply(prec, unit(ra, dec))),
+        for mark in self.plan_marks.clone() {
+            let says = &self.guide.lines().plan;
+            let (alt, az) = mark.place.seen(self.observer, now);
+            let (az, why) = if alt > 0.0 {
+                let say = if mark.shower {
+                    &says.shower_up
+                } else {
+                    &says.up
+                };
+                (az, say.replace("{name}", &mark.name))
+            } else if let Some((at, az)) = mark.rise {
+                let say = if mark.shower {
+                    &says.shower_later
+                } else {
+                    &says.rises
+                };
+                // To the nearest ten minutes: it's "about", and easier read.
+                let at = (at + 300_000) / 600_000 * 600_000;
+                let time = westering_core::finds::civil_time(at, self.offset_s);
+                let why = say.replace("{name}", &mark.name).replace("{time}", &time);
+                (az, why)
+            } else {
+                // Down, and not up again before morning: nothing to point at.
+                continue;
             };
-            let az = alt_az(v).1;
             let on_horizon = westering_core::coords::from_alt_az(hills(az) + 1.2, az);
             let Some((x, y)) = self.camera.project(on_horizon) else {
                 continue;
@@ -477,8 +489,31 @@ impl Game {
                 alpha: 0.9,
                 halo: pulse as f32,
             });
-            // Above the mark and to the side, clear of the compass letters.
-            out.push(Text::new(x + 12.0, y - 44.0, words, 13.0, 0.85).color([1.0, 0.86, 0.66]));
+            // Above the mark, clear of the compass letters, and kept on the
+            // sky: not under tonight's list, nor off the edge.
+            let (w, h) = (self.camera.width, self.camera.height);
+            let list = if crate::game::compact(w, h) || self.session.phase() != Phase::Hunt {
+                16.0
+            } else {
+                300.0
+            };
+            if x > w - list {
+                continue;
+            }
+            let half = |text: &str, size: f64| text.chars().count() as f64 * size * 0.27;
+            let wide = half(&mark.words, 13.0).max(half(&why, 12.0)) + 16.0;
+            let cx = x.clamp(wide, (w - list - wide).max(wide));
+            let warm = [1.0, 0.86, 0.66];
+            out.push(
+                Text::new(cx, y - 64.0, mark.words, 13.0, 0.85)
+                    .centred()
+                    .color(warm),
+            );
+            out.push(
+                Text::new(cx, y - 45.0, why, 12.0, 0.6)
+                    .centred()
+                    .color(warm),
+            );
         }
         out
     }

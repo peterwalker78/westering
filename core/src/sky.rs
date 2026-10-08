@@ -139,6 +139,18 @@ pub fn next_set(body: Body, observer: Observer, from: UnixMs, span: UnixMs) -> O
     })
 }
 
+/// When and where something that's down next comes up: the moment it
+/// climbs through the horizon within `span`, and the bearing it does so
+/// at. `place` gives its altitude and azimuth at a moment.
+pub fn rising(
+    from: UnixMs,
+    span: UnixMs,
+    place: impl Fn(UnixMs) -> (f64, f64),
+) -> Option<(UnixMs, f64)> {
+    let at = crossing(from, span, 0.0, true, |t| place(t).0)?;
+    Some((at, place(at).1))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,6 +160,31 @@ mod tests {
         lat: 51.5072,
         lon: -0.1276,
     };
+
+    #[test]
+    fn something_down_comes_up_in_the_east_not_where_it_is_now() {
+        // The Eta Aquariids' radiant on a May evening in London: under the
+        // northern horizon at nine, and up due east in the small hours.
+        let place = |t: UnixMs| {
+            let hz = crate::coords::horizon(LONDON, t);
+            let v = crate::coords::apply(
+                &crate::coords::precession(t),
+                crate::coords::unit(338.0, -1.0),
+            );
+            crate::coords::alt_az(crate::coords::apply(&hz, v))
+        };
+        let evening = midnight_utc(2026, 5, 6) + 20 * HOUR;
+        let (alt, az) = place(evening);
+        assert!(alt < -30.0, "{alt}");
+        assert!(!(45.0..315.0).contains(&az), "now in the north: {az}");
+        let (at, az) = rising(evening, 12 * HOUR, place).expect("it rises");
+        assert!((80.0..100.0).contains(&az), "rises in the east: {az}");
+        let hours = (at - evening) as f64 / HOUR as f64;
+        assert!((4.0..7.0).contains(&hours), "{hours} hours on");
+        assert!(place(at).0.abs() < 0.2);
+        // Something that's up already has no rising to wait for.
+        assert!(rising(at + HOUR, HOUR, place).is_none());
+    }
 
     #[test]
     fn the_sun_sets_in_london_at_the_published_time() {

@@ -77,6 +77,17 @@ pub struct FreeLines {
     pub wait: String,
 }
 
+/// What's said beside the mark on the horizon on the night of a plan.
+#[derive(Deserialize)]
+pub struct PlanLines {
+    /// What it's about is up: look above the mark.
+    pub up: String,
+    /// It's still down: where it comes up, and when.
+    pub rises: String,
+    pub shower_up: String,
+    pub shower_later: String,
+}
+
 /// What's said about the evening itself.
 #[derive(Deserialize)]
 pub struct EveningLines {
@@ -89,6 +100,7 @@ pub struct Lines {
     pub day: DayLines,
     pub free: FreeLines,
     pub evening: EveningLines,
+    pub plan: PlanLines,
     greeting: Vec<Greeting>,
     pub round: Round,
     pub news: News,

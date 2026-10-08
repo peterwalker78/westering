@@ -496,7 +496,7 @@ impl Game {
             self.labels(real, now, hz, prec, brightness)
         };
         texts.extend(self.mark_labels(hz, brightness));
-        texts.extend(self.plan_mark_frame(now, hz, prec, real));
+        texts.extend(self.plan_mark_frame(now, real));
         for &(x, y, name, a) in &self.moon_labels {
             texts.push(Text::new(
                 x + 8.0,

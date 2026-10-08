@@ -140,6 +140,14 @@ risen = "{name} has come up since you put me on, {where}."
 late = "It's getting late. Whenever you're ready, W winds down and I'll see you off to bed."
 closing = "That's been a good long while. I'll wind down now, and the music with me."
 
+# On the night of a plan, a warm mark sits on the horizon. These say, beside
+# it, what the mark is for: where to look, or where and when to look later.
+[plan]
+up = "{name} is above this mark."
+rises = "{name} rises at this mark about {time}."
+shower_up = "The {name} seem to come from above this mark."
+shower_later = "The {name} seem to come from above this mark, after about {time}."
+
 # A quarter of an hour or so in, once: the way out, offered at the foot of
 # the screen. It says what winding down is, and never how long it's been.
 [evening]
