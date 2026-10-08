@@ -482,6 +482,7 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
                     let mut m = music.borrow_mut();
                     m.quiet = quiet;
                     m.want(game.borrow().style());
+                    m.settle(game.borrow().settling());
                     let dt = (real - last_music.get()).clamp(0, 500) as f64 / 1000.0;
                     last_music.set(real);
                     m.tick(level, dt);

@@ -1087,6 +1087,17 @@ impl Game {
         })
     }
 
+    /// Whether the evening is winding down, when only the calmest music
+    /// plays.
+    pub fn settling(&self) -> bool {
+        !self.by_day()
+            && !self.keeping()
+            && matches!(
+                self.session.phase(),
+                Phase::Dimming | Phase::Finale | Phase::LightsOut
+            )
+    }
+
     /// How loud the music should be, 0 to 1: it arrives with the sky, eases
     /// down as the sky dims and goes with the lights.
     pub fn music_level(&self, real: UnixMs) -> f64 {

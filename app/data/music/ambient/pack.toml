@@ -1,3 +1,6 @@
 # One style of music: its name in the menu, and where it comes in turn.
 name = "Ambient"
 order = 4
+# The tracks calm enough to wind down to: no beat, few notes, soft in tone.
+# As an evening winds down, one of these takes over from anything livelier.
+wind-down = ["01-synthwave-4k", "02-atmosphere-2", "04-contemplation"]

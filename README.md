@@ -278,7 +278,9 @@ under CC0, checked on its own source page:
 
 Titles, sources and the licence wording on each page are in the `CREDITS.md`
 beside each style in [`app/data/music`](app/data/music). The music arrives
-with the sky, eases down as it dims and goes with the lights; `M` moves on to
+with the sky, eases down as it dims and goes with the lights. As an evening
+winds down, one of the five calmest tracks (three ambient, two acoustic)
+takes over from anything livelier; `M` moves on to
 the next style, and after the last turns it off. The menu can choose one too.
 
 ## Licence
