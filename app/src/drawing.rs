@@ -447,6 +447,10 @@ impl Game {
     /// what the mark is for.
     pub(crate) fn plan_mark_frame(&mut self, now: UnixMs, real: UnixMs) -> Vec<Text> {
         let mut out = Vec::new();
+        // Nothing but the breaths and the last thought while winding down.
+        if self.winding() {
+            return out;
+        }
         let t = real as f64 / 1000.0;
         for mark in self.plan_marks.clone() {
             let says = &self.guide.lines().plan;
@@ -491,6 +495,10 @@ impl Game {
             });
             // Above the mark, clear of the compass letters, and kept on the
             // sky: not under tonight's list, nor off the edge.
+            // The mark stays, but its words give way to anything being asked.
+            if self.talk.prompt.is_some() {
+                continue;
+            }
             let (w, h) = (self.camera.width, self.camera.height);
             let list = if crate::game::compact(w, h) || self.session.phase() != Phase::Hunt {
                 16.0
