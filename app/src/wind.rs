@@ -43,6 +43,11 @@ impl Game {
         self.wind.stage.is_some()
     }
 
+    /// The breaths are done and the line to think over is up.
+    pub(crate) fn reflecting(&self) -> bool {
+        matches!(self.wind.stage, Some(Stage::Reflecting(_)))
+    }
+
     /// Asks, as the winding down begins, whether to take it slowly.
     pub(crate) fn ask_wind(&mut self) {
         self.talk.flow = Some(Flow::WindChoice);

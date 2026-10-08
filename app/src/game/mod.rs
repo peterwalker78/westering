@@ -983,12 +983,18 @@ impl Game {
                 1,
                 "Pick something from Tonight's list, then hold Space when it's in the ring",
             ),
+            Phase::Dimming if self.reflecting() => {
+                (2, "One thought to end on. Enter moves on when you're ready")
+            }
             Phase::Dimming if self.winding() => (2, "Breathe with the wisp, or Esc to stop"),
             Phase::Dimming if matches!(self.talk.flow, Some(crate::talk::Flow::WindChoice)) => {
                 (2, "Choose, or let the screen dim")
             }
             Phase::Dimming if self.talk.prompt.is_some() => (2, "Choose how tonight ends"),
             Phase::Dimming => (2, "The screen is dimming: let your eyes and mind settle"),
+            Phase::Finale if !self.session.last_line(real) && self.page.weights.is_empty() => {
+                (2, "Watch the sky turn through the rest of the night")
+            }
             Phase::Finale if !self.session.last_line(real) => {
                 (2, "Watch the west: what you set down tonight is setting")
             }
