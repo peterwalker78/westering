@@ -91,10 +91,14 @@ impl Game {
             eprintln!("westering: couldn't save settings: {e}");
         }
         self.status(line.unwrap_or_else(|| "Music off".into()), real);
+        if self.keeping() {
+            self.wisp_gesture(westering_core::wisp::Gesture::Nod, real);
+        }
     }
 
-    /// A short word at the foot of the screen about a setting just changed.
-    /// A new one replaces the last without fading out and in again.
+    /// A short word about a setting just changed: at the foot of the screen,
+    /// or at the top when keeping company. A new one replaces the last
+    /// without fading out and in again.
     pub(crate) fn status(&mut self, text: String, real: UnixMs) {
         self.status_for(text, real, 2_500);
     }
@@ -111,6 +115,13 @@ impl Game {
             shown,
             hold: real - shown + hold,
         });
+    }
+
+    /// Whether that word is still up, fading or not.
+    pub(crate) fn status_up(&self, real: UnixMs) -> bool {
+        self.hint
+            .as_ref()
+            .is_some_and(|h| real - h.shown < 1_000 + h.hold + 1_800)
     }
 
     pub fn key_pressed(&mut self, key: gdk::Key, real: UnixMs) -> bool {

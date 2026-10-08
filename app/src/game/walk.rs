@@ -407,3 +407,53 @@ fn tab_with_everything_found_says_so() {
     assert!(told, "{}", w.seen());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Keeping company the wisp sits at the foot of the window, where a word
+/// about a setting would go: a change of music is said at the top instead,
+/// in the quiet line's place, bright enough to catch in a small window.
+#[test]
+fn keeping_company_a_change_of_music_is_said_at_the_top() {
+    use westering_core::company::Company;
+    let dir = scratch("company-music");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    w.game.resize(560.0, 595.0, 1.0);
+    w.game.styles = vec![
+        ("lofi".into(), "Lofi chill".into()),
+        ("electro".into(), "Electro chill".into()),
+    ];
+    w.wait(2_000);
+    w.game.keep.company = Some(Company::new(w.game.clock.sky(w.real), &w.game.night));
+    w.game.keep.mix = 1.0;
+    let top = |w: &Walker, after: UnixMs| -> Vec<(String, f64)> {
+        let texts = w.game.words(w.real + after, 1.0);
+        assert!(
+            texts
+                .iter()
+                .all(|t| !t.text.starts_with("Music") || t.y < 60.0 || t.alpha <= 0.0),
+            "a word about the music under the wisp"
+        );
+        let mut top: Vec<_> = texts.into_iter().filter(|t| t.y < 60.0).collect();
+        top.retain(|t| t.alpha > 0.0);
+        top.into_iter().map(|t| (t.text, t.alpha)).collect()
+    };
+    let before = top(&w, 0);
+    assert_eq!(before.len(), 1);
+    assert!(before[0].0.starts_with("Keeping you company"));
+
+    for said in ["Music: Electro chill", "Music off", "Music: Lofi chill"] {
+        w.game.key_pressed(gdk::Key::m, w.real);
+        // At once, and alone: the quiet line has stepped aside.
+        let now = top(&w, 0);
+        assert_eq!(now.len(), 1, "{now:?}");
+        assert_eq!(now[0].0, said);
+        assert!(now[0].1 > before[0].1, "{now:?}");
+        let held = top(&w, 1_500);
+        assert_eq!(held, vec![(said.to_owned(), 0.9)]);
+        w.game.key_released(gdk::Key::m, w.real);
+        w.wait(300);
+    }
+    // And the quiet line comes back by itself.
+    let after = top(&w, 8_000);
+    assert_eq!(after, before);
+    let _ = std::fs::remove_dir_all(&dir);
+}

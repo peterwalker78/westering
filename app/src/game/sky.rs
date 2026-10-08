@@ -850,7 +850,19 @@ impl Game {
                     .color([1.0, 0.84, 0.68]),
             );
         }
-        if self.keep.mix > 0.01 {
+        let hint = self
+            .hint
+            .as_ref()
+            .map(|h| (h, envelope(real - h.shown, 1_000, h.hold, 1_800)));
+        // Keeping company, the foot of the window is the wisp's: a word
+        // about a setting takes the quiet line's place for a moment, one
+        // going before the other comes.
+        let told = match hint {
+            Some((_, a)) if self.keeping() => a,
+            _ => 0.0,
+        };
+        let quiet = 0.45 * self.keep.mix * (1.0 - told * 2.0).max(0.0);
+        if quiet > 0.0 {
             // One quiet line, clear of the menu button in a narrow window.
             out.push(
                 Text::new(
@@ -863,7 +875,7 @@ impl Game {
                         None => "Keeping you company · K brings the sky back".to_owned(),
                     },
                     12.0,
-                    0.45 * self.keep.mix,
+                    quiet,
                 )
                 .centred()
                 .wrap((w - 140.0).max(120.0)),
@@ -882,11 +894,19 @@ impl Game {
                 );
             }
         }
-        if let Some(hint) = &self.hint {
-            let a = envelope(real - hint.shown, 1_000, hint.hold, 1_800);
-            // Above the compass strip, when that's along the bottom.
-            let y = if compact(w, h) { h - 62.0 } else { h - 44.0 };
-            out.push(Text::new(w / 2.0, y, hint.text.clone(), 13.0, 0.5 * a).centred());
+        if let Some((hint, a)) = hint {
+            if self.keeping() {
+                let a = (told * 2.0 - 1.0).max(0.0);
+                out.push(
+                    Text::new(w / 2.0, 18.0, hint.text.clone(), 15.0, 0.9 * a)
+                        .centred()
+                        .wrap((w - 140.0).max(120.0)),
+                );
+            } else {
+                // Above the compass strip, when that's along the bottom.
+                let y = if compact(w, h) { h - 62.0 } else { h - 44.0 };
+                out.push(Text::new(w / 2.0, y, hint.text.clone(), 13.0, 0.5 * a).centred());
+            }
         }
         if let Some(handoff) = &self.handoff
             && self.session.last_line(real)

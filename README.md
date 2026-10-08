@@ -93,7 +93,8 @@ day with a nudge to step outside.
 **Or just keep it running.** Press `K`, or choose Keep me company in the menu,
 and the evening pauses. The sky stays as it is, the music plays on, and the
 window can be as small as you like: tiled into a corner, or behind everything
-else. The wisp hums along, and the track playing is named at the top. Every
+else. The wisp hums along, and the track playing is named at the top, as is
+a change of music or volume. Every
 half hour or so it looks in with a word about looking after yourself: a sip
 of water, a stretch, your shoulders, a look out of the window by day. If the window is out of
 sight, the music softens for a moment, and the word waits for you. It never

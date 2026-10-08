@@ -833,8 +833,14 @@ impl Game {
             66
         };
         let pointing = self.pointer.is_some_and(|(_, _, at)| real - at < 400);
-        let quiet =
-            !self.winding() && !pointing && self.wisp_motion() < 2 && !self.wants_fast_frames(real);
+        // Keeping company the sky is drawn so seldom that a word fading at
+        // the top would step: it's drawn afresh while one is up.
+        let telling = self.keeping() && self.status_up(real);
+        let quiet = !self.winding()
+            && !pointing
+            && !telling
+            && self.wisp_motion() < 2
+            && !self.wants_fast_frames(real);
         if quiet
             && let Some(c) = &self.cached
             && real - c.at < every
