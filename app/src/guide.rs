@@ -1566,7 +1566,14 @@ impl Game {
             } else if settled {
                 ((nx + 26.0).min(w - width - 38.0).max(10.0), ny + 14.0, true)
             } else {
-                let right = fx + 36.0 + width + 28.0 < w - 10.0;
+                // Beside the wisp, on whichever side keeps the words on the
+                // sky and out from under tonight's list.
+                let edge = if self.show_tonight() {
+                    w - 296.0
+                } else {
+                    w - 10.0
+                };
+                let right = fx + 36.0 + width + 28.0 < edge;
                 let x = if right {
                     fx + 36.0
                 } else {
