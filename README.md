@@ -112,6 +112,8 @@ so here so there's no trick in it.
   a visit, towards the speed of slow breathing. Nothing announces it. The
   wisp's own breath slows to about five and a half a minute, which is easy
   to fall in with without noticing.
+  [A test](core/src/session.rs) checks that the pace only ever eases down
+  and the light never jumps.
 - **It offers the way out.** About a quarter of an hour in, once, a line at
   the foot of the screen says how to wind down and what that is. It never
   says how long you've been here.
@@ -176,17 +178,17 @@ journal, not therapy or a crisis service.
 | --- | --- |
 | Arrows, or drag | Look around |
 | Scroll, `+` and `-` | Zoom |
-| Tap `Space` (or `Enter`, or click while a card is up) | Carry on, one step at a time: the wisp's next word, then past a card or a story's page, then round to the next find. Once a card is put away, or a question answered, the view turns to the next find by itself after a moment, unless you've started looking around |
-| `Tab` | Back to the first thing on the list you haven't seen yet: never reached, or its card put away before you could read it, and it says which. Once the whole list is found, it says the sky is done instead |
+| Tap `Space` (or `Enter`, or click while a card is up) | Carry on, one step at a time |
+| `Tab` | Back to the first find you haven't seen yet |
 | Hold `Space`, or press and hold on the ring | Catch what's in the ring |
-| `F`, or Free look in the menu | Once the wisp has walked the evening with you, switch between the guided way and free look: drag to look around, and click anything that glows to close in on it, with its photograph and everything there is to know, while the wisp keeps quiet; Esc zooms back out. The first night that's once tonight's list is done; after that, once the first find is. Every evening starts guided |
+| `F`, or Free look in the menu | Free look, once the wisp has walked the evening with you: drag to look around, click anything that glows, `Esc` to zoom back out |
 | Click one in the list | Turn towards it |
 | `C` | Draw a constellation: arrows step between stars, `Enter` joins, `C` finishes |
 | `L` | The logbook |
-| `?`, or click the wisp | A table of the keys and what they do, and away again; a click also hurries the wisp on when it has more to say |
+| `?`, or click the wisp | The keys, and away again |
 | Point at anything | What it is; click it to hear more |
 | `M` | The next style of music; after the last, off; then round again |
-| `K` | Keep me company: the sky rests and the music plays on in the background; `K` again brings the sky back. While it keeps you company, the arrow keys (or `+` and `-`) set the volume |
+| `K` | Keep me company; `K` again brings the sky back. The arrow keys set the volume meanwhile |
 | `W`, or Wind down at the top left | Wind down: the screen dims, and you choose outside or bed |
 | `Ctrl` `,` | Settings |
 | `F11` | Full screen |
@@ -301,4 +303,4 @@ the next style, and after the last turns it off. The menu can choose one too.
 GPL-3.0-or-later. The packed star and constellation data carry their own
 credits above.
 
-AI coding tools are used in writing Westering's code.
+AI coding tools are used in writing Westering's code. Every change is built and tested in CI.
