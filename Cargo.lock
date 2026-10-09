@@ -660,7 +660,7 @@ checksum = "03c2856837ef78f57382f06b2b8563a2f512f7185d732608fd9176cb3b8edf0e"
 
 [[package]]
 name = "westering"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "gtk4",
  "serde",
@@ -670,7 +670,7 @@ dependencies = [
 
 [[package]]
 name = "westering-core"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "serde",
  "toml 0.9.12+spec-1.1.0",

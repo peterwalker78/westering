@@ -33,6 +33,11 @@
   <url type="homepage">https://github.com/peterwalker78/westering</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.5.1" date="2026-10-09">
+      <description>
+        <p>While it keeps you company, a change of music or volume is said at the top of the window, where it can be seen. It was drawn at the foot, behind the wisp's moss.</p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-10-08">
       <description>
         <p>An evening that carries itself along, ends on a thought that fits it, and leaves a chart of its sky in the logbook.</p>
