@@ -277,9 +277,13 @@ impl Game {
                 self.back_to_skipped(real);
             }
             gdk::Key::Escape => {
+                // A step back out each time: the card, then free look,
+                // then, asked twice, the evening.
                 if self.card.is_some() {
                     self.end_tour(real);
                     self.dismiss_card(real);
+                } else if self.free_look() {
+                    self.toggle_look(real);
                 } else if matches!(phase, Phase::Arrival | Phase::Hunt) {
                     if real < self.esc_armed {
                         self.wind_down(real);
@@ -345,7 +349,7 @@ impl Game {
             return;
         }
         // Something's being asked, or about to be, or said: after that.
-        if self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_busy(real) {
+        if self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_reading(real) {
             self.move_on = Some(at.max(real + MOVE_ON_MS));
             return;
         }
@@ -623,17 +627,31 @@ impl Game {
         }
         self.inspect_steer();
         if let Some(look) = self.look {
-            let k = 1.0 - (-dt * look.rate * 2.0).exp();
+            let apart = angle_between(
+                from_alt_az(self.camera.alt, self.camera.az),
+                from_alt_az(look.alt, look.az),
+            );
+            // Far apart, out a little first, so where it was and where it's
+            // going both stay in view, then in as it closes.
+            let fov = look
+                .fov
+                .max((apart * 2.4).min(crate::camera::FOV_WIDEST * 0.8));
+            // The pace eases off as it nears, and builds up from rest.
+            let screens = apart / self.camera.fov + (fov / self.camera.fov).ln().abs();
+            self.swing += 4.0 * dt;
+            let k = (1.0 - (-dt * look.rate * 2.0).exp()).min(self.swing * dt / screens.max(1e-6));
             let daz = turn(self.camera.az, look.az);
             self.camera.az += daz * k;
             self.camera.alt += (look.alt - self.camera.alt) * k;
-            self.camera.fov *= (look.fov / self.camera.fov).powf(k);
+            self.camera.fov *= (fov / self.camera.fov).powf(k);
             if daz.abs() < 0.01
                 && (look.alt - self.camera.alt).abs() < 0.01
                 && (look.fov / self.camera.fov - 1.0).abs() < 0.001
             {
                 self.look = None;
             }
+        } else {
+            self.swing = 0.0;
         }
         if self.placing() {
             self.camera.alt = self.camera.alt.min(25.0);

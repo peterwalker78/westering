@@ -675,7 +675,9 @@ impl Game {
                 row(&["Drag"], "Look around"),
                 row(&["Scroll"], "Zoom in and out"),
                 row(&["Click"], "A closer look at anything that glows"),
-                row(&["Esc"], "Back out again"),
+                row(&["Space", "Enter"], "Carry on to the next find"),
+                row(&["Hold Space"], "A closer look at what's in the middle"),
+                row(&["Esc"], "Back out a step, then the guided way"),
                 row(&["F"], "The guided way, with the wisp"),
             ]
         } else {

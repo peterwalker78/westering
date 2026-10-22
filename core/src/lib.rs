@@ -21,6 +21,7 @@ pub mod look;
 pub mod oklab;
 pub mod place;
 pub mod questions;
+pub mod route;
 pub mod session;
 pub mod sky;
 pub mod stars;

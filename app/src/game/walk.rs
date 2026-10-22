@@ -457,3 +457,75 @@ fn keeping_company_a_change_of_music_is_said_at_the_top() {
     assert_eq!(after, before);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Left to itself after each card, the evening turns to the next find
+/// without waiting on the wisp, and the wisp only talks about a find while
+/// it's still there to find.
+#[test]
+fn the_wisp_never_holds_the_evening_up() {
+    let dir = scratch("pace");
+    let mut w = Walker::new(&dir, october(22, 20.3), 100);
+    w.wait(1_000);
+    let (mut caught, mut since) = (0, w.real);
+    while caught < 6 {
+        assert!(w.real - since < 45_000, "held up: {}", w.seen());
+        let g = &w.game;
+        if let Some((line, until)) = g.guide.said().0
+            && w.real < until
+            && let Some(i) =
+                (0..g.finds.len()).find(|&i| line.starts_with(&format!("{}. ", g.finds[i].name)))
+        {
+            assert!(!g.caught[i], "still on about {line:?}");
+            assert_eq!(g.track, Some(i), "{line:?} while turned elsewhere");
+        }
+        if g.card.is_some() {
+            w.wait(4_000);
+            w.tap(gdk::Key::space);
+        } else if g.talk.prompt.is_some() || g.placing() {
+            w.act();
+        } else if !g.hunting() {
+            w.wait(4_000);
+            w.tap(gdk::Key::space);
+        } else if g.catch.target.is_some() && !g.ring_resting && !g.more_now() {
+            w.act();
+            if w.game.card.is_some() {
+                caught += 1;
+                since = w.real;
+            }
+        } else {
+            w.wait(FRAME);
+        }
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Holding Space looks closer at what's in the middle in free look too,
+/// and Esc steps back out: the card, then free look.
+#[test]
+fn space_and_esc_mean_the_same_in_free_look() {
+    let dir = scratch("keys");
+    let mut w = Walker::new(&dir, october(22, 20.3), 100);
+    while !w.game.hunting() {
+        w.act();
+        w.wait(1_000);
+    }
+    w.game.handed_over = true;
+    w.game.toggle_look(w.real);
+    assert!(w.game.free_look());
+    w.game.turn_to(0, w.real);
+    w.wait(4_000);
+    w.game.key_pressed(gdk::Key::space, w.real);
+    w.wait(800);
+    w.game.key_released(gdk::Key::space, w.real);
+    w.wait(300);
+    assert!(
+        w.game.card.is_some() || w.game.inspect.is_some(),
+        "{}",
+        w.seen()
+    );
+    w.tap(gdk::Key::Escape);
+    assert!(w.game.card.is_none() && w.game.free_look(), "{}", w.seen());
+    w.tap(gdk::Key::Escape);
+    assert!(!w.game.free_look(), "{}", w.seen());
+    let _ = std::fs::remove_dir_all(&dir);
+}

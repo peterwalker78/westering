@@ -210,6 +210,23 @@ impl Game {
         // until the view moves on.
         if self.free_look() || self.ring_resting {
             self.catch = Catch::default();
+            // Space held in free look: a closer look at what's in the
+            // middle, as a click there would, so holding it means the same
+            // both ways.
+            if self.free_look()
+                && self.held.space
+                && !self.space_caught
+                && self.space_since.is_some_and(|s| real - s >= TAP_MS)
+            {
+                self.space_caught = true;
+                let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
+                if !self.click_hovered(cx, cy, real) {
+                    self.status(
+                        "Hold Space with something in the middle for a closer look".into(),
+                        real,
+                    );
+                }
+            }
             return;
         }
         let r = self.reticle_radius();
@@ -223,10 +240,14 @@ impl Game {
                 }
                 let (x, y) = self.camera.project(v)?;
                 let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
-                (d < r).then_some((i, d))
+                // What the view turned to wins over anything that shares
+                // its spot, such as a star that's also a hop's stop.
+                (d < r).then_some((i, if self.track == Some(i) { 0.0 } else { d }))
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
-            .map(|(i, _)| i);
+            .map(|(i, _)| i)
+            // Nothing's in the ring while the view is still on its way.
+            .filter(|_| self.look.is_none() || self.catch.holding);
         if self.catch.progress <= 0.0 {
             self.catch.target = near;
         }

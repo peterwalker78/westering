@@ -128,6 +128,13 @@ fn waiting(held: Held, l: &Line) -> bool {
         || (held.quiet && l.aim != Aim::Home)
 }
 
+/// Whether a line is about what's in front of you just now: a find, the
+/// ring or the card. Such a line is said then or not at all, and goes when
+/// the view moves on.
+fn of_the_moment(aim: Aim) -> bool {
+    matches!(aim, Aim::Find(_) | Aim::Ring | Aim::Card)
+}
+
 /// How often, at the least, the wisp's picture is drawn afresh when it
 /// hasn't said: its breath runs smoothly between, as a scale.
 const WISP_REDRAW_MS: UnixMs = 66;
@@ -421,6 +428,37 @@ impl Game {
         }
     }
 
+    /// The view has turned to something new: lines about where it was
+    /// go, and a line about where it's going is said at once.
+    pub(crate) fn guide_turned(&mut self, line: Option<(Aim, String)>, real: UnixMs) {
+        self.guide.queue.retain(|l| !of_the_moment(l.aim));
+        if let Some(l) = &mut self.guide.line
+            && real - l.shown < l.hold
+            && l.aim != Aim::Prompt
+        {
+            l.hold = real - l.shown;
+        }
+        if let Some((aim, text)) = line {
+            self.guide.queue.insert(
+                0,
+                Line {
+                    hold: read_time(&text),
+                    text,
+                    shown: real,
+                    aim,
+                },
+            );
+        }
+    }
+
+    /// Whether the line up hasn't had time to be read yet.
+    pub(crate) fn wisp_reading(&self, real: UnixMs) -> bool {
+        self.guide
+            .line
+            .as_ref()
+            .is_some_and(|l| real < l.shown + l.hold.min(read_time(&l.text)))
+    }
+
     pub(crate) fn hush(&mut self) {
         self.guide.line = None;
         self.guide.queue.clear();
@@ -612,10 +650,10 @@ impl Game {
         }
         self.mark_seen("hunt");
         let what = if n == 1 {
-            "One thing is worth finding tonight. It's listed here, with where to look. Click it and I'll turn you to it.".to_owned()
+            "One thing to find tonight, listed here with where to look.".to_owned()
         } else {
             format!(
-                "{} things are worth finding tonight. They're listed here, with where to look for each. Click one and I'll turn you to it.",
+                "{} things to find tonight, listed here in order round the sky. Click one and I'll turn you to it.",
                 number(n)
             )
         };
@@ -627,12 +665,6 @@ impl Game {
             7_000,
         );
         self.say_at(
-            Aim::Ring,
-            "Tap Space to turn to the next thing to find, and hold it, or press and hold on the ring, to catch whatever's inside.",
-            real + 500,
-            8_000,
-        );
-        self.say_at(
             Aim::Near(0.5, 0.35),
             "Point at anything in the sky to see what it is, and click it to hear more.",
             real + 500,
@@ -641,13 +673,6 @@ impl Game {
     }
 
     pub(crate) fn guide_caught(&mut self, real: UnixMs) {
-        // Tips about the ring are done with once something's caught.
-        self.guide.queue.retain(|l| l.aim != Aim::Ring);
-        if let Some(l) = &mut self.guide.line
-            && l.aim == Aim::Ring
-        {
-            l.hold = l.hold.min(real - l.shown);
-        }
         self.guide.cheer_until = real + 4_000;
         self.guide.last_progress = real;
         // Over to the card, pleased.
@@ -655,7 +680,7 @@ impl Game {
         if self.say_once(
             "caught",
             Aim::Card,
-            "Lovely. Every find comes with a card saying something true about it. Tap Space to carry on: it puts the card away, then turns you to the next find.",
+            "Every find comes with a card. Space or a click puts it away, then I'll turn you to the next.",
             real + 600,
             9_000,
         ) {
@@ -665,8 +690,8 @@ impl Game {
         if caught >= 2 {
             self.say_once(
                 "draw",
-                Aim::Ring,
-                "You can join bright stars into a shape of your own, too: press C. People have drawn the sky that way for thousands of years.",
+                Aim::Near(0.5, 0.35),
+                "You can join bright stars into a shape of your own, too: press C.",
                 real + 600,
                 9_000,
             );
@@ -966,7 +991,7 @@ impl Game {
             self.say_once(
                 "ring",
                 Aim::Ring,
-                "There's one, inside the ring. Hold Space.",
+                "There's one in the ring. Hold Space, or press and hold on the ring, to catch it.",
                 real,
                 8_000,
             );
@@ -1276,33 +1301,31 @@ impl Game {
             brightness.max(0.6)
         };
 
-        // The line to show. One up stays until it's read and, with more to
-        // come, until the user moves the wisp on; nothing moves on by itself.
-        // While a card is up or a question is asked, lines about anything
-        // else wait for it to go.
-        // A line about something else steps aside for a card or a question,
-        // and is said again once it's gone.
+        // The line to show. One up stays until it's read, then the next
+        // follows, so the wisp never holds the evening up. While a card is
+        // up or a question is asked, lines about anything else wait for it
+        // to go: a line about something else steps aside and is said again
+        // once it's gone, unless it was about that moment.
         let held = self.held_back();
         if let Some(l) = &mut self.guide.line
             && real - l.shown < l.hold
             && waiting(held, l)
         {
-            self.guide.queue.insert(
-                0,
-                Line {
-                    shown: real,
-                    ..l.clone()
-                },
-            );
+            if !of_the_moment(l.aim) {
+                self.guide.queue.insert(
+                    0,
+                    Line {
+                        shown: real,
+                        ..l.clone()
+                    },
+                );
+            }
             l.hold = real - l.shown;
         }
+        self.guide
+            .queue
+            .retain(|l| !(of_the_moment(l.aim) && waiting(held, l)));
         let more = self.more_now();
-        if let Some(l) = &mut self.guide.line {
-            let age = real - l.shown;
-            if more && age < l.hold {
-                l.hold = l.hold.max(age + 450);
-            }
-        }
         let finished = self
             .guide
             .line

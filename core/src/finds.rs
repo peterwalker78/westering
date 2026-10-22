@@ -428,6 +428,17 @@ pub fn tonight(
         hops.sort_by_key(|(_, id)| order(id));
         if let Some((i, id)) = hops.into_iter().next() {
             let hop = &sky.tours.hops[i];
+            // A star or showpiece the hop stops at is found on the way,
+            // not on its own as well.
+            out.retain(|f| {
+                !hop.steps.iter().any(|stop| match f.target {
+                    Target::Star(hr) => stop.hr == Some(hr),
+                    Target::Showpiece(p) => {
+                        stop.showpiece.as_ref() == Some(&sky.lists.showpieces[p].id)
+                    }
+                    _ => false,
+                })
+            });
             out.push(Find {
                 id,
                 target: Target::Hop(i),
@@ -597,5 +608,32 @@ mod tests {
     fn digits_group() {
         assert_eq!(thousands(384_400), "384,400");
         assert_eq!(thousands(999), "999");
+    }
+
+    #[test]
+    fn a_hops_stops_are_found_on_the_way_not_twice() {
+        let sky = Sky::bundled();
+        let never = |_: &str| 0;
+        let mut hops = 0;
+        for day in 1..=60 {
+            let at = midnight_utc(2026, 10, 1) + day * 24 * HOUR - 2 * HOUR;
+            let finds = tonight(&sky, LONDON, at, 0, &never);
+            let Some(h) = finds.iter().find_map(|f| match f.target {
+                Target::Hop(h) => Some(h),
+                _ => None,
+            }) else {
+                continue;
+            };
+            hops += 1;
+            for stop in &sky.tours.hops[h].steps {
+                assert!(
+                    !finds
+                        .iter()
+                        .any(|f| matches!(f.target, Target::Star(hr) if stop.hr == Some(hr))),
+                    "{finds:#?}"
+                );
+            }
+        }
+        assert!(hops > 0);
     }
 }
