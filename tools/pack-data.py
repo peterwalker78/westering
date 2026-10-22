@@ -26,6 +26,7 @@ Outputs:
 
 import gzip
 import json
+import math
 import struct
 import sys
 from pathlib import Path
@@ -106,9 +107,45 @@ SWAP = {
 }
 
 
-def figures():
+# Where Stellarium draws a constellation with three lines or fewer, the
+# fuller figure most charts show is easier to recognise, so d3-celestial's
+# is used instead, each corner snapped to the catalogue star it sits on.
+SPARSE = 3
+
+
+def nearest(catalogue, ra, dec):
+    def gap(row):
+        r1, d1, r2, d2 = map(math.radians, (ra, dec, row[1], row[2]))
+        return math.acos(min(1, math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(r1 - r2)))
+
+    best = min(catalogue, key=gap)
+    assert math.degrees(gap(best)) < 0.1, (ra, dec)
+    return best[0]
+
+
+def homes():
+    """Each star's constellation, where the catalogue names it."""
+    with gzip.open(RAW / "bsc5.dat.gz", "rt", encoding="latin-1") as f:
+        return {int(field(line, 1, 4)): field(line, 12, 14) for line in f if field(line, 12, 14)}
+
+
+def charted(catalogue, home, abbrev, lines):
+    found = []
+    for line in lines:
+        hrs = [nearest(catalogue, ra % 360, dec) for ra, dec in line]
+        for a, b in zip(hrs, hrs[1:]):
+            # A line out to a neighbouring constellation's star is left off.
+            if home.get(a, abbrev) != abbrev or home.get(b, abbrev) != abbrev:
+                continue
+            if a != b and (a, b) not in found and (b, a) not in found:
+                found.append((a, b))
+    return found
+
+
+def figures(catalogue):
     names = {f["id"]: f["properties"] for f in json.load(open(RAW / "constellations.json"))["features"]}
-    order = [f["id"] for f in json.load(open(RAW / "constellations.lines.json"))["features"]]
+    d3 = json.load(open(RAW / "constellations.lines.json"))["features"]
+    order = [f["id"] for f in d3]
     hip_to_hr = {int(k): v for k, v in json.load(open(ROOT / "tools" / "hip-to-hr.json")).items()}
     edges, dropped = {}, []
     for con in json.load(open(RAW / "stellarium-modern.json"))["constellations"]:
@@ -124,6 +161,11 @@ def figures():
                 if ha != hb and (ha, hb) not in found and (hb, ha) not in found:
                     found.append((ha, hb))
         edges[abbrev] = found
+    home = homes()
+    for f in d3:
+        fuller = charted(catalogue, home, f["id"], f["geometry"]["coordinates"])
+        if len(edges[f["id"]]) <= SPARSE and len(fuller) > len(edges[f["id"]]):
+            edges[f["id"]] = fuller
     # Serpens is drawn as two figures, the head (with beta Ser) and the tail.
     serpens = edges.pop("Ser")
     joined = {}
@@ -155,11 +197,12 @@ def main():
     with open(OUT / "stars.bin", "wb") as f:
         for hr, ra, dec, vmag, bv in catalogue:
             f.write(struct.pack("<Hffhh", hr, ra, dec, vmag, bv))
-    figs, dropped = figures()
+    figs, dropped = figures(catalogue)
     (OUT / "constellations.txt").write_text(
         "# Constellation figures from Stellarium's modern sky culture, CC BY-SA 4.0,\n"
-        "# with each star matched to its Yale Bright Star Catalogue HR number; names\n"
-        "# and ranks from d3-celestial (c) 2015 Olaf Frohn, BSD-3-Clause.\n"
+        "# with each star matched to its Yale Bright Star Catalogue HR number; the\n"
+        "# sparsest, and names and ranks, from d3-celestial (c) 2015 Olaf Frohn,\n"
+        "# BSD-3-Clause.\n"
         "# abbrev|name|rank|HR-HR pairs\n" + "\n".join(figs) + "\n"
     )
     for abbrev, a, b in dropped:
