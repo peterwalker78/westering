@@ -193,6 +193,9 @@ pub struct Game {
     pub(crate) page: Night,
     pub(crate) camera: Camera,
     pub(crate) look: Option<Look>,
+    /// How fast the view may turn just now, in screens a second: it builds
+    /// up from rest, so a glide sets off gently rather than lurching.
+    pub(crate) swing: f64,
     pub(crate) field: Field,
     pub(crate) base: Option<BaseStamp>,
     pub(crate) star_dirs: Vec<Vec3>,
@@ -629,6 +632,7 @@ impl Game {
             page,
             camera: Camera::new(180.0, 30.0, 95.0),
             look: None,
+            swing: 0.0,
             field: Field::new(),
             base: None,
             star_dirs,

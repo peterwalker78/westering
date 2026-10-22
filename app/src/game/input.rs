@@ -627,17 +627,31 @@ impl Game {
         }
         self.inspect_steer();
         if let Some(look) = self.look {
-            let k = 1.0 - (-dt * look.rate * 2.0).exp();
+            let apart = angle_between(
+                from_alt_az(self.camera.alt, self.camera.az),
+                from_alt_az(look.alt, look.az),
+            );
+            // Far apart, out a little first, so where it was and where it's
+            // going both stay in view, then in as it closes.
+            let fov = look
+                .fov
+                .max((apart * 2.4).min(crate::camera::FOV_WIDEST * 0.8));
+            // The pace eases off as it nears, and builds up from rest.
+            let screens = apart / self.camera.fov + (fov / self.camera.fov).ln().abs();
+            self.swing += 4.0 * dt;
+            let k = (1.0 - (-dt * look.rate * 2.0).exp()).min(self.swing * dt / screens.max(1e-6));
             let daz = turn(self.camera.az, look.az);
             self.camera.az += daz * k;
             self.camera.alt += (look.alt - self.camera.alt) * k;
-            self.camera.fov *= (look.fov / self.camera.fov).powf(k);
+            self.camera.fov *= (fov / self.camera.fov).powf(k);
             if daz.abs() < 0.01
                 && (look.alt - self.camera.alt).abs() < 0.01
                 && (look.fov / self.camera.fov - 1.0).abs() < 0.001
             {
                 self.look = None;
             }
+        } else {
+            self.swing = 0.0;
         }
         if self.placing() {
             self.camera.alt = self.camera.alt.min(25.0);
