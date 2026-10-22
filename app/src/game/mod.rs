@@ -1056,13 +1056,25 @@ impl Game {
                 1,
                 "Drag to look around, and click anything that glows for a closer look. F for the guided way",
             ),
+            Phase::Hunt
+                if self.track.is_some_and(|i| {
+                    matches!(self.finds[i].target, Target::Hop(_))
+                        && !self.caught[i]
+                        && self.steps[i] > 0
+                }) =>
+            {
+                (
+                    1,
+                    "On the star-hop: hold Space or a click when the next star is in the ring",
+                )
+            }
             Phase::Hunt if self.caught.iter().any(|c| *c) => (
                 1,
                 "Tap Space for the next find, hold it to catch. Point at anything to see what it is",
             ),
             Phase::Hunt => (
                 1,
-                "Pick something from Tonight's list, then hold Space when it's in the ring",
+                "Pick something from Tonight's list, then hold Space or a click when it's in the ring",
             ),
             Phase::Dimming if self.reflecting() => {
                 (2, "One thought to end on. Enter moves on when you're ready")

@@ -812,16 +812,19 @@ impl Game {
                 && let Some((x, y)) = cam.project(v)
             {
                 let near = 1.0 - (((x - cx).powi(2) + (y - cy).powi(2)).sqrt() / r).min(1.0);
-                let words = if self.catch.progress > 0.0 {
-                    self.finds[i].name.clone()
-                } else {
-                    format!("{} · hold Space, or hold a click", self.finds[i].name)
-                };
+                // On a hop the ring is after the next star, so that's its name.
+                let name = self
+                    .hop_stop(i)
+                    .and_then(|s| s.hr)
+                    .and_then(|hr| self.sky.lists.star_name(hr))
+                    .map_or_else(|| self.finds[i].name.clone(), |s| s.name.clone());
+                // Just the name: the hint at the top says how to catch it, and
+                // a short label stays clear of the Tonight list.
                 let lx = cx + r.max(self.apparent_radius(i, cam.fov).min(r * 1.6)) + 14.0;
                 out.push(Text::new(
                     lx,
                     cy - 9.0,
-                    words,
+                    name,
                     14.0,
                     (0.35 + 0.5 * near) * brightness,
                 ));
