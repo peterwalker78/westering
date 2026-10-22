@@ -70,8 +70,11 @@ impl Game {
                             all.push(note.fact.clone());
                             all.extend(note.more.iter().cloned());
                         }
-                        ("Constellation".to_owned(), figure.name.clone(), all, None)
-                            .with_place(here)
+                        let pic = self
+                            .photos
+                            .of_constellation(&figure.abbrev)
+                            .map(|c| c.id.clone());
+                        ("Constellation".to_owned(), figure.name.clone(), all, pic).with_place(here)
                     }
                     _ => return None,
                 }
@@ -172,12 +175,23 @@ impl Game {
         if let Some(star) = self.sky.stars.get(hr) {
             all.push(format!("Magnitude {:.1}.", star.mag));
         }
-        // Its own photograph, however that's shown; without one, the card
-        // draws its constellation.
-        let pic = self
+        // Its own photograph, however that's shown, before its
+        // constellation's.
+        let own = self
             .photos
             .credit(&named.name.to_lowercase())
             .map(|c| c.id.clone());
+        let (pic, wide) = match (own, self.star_picture(hr)) {
+            (Some(id), _) => (Some(id), None),
+            (None, Some((id, wide))) => (Some(id), wide),
+            (None, None) => (None, None),
+        };
+        // Room is kept for the line saying whose photograph it is.
+        if let Some(wide) = wide {
+            all.dedup();
+            all.truncate(MOST_PARAGRAPHS - 1);
+            all.push(wide);
+        }
         Some(("Star".to_owned(), named.name.clone(), all, pic))
     }
 

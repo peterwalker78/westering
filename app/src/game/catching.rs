@@ -110,6 +110,11 @@ impl Game {
                 }
             }
         }
+        if let Target::Star(hr) = self.finds[i].target
+            && let Some((_, Some(wide))) = self.star_picture(hr)
+        {
+            body = format!("{body}\n\n{wide}");
+        }
         // The view glides over to make room for the card.
         if at.is_some() && self.look.is_none() {
             self.look = Some(Look {
@@ -376,7 +381,6 @@ impl Game {
             picture: picture.clone(),
             footnote: c.footnote.clone(),
             middle: self.inspect.is_some() && !compact,
-            chart: self.card_chart(),
             // In a small window it takes the middle.
             x: if compact {
                 (self.camera.width - width) / 2.0

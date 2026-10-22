@@ -116,51 +116,6 @@ impl Game {
         out
     }
 
-    /// The figure a card is about, drawn as it sits now: a constellation,
-    /// or the one a star is in when there's no photograph of the star.
-    pub(crate) fn card_chart(&self) -> Option<crate::view::Chart> {
-        let card = self.card.as_ref()?;
-        let target = match (card.find, self.inspect.as_ref().map(|i| i.subject)) {
-            (Some(i), _) => self.finds[i].target.clone(),
-            (None, Some(Subject::Star(hr))) => Target::Star(hr),
-            _ => return None,
-        };
-        let (f, mark) = match target {
-            Target::Figure(f) => (f, None),
-            Target::Star(hr) if self.star_picture(hr).is_none() => (self.figure_of(hr)?, Some(hr)),
-            _ => return None,
-        };
-        let plane = self.figure_plane(f);
-        let mag = |hr: u16| self.sky.stars.get(hr).map_or(6.0, |s| s.mag as f64);
-        // The brightest few with names are named, and the marked one.
-        let mut named: Vec<u16> = plane
-            .iter()
-            .map(|p| p.0)
-            .filter(|&hr| self.sky.lists.star_name(hr).is_some())
-            .collect();
-        named.sort_by(|a, b| mag(*a).total_cmp(&mag(*b)));
-        named.truncate(4);
-        let stars = plane
-            .iter()
-            .map(|&(hr, x, y)| crate::view::ChartStar {
-                x,
-                y,
-                mag: mag(hr),
-                name: (named.contains(&hr) || mark == Some(hr))
-                    .then(|| self.sky.lists.star_name(hr).map(|s| s.name.clone()))
-                    .flatten(),
-                marked: mark == Some(hr),
-            })
-            .collect();
-        let place = |hr: u16| plane.iter().position(|p| p.0 == hr);
-        let lines = self.sky.figures[f]
-            .edges
-            .iter()
-            .filter_map(|&(a, b)| Some((place(a)?, place(b)?)))
-            .collect();
-        Some(crate::view::Chart { stars, lines })
-    }
-
     /// A figure's stars as they sit on the screen with the view centred on
     /// it, in units of the projection's scale: x right, y down. The centre
     /// is at the origin.

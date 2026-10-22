@@ -268,13 +268,14 @@ Zooming in on a planet, the Moon, a cluster, a nebula or a galaxy lets a real
 photograph take over from the dots, at its true size on the sky and turned as
 it sits there tonight, with the view following it as the sky turns; the Moon
 and Mercury wear tonight's real phase. Every object in the deep-sky list has
-one. A few named stars have a close-up in their card (Betelgeuse's surface,
-Sirius and its companion, Fomalhaut's dust rings). A constellation's card
-draws it instead, turned the way it sits in the sky just then, and so does
-the card of any other named star, with the star marked. There are over 180
+one. Every constellation has a photograph in its card instead, and so does
+every named star: a close-up of its own for a few (Betelgeuse's surface,
+Sirius and its companion, Fomalhaut's dust rings), and for the rest the
+photograph of its constellation, which the card says. There are over 270
 pictures, from NASA (public domain), ESA/Hubble, ESA/Webb, ESO and
 NOIRLab/NSF/AURA (CC BY 4.0), and Wikimedia Commons (CC0, public domain,
-CC BY and CC BY-SA).
+CC BY and CC BY-SA), among them Till Credner's wide-field constellation
+photographs (CC BY-SA 3.0 and 4.0), which carry thin drawn lines.
 Each one's credit shows while it's in view, and every title, credit, licence and source
 page is in [`app/data/images/credits.toml`](app/data/images/credits.toml) and
 in Settings. The pictures are cropped and resized; the CC BY-SA ones stay
