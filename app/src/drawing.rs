@@ -389,15 +389,12 @@ impl Game {
                 .find(|f| f.edges.iter().any(|&(a, b)| a == anchor || b == anchor))
                 .map(|f| f.edges.clone());
         }
-        match self.track.map(|i| (i, &self.finds[i].target)) {
-            Some((i, Target::Figure(f))) if self.caught[i] => {
-                Some(self.sky.figures[*f].edges.clone())
-            }
-            _ => None,
-        }
+        self.subject_figure()
+            .map(|f| self.sky.figures[f].edges.clone())
     }
 
-    /// The pattern's lines, breathing slowly in and out and never bright.
+    /// The pattern's lines, breathing slowly in and out, clear enough to
+    /// follow.
     pub(crate) fn pattern_lines(&mut self, real: UnixMs, hz: &Mat3, dt: f64) -> Vec<Line> {
         let want = self.wanted_pattern();
         if want != self.pattern && self.pattern_alpha < 0.03 {
@@ -416,7 +413,7 @@ impl Game {
         let t = real as f64 / 1000.0;
         let breath = 0.5 - 0.5 * (t * std::f64::consts::TAU / 6.5).cos();
         let alpha = (self.pattern_alpha
-            * (0.09 + 0.13 * breath)
+            * (0.22 + 0.1 * breath)
             * self.session.brightness(real).max(0.4)) as f32;
         if alpha < 0.004 {
             return Vec::new();

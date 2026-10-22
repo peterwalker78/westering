@@ -164,6 +164,20 @@ impl Game {
         let reach = (2.0 * (half_diag / 2.0).atan()).min(std::f64::consts::PI);
         let cos_reach = reach.cos() - 0.02;
         let ahead = apply(&transpose(hz), from_alt_az(cam.alt, cam.az));
+        // While a figure's lines are up its stars stand out, and the rest
+        // of the sky steps back.
+        let lift = self
+            .pattern
+            .as_ref()
+            .map_or(0.0, |_| self.pattern_alpha as f32);
+        let mut members: Vec<usize> = self
+            .pattern
+            .iter()
+            .flatten()
+            .flat_map(|&(a, b)| [a, b])
+            .filter_map(|hr| self.sky.stars.index_of(hr))
+            .collect();
+        members.sort_unstable();
         for (k, star) in self.prepared.iter().enumerate() {
             if star.mag > shown {
                 break;
@@ -211,7 +225,14 @@ impl Game {
                 + depth
                     * ((t * rate + star.phase).sin() * 0.6
                         + (t * rate * 1.7 + star.phase * 0.37).sin() * 0.4);
-            let amount = star_light * fade * (low * twinkle) as f32;
+            let mut amount = star_light * fade * (low * twinkle) as f32;
+            if lift > 0.0 {
+                amount *= if members.binary_search(&k).is_ok() {
+                    1.0 + 0.6 * lift
+                } else {
+                    1.0 - 0.55 * lift
+                };
+            }
             if mag < BRIGHT {
                 self.points.push(point(x, y, star.tint, amount, 1.0));
             } else {
@@ -496,6 +517,7 @@ impl Game {
             self.labels(real, now, hz, prec, brightness)
         };
         texts.extend(self.mark_labels(hz, brightness));
+        texts.extend(self.pattern_names(now, hz, brightness));
         texts.extend(self.plan_mark_frame(now, real));
         for &(x, y, name, a) in &self.moon_labels {
             texts.push(Text::new(

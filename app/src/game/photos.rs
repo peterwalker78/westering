@@ -16,40 +16,22 @@ impl Game {
         self.photos.credit(&id).filter(|c| !c.card_only).map(|_| id)
     }
 
-    /// A photograph for find `i`'s card: a constellation's wide field, a
-    /// star's close-up, or anything else pictured that can't be laid over
-    /// the sky at its true size.
+    /// A photograph for find `i`'s card: a star's close-up, or anything
+    /// else pictured that can't be laid over the sky at its true size.
     pub(super) fn card_picture(&self, i: usize) -> Option<String> {
         let credit = match self.finds[i].target {
-            Target::Figure(f) => self.photos.of_constellation(&self.sky.figures[f].abbrev),
-            Target::Star(hr) => return self.star_picture(hr).map(|(id, _)| id),
+            Target::Star(hr) => return self.star_picture(hr),
             Target::Showpiece(p) => self.photos.credit(&self.sky.lists.showpieces[p].id),
             _ => None,
         }?;
         credit.card_only.then(|| credit.id.clone())
     }
 
-    /// The photograph for a named star's card: its own close-up if it has
-    /// one, and otherwise its constellation's wide field, with a line to
-    /// say that's what the picture is.
-    pub(super) fn star_picture(&self, hr: u16) -> Option<(String, Option<String>)> {
+    /// A named star's own close-up, if there is one.
+    pub(super) fn star_picture(&self, hr: u16) -> Option<String> {
         let named = self.sky.lists.star_name(hr)?;
-        if let Some(own) = self.photos.credit(&named.name.to_lowercase()) {
-            return own.card_only.then(|| (own.id.clone(), None));
-        }
-        let wide = self.photos.of_constellation(&named.constellation)?;
-        let figure = self
-            .sky
-            .figures
-            .iter()
-            .find(|f| f.abbrev == named.constellation)?;
-        Some((
-            wide.id.clone(),
-            Some(format!(
-                "The photograph is of {}, where {} is; the lines and the name are drawn on.",
-                figure.name, named.name
-            )),
-        ))
+        let own = self.photos.credit(&named.name.to_lowercase())?;
+        own.card_only.then(|| own.id.clone())
     }
 
     /// How wide a showpiece's photograph is on the sky, in degrees.
