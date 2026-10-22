@@ -102,6 +102,7 @@ SWAP = {
     7431: 7440,  # 51 Sgr (V 5.6) for 52 Sgr
     8449: 8454,  # pi-1 Peg (V 5.6) for pi-2
     6262: 6271,  # zeta-1 Sco (V 4.7) for zeta-2
+    221: 224,  # HR 221 (V 5.9) for delta Psc
 }
 
 
