@@ -102,7 +102,9 @@ impl Game {
             // A hop keeps the view wide enough to see the next step.
             Target::Hop(_) => self.catch.fov_before.unwrap_or(self.camera.fov),
             Target::MoonWalk => self.moon_walk_fov(),
-            ref target => self.zoom_for_target(target),
+            ref target => self
+                .framing(i)
+                .map_or_else(|| self.zoom_for_target(target), |f| f.fov),
         }
     }
 
@@ -173,25 +175,14 @@ impl Game {
         degrees * ppd
     }
 
-    /// Where the words about something go: clear of it, to its right.
+    /// Where the words about something go: clear of it, to its right,
+    /// unless the Tonight list is there.
     pub(crate) fn beside_centre(&self) -> f64 {
-        self.beside(None, self.camera.fov)
-    }
-
-    pub(super) fn beside(&self, i: Option<usize>, fov: f64) -> f64 {
         const CARD: f64 = 400.0;
-        let r = self.reticle_radius();
-        let object = i.map(|i| self.apparent_radius(i, fov)).unwrap_or(0.0);
-        // The Tonight list takes the right-hand edge during the hunt, except
-        // while a photograph is up.
-        let photo = i.is_some_and(|i| {
-            self.photo_id(i).is_some() || self.finds[i].target == Target::MoonWalk
-        });
-        let list = if photo { 0.0 } else { 300.0 };
-        let clear = r.max(object) + 34.0;
+        let clear = self.reticle_radius() + 34.0;
         let (w, cx) = (self.camera.width, self.camera.width / 2.0);
         let right = cx + clear;
-        if right + CARD <= w - list {
+        if right + CARD <= w - 300.0 {
             right
         } else {
             (cx - clear - CARD).max(24.0)
@@ -362,7 +353,10 @@ impl Game {
         if self.by_day() {
             return self.day_list_shows();
         }
+        // A card at night needs the room too: the find takes the space
+        // beside it.
         matches!(self.session.phase(), Phase::Hunt)
+            && self.card.is_none()
             && !self.keeping()
             && !self.finds.is_empty()
             && self.eye_alpha < 0.3

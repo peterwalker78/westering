@@ -480,6 +480,12 @@ bayer = "epsilon Pegasi"
 constellation = "Peg"
 
 [[star]]
+hr = 596
+name = "Alrescha"
+bayer = "alpha Piscium"
+constellation = "Psc"
+
+[[star]]
 hr = 6556
 name = "Rasalhague"
 bayer = "alpha Ophiuchi"

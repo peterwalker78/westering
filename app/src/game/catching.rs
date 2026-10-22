@@ -95,7 +95,7 @@ impl Game {
     /// photograph if it has one for the card.
     pub(super) fn show_find_card(&mut self, i: usize, real: UnixMs) {
         let find = self.finds[i].clone();
-        let x = self.beside(Some(i), self.zoom_for(i));
+        let (x, at) = self.card_place(i);
         let kicker = self.kind_word(i).to_owned();
         let mut body = find.fact;
         if matches!(self.finds[i].target, Target::Hop(_))
@@ -114,6 +114,15 @@ impl Game {
             && let Some((_, Some(wide))) = self.star_picture(hr)
         {
             body = format!("{body}\n\n{wide}");
+        }
+        // The view glides over to make room for the card.
+        if at.is_some() && self.look.is_none() {
+            self.look = Some(Look {
+                az: self.camera.az,
+                alt: self.camera.alt,
+                fov: self.camera.fov,
+                rate: 1.6,
+            });
         }
         self.card = Some(Card {
             footnote: None,
@@ -145,6 +154,7 @@ impl Game {
         if self.tour.is_some() && self.turn_page(real) {
             return;
         }
+        let framed = self.framed_at().is_some();
         self.card = None;
         self.guide_card_gone(real);
         if self.by_day() {
@@ -159,6 +169,14 @@ impl Game {
                 az: self.camera.az,
                 alt: self.camera.alt,
                 fov,
+                rate: 1.4,
+            });
+        } else if framed && self.look.is_none() {
+            // Back to the middle, gliding.
+            self.look = Some(Look {
+                az: self.camera.az,
+                alt: self.camera.alt,
+                fov: self.camera.fov,
                 rate: 1.4,
             });
         }

@@ -5,6 +5,7 @@
 mod catching;
 mod detail;
 mod finds;
+mod framing;
 mod input;
 mod photos;
 mod sky;

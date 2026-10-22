@@ -375,6 +375,7 @@ impl Game {
             || self.pan.1.abs() > 1e-3
             || self.drag_from.is_some();
         let Some(ins) = &mut self.inspect else {
+            self.hold_beside_card();
             return;
         };
         if by_hand {
