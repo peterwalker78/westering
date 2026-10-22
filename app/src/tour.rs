@@ -168,7 +168,7 @@ impl Game {
         self.guide.last_progress = real;
         let line = self.sky.tours.hops[h].steps[self.steps[i]].say.clone();
         let step = format!("{} of {}. {line}", self.steps[i] + 1, len);
-        self.say_at(Aim::Ring, step, real, 14_000);
+        self.guide_turned(Some((Aim::Ring, step)), real);
         true
     }
 

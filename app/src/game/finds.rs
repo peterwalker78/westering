@@ -303,18 +303,17 @@ impl Game {
             rate: 1.6,
         });
         self.track = Some(i);
-        if !self.caught[i] {
+        let line = (!self.caught[i]).then(|| {
             let hint = match self.hop_stop(i) {
                 Some(stop) => stop.say.clone(),
                 None => self.look_for(i).to_owned(),
             };
-            let line = format!("{}. {hint}", self.finds[i].name);
-            // Free look keeps the wisp out of it: a quiet word instead.
-            if self.free_look() {
-                self.status_for(line, real, 5_000);
-            } else {
-                self.say_at(crate::guide::Aim::Find(i), line, real, 7_000);
-            }
+            format!("{}. {hint}", self.finds[i].name)
+        });
+        // Free look keeps the wisp out of it: a quiet word instead.
+        match line {
+            Some(line) if self.free_look() => self.status_for(line, real, 5_000),
+            line => self.guide_turned(line.map(|l| (crate::guide::Aim::Find(i), l)), real),
         }
     }
 

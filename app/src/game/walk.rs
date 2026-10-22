@@ -457,3 +457,44 @@ fn keeping_company_a_change_of_music_is_said_at_the_top() {
     assert_eq!(after, before);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Left to itself after each card, the evening turns to the next find
+/// without waiting on the wisp, and the wisp only talks about a find while
+/// it's still there to find.
+#[test]
+fn the_wisp_never_holds_the_evening_up() {
+    let dir = scratch("pace");
+    let mut w = Walker::new(&dir, october(22, 20.3), 100);
+    w.wait(1_000);
+    let (mut caught, mut since) = (0, w.real);
+    while caught < 6 {
+        assert!(w.real - since < 45_000, "held up: {}", w.seen());
+        let g = &w.game;
+        if let Some((line, until)) = g.guide.said().0
+            && w.real < until
+            && let Some(i) =
+                (0..g.finds.len()).find(|&i| line.starts_with(&format!("{}. ", g.finds[i].name)))
+        {
+            assert!(!g.caught[i], "still on about {line:?}");
+            assert_eq!(g.track, Some(i), "{line:?} while turned elsewhere");
+        }
+        if g.card.is_some() {
+            w.wait(4_000);
+            w.tap(gdk::Key::space);
+        } else if g.talk.prompt.is_some() || g.placing() {
+            w.act();
+        } else if !g.hunting() {
+            w.wait(4_000);
+            w.tap(gdk::Key::space);
+        } else if g.catch.target.is_some() && !g.ring_resting && !g.more_now() {
+            w.act();
+            if w.game.card.is_some() {
+                caught += 1;
+                since = w.real;
+            }
+        } else {
+            w.wait(FRAME);
+        }
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

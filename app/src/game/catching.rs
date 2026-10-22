@@ -210,10 +210,14 @@ impl Game {
                 }
                 let (x, y) = self.camera.project(v)?;
                 let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
-                (d < r).then_some((i, d))
+                // What the view turned to wins over anything that shares
+                // its spot, such as a star that's also a hop's stop.
+                (d < r).then_some((i, if self.track == Some(i) { 0.0 } else { d }))
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
-            .map(|(i, _)| i);
+            .map(|(i, _)| i)
+            // Nothing's in the ring while the view is still on its way.
+            .filter(|_| self.look.is_none() || self.catch.holding);
         if self.catch.progress <= 0.0 {
             self.catch.target = near;
         }

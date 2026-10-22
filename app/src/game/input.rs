@@ -345,7 +345,7 @@ impl Game {
             return;
         }
         // Something's being asked, or about to be, or said: after that.
-        if self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_busy(real) {
+        if self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_reading(real) {
             self.move_on = Some(at.max(real + MOVE_ON_MS));
             return;
         }
