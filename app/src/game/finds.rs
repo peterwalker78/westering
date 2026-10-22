@@ -198,24 +198,43 @@ impl Game {
         }
     }
 
+    /// Puts tonight's list in the order to see things in: one way round
+    /// the sky from where the view opens.
+    pub(super) fn lay_out(&mut self, now: UnixMs) {
+        let hz = horizon(self.observer, now);
+        let prec = precession(now);
+        let dirs: Vec<_> = (0..self.finds.len())
+            .map(|i| {
+                self.find_dir(i, now, &hz, &prec)
+                    .filter(|v| alt_az(*v).0 > 0.0)
+            })
+            .collect();
+        let here = from_alt_az(self.camera.alt, self.camera.az);
+        let order = westering_core::route::route(here, &dirs);
+        self.finds = order.iter().map(|&i| self.finds[i].clone()).collect();
+        self.caught = order.iter().map(|&i| self.caught[i]).collect();
+        self.viewed = order.iter().map(|&i| self.viewed[i]).collect();
+        self.steps = order.iter().map(|&i| self.steps[i]).collect();
+    }
+
+    /// The next thing down the list that's still to find and is up, other
+    /// than the one already under the reticle.
     pub(super) fn turn_to_next(&mut self, real: UnixMs) {
         let now = self.sky_now(real);
         let hz = horizon(self.observer, now);
         let prec = precession(now);
         let here = from_alt_az(self.camera.alt, self.camera.az);
-        let next = (0..self.finds.len())
+        let up: Vec<(usize, f64)> = (0..self.finds.len())
             .filter(|&i| !self.caught[i])
             .filter_map(|i| self.find_dir(i, now, &hz, &prec).map(|v| (i, v)))
             .filter(|(_, v)| alt_az(*v).0 > 0.0)
-            .min_by(|a, b| {
-                // Skip the one already under the reticle.
-                let da = angle_between(here, a.1);
-                let db = angle_between(here, b.1);
-                let da = if da < 1.0 { 999.0 } else { da };
-                let db = if db < 1.0 { 999.0 } else { db };
-                da.total_cmp(&db)
-            })
-            .map(|(i, _)| i);
+            .map(|(i, v)| (i, angle_between(here, v)))
+            .collect();
+        let next = up
+            .iter()
+            .find(|(_, apart)| *apart >= 1.0)
+            .or(up.first())
+            .map(|(i, _)| *i);
         match next {
             Some(i) => self.turn_to(i, real),
             None => {

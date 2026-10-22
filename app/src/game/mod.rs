@@ -748,6 +748,7 @@ impl Game {
         self.camera.az = az;
         self.camera.alt = alt;
         self.camera.update();
+        self.lay_out(now);
 
         let (_, month, day) = civil_date(now, self.offset_s);
         let mut line = format!(

@@ -653,7 +653,7 @@ impl Game {
             "One thing to find tonight, listed here with where to look.".to_owned()
         } else {
             format!(
-                "{} things to find tonight, listed here with where to look. Click one and I'll turn you to it.",
+                "{} things to find tonight, listed here in order round the sky. Click one and I'll turn you to it.",
                 number(n)
             )
         };
