@@ -153,14 +153,11 @@ shower_later = "The {name} seem to come from above this mark, after about {time}
 [evening]
 offer = "Ready to stop? Press W, or Wind down at the top left, for a few slow breaths and then lights out"
 
-# Free look, where the wisp keeps quiet: once, after a good while looking
-# around, it suggests a moment of the guided evening.
+# Free look, where the wisp keeps quiet. When the list is done it hands
+# the sky over with one line; F before the first find gets one at the foot.
 [free]
-suggest = "You've been looking around a good while. Whenever you like, F brings me back for a question or a story, or W starts winding down."
-handover = "You've a feel for it now. From here the sky's yours: F lets you wander with the mouse and look closer at anything that glows, and I'll keep quiet unless you want me."
-open = "The sky's yours now: F to wander freely with the mouse"
-wait_first = "Let's look together first. Once we've been round tonight's list, the whole sky's yours."
-wait = "Let's find the first one together, then the sky's yours to wander."
+handover = "That's tonight's list. Now the sky's yours: anything that glows has more to tell."
+wait = "Find one thing first, then F lets you look around on your own"
 
 # By day, looking down at the ground instead of up at the stars.
 [day]

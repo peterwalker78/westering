@@ -7,6 +7,10 @@ use super::*;
 /// itself: long enough to see what was caught back in its sky.
 const MOVE_ON_AFTER_CARD_MS: UnixMs = 2_000;
 
+/// How long Space or a press on the ring is held to catch, in seconds:
+/// the same all evening, however slow the pace has grown.
+const CATCH_S: f64 = 1.0;
+
 impl Game {
     pub(crate) fn reticle_radius(&self) -> f64 {
         (self.camera.width.min(self.camera.height) * 0.055).max(26.0)
@@ -75,17 +79,6 @@ impl Game {
         if let Target::Figure(f) = self.finds[i].target {
             self.reveal = Some((f, real));
         }
-        // Free look: a close look, with all there is to tell; questions
-        // wait for the guided way.
-        if self.free_look() {
-            // Whatever it brings to mind waits for a pause.
-            self.after_catch(i, real);
-            let x = self.pointer.map_or(self.camera.width / 2.0, |p| p.0);
-            if !self.inspect(Subject::Find(i), x, real) {
-                self.show_find_card(i, real);
-            }
-            return;
-        }
         self.show_find_card(i, real);
         self.after_catch(i, real);
         self.guide_caught(real);
@@ -137,16 +130,15 @@ impl Game {
     }
 
     pub(crate) fn dismiss_card(&mut self, real: UnixMs) {
-        let read = self
-            .card
-            .as_ref()
-            .is_some_and(|c| real - c.shown >= 2 * VIEWED_MS);
-        // Up long enough to read counts as seen; put away sooner, Tab can
-        // bring it back.
-        if let Some((i, shown)) = self.card.as_ref().and_then(|c| Some((c.find?, c.shown))) {
+        // Up long enough to read counts as seen on the tour; put away
+        // sooner, Tab can bring it back.
+        let of_a_find = self.tour.is_some() || self.card.as_ref().is_some_and(|c| c.find.is_some());
+        if let Some((i, shown)) = self.card.as_ref().and_then(|c| Some((c.find?, c.shown)))
+            && !self.free_look()
+        {
             if real - shown >= VIEWED_MS {
                 self.viewed[i] = true;
-            } else if !self.told_tab && !self.free_look() {
+            } else if !self.told_tab {
                 self.told_tab = true;
                 self.status("Tab brings back anything you skipped".into(), real);
             }
@@ -183,26 +175,22 @@ impl Game {
         self.catch.progress = 0.0;
         self.catch.target = None;
         if self.free_look() {
-            // Back out to where the view was, and the wisp home. After a
-            // card that was read, a waiting question may be offered, once
-            // an evening, when the view has settled.
+            // Back out to where the view was, and the wisp home.
             self.end_inspect(real);
-            if read && !self.free_asked && self.talk.pending.is_some() {
-                self.free_moment = Some(real + 1_800);
-            }
             return;
         }
-        if self.session.all_found() && self.hunting() {
+        if of_a_find && self.session.all_found() && self.hunting() {
+            // The list is done: the wisp hands the sky over.
             self.guide_all_found(real);
+            return;
         }
-        // The guided evening carries on by itself from here.
+        // The tour goes on by itself from here.
         self.move_on = Some(real + MOVE_ON_AFTER_CARD_MS);
     }
 
     pub(super) fn update_catch(
         &mut self,
         dt: f64,
-        tempo: f64,
         real: UnixMs,
         now: UnixMs,
         hz: &Mat3,
@@ -211,27 +199,10 @@ impl Game {
         if !self.hunting() || self.card.is_some() {
             return;
         }
-        // The ring is the guided way's, and rests after a story or a walk
-        // until the view moves on.
+        // The ring is the tour's, and rests after a story or a walk until
+        // the view moves on.
         if self.free_look() || self.ring_resting {
             self.catch = Catch::default();
-            // Space held in free look: a closer look at what's in the
-            // middle, as a click there would, so holding it means the same
-            // both ways.
-            if self.free_look()
-                && self.held.space
-                && !self.space_caught
-                && self.space_since.is_some_and(|s| real - s >= TAP_MS)
-            {
-                self.space_caught = true;
-                let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
-                if !self.click_hovered(cx, cy, real) {
-                    self.status(
-                        "Hold Space with something in the middle for a closer look".into(),
-                        real,
-                    );
-                }
-            }
             return;
         }
         let r = self.reticle_radius();
@@ -264,12 +235,7 @@ impl Game {
             if self.catch.fov_before.is_none() {
                 self.catch.fov_before = Some(self.camera.fov);
             }
-            let hold = if matches!(self.finds[i].target, Target::Hop(_)) {
-                0.8
-            } else {
-                1.4
-            };
-            self.catch.progress += dt / (hold / tempo.max(0.3));
+            self.catch.progress += dt / CATCH_S;
             if let Some(v) = self.find_dir(i, now, hz, prec) {
                 let (alt, az) = alt_az(v);
                 let p = smoothstep(self.catch.progress);
@@ -398,13 +364,12 @@ impl Game {
             title: c.title.clone(),
             body: c.body.clone(),
             keys: match &self.tour {
-                Some(t) if t.on_last_page() => vec![("Space".into(), "carry on".into())],
-                Some(_) => vec![
+                Some(t) if !t.on_last_page() => vec![
                     ("Space".into(), "go on".into()),
                     ("Esc".into(), "stop here".into()),
                 ],
-                None if self.free_look() => vec![("Esc".into(), "zoom back out".into())],
-                None => vec![("Space".into(), "carry on".into())],
+                _ if self.free_look() => vec![("Esc".into(), "zoom back out".into())],
+                _ => vec![("Space".into(), "go on".into())],
             },
             alpha: envelope(real - c.shown, 350, 600_000, 800),
         });

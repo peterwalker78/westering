@@ -58,11 +58,12 @@ impl Tonight {
     }
 
     /// Fits the list to the window: in a small one it's narrower, shows
-    /// names only and scrolls within what's left of the height.
+    /// names only and scrolls within what's left of the height: above the
+    /// keys in the corner, when they show.
     pub fn fit(&self, height: f64, compact: bool) {
         self.panel
             .set_width_request(if compact { 180 } else { 270 });
-        let room = (height - if compact { 110.0 } else { 160.0 }).clamp(60.0, 560.0);
+        let room = (height - if compact { 110.0 } else { 340.0 }).clamp(60.0, 560.0);
         self.scroll.set_max_content_height(room as i32);
         self.hint.set_visible(!compact);
         self.root.set_margin_top(if compact { 8 } else { 14 });
@@ -80,23 +81,18 @@ impl Tonight {
 
     /// Refreshes the list from the game; cheap when nothing changed.
     pub fn sync(&self, game: &Rc<RefCell<Game>>) {
-        let (visible, rows, day, free) = {
+        let (visible, rows, day) = {
             let g = game.borrow();
-            (
-                g.show_tonight(),
-                g.tonight_rows(wall_clock()),
-                g.by_day(),
-                g.free_look(),
-            )
+            (g.show_tonight(), g.tonight_rows(wall_clock()), g.by_day())
         };
         show(&self.root, visible);
         // By day it's today's list, and a click opens a find rather than
-        // turning to it. In free look it's the mouse alone.
+        // turning to it.
         self.title.set_text(if day { "TODAY" } else { "TONIGHT" });
-        let hint = match (day, free) {
-            (true, _) => "Click one, or tap Space, to see the next",
-            (false, true) => "Click one to turn to it",
-            (false, false) => "Click one, or tap Space, to turn to the next",
+        let hint = if day {
+            "Click one, or tap Space, to see the next"
+        } else {
+            "Click one, or tap Space, to turn to the next"
         };
         if self.hint.text() != hint {
             self.hint.set_text(hint);

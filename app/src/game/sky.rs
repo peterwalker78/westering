@@ -622,25 +622,24 @@ impl Game {
         (self.legend_mix > 0.01).then(|| crate::view::Legend {
             rows: if self.free_look() {
                 vec![
-                    (vec!["Drag".into()], "look around".into()),
-                    (vec!["Scroll".into()], "zoom in and out".into()),
+                    (vec!["← ↑ ↓ →".into()], "look around, or drag".into()),
+                    (vec!["+".into(), "−".into()], "zoom, or scroll".into()),
                     (
-                        vec!["Click".into()],
-                        "a closer look at anything that glows".into(),
+                        vec!["Space".into()],
+                        "a closer look at what's in the middle".into(),
                     ),
-                    (vec!["F".into()], "the guided way, with the wisp".into()),
+                    (vec!["F".into()], "back to tonight's list".into()),
                     (vec!["?".into()], "all the keys".into()),
                 ]
             } else {
                 let mut rows = vec![
                     (vec!["+".into(), "−".into()], "zoom in and out".into()),
                     (vec!["← ↑ ↓ →".into()], "aim the ring".into()),
-                    (vec!["Space".into()], "carry on; hold to catch".into()),
+                    (vec!["Space".into()], "next; hold to catch".into()),
                     (vec!["Tab".into()], "back to what you skipped".into()),
                 ];
-                // Free look only once the wisp has handed the sky over.
-                if self.handed_over {
-                    rows.push((vec!["F".into()], "free look, with the mouse".into()));
+                if self.free_look_open() {
+                    rows.push((vec!["F".into()], "look around on your own".into()));
                 }
                 rows.push((vec!["?".into()], "all the keys".into()));
                 rows
@@ -672,29 +671,31 @@ impl Game {
             ]
         } else if self.free_look() {
             vec![
-                row(&["Drag"], "Look around"),
-                row(&["Scroll"], "Zoom in and out"),
+                row(&["← ↑ ↓ →"], "Look around (or drag)"),
+                row(&["+", "−"], "Zoom in and out (or scroll)"),
+                row(&["Space"], "A closer look at what's in the middle"),
                 row(&["Click"], "A closer look at anything that glows"),
-                row(&["Space", "Enter"], "Carry on to the next find"),
-                row(&["Hold Space"], "A closer look at what's in the middle"),
-                row(&["Esc"], "Back out a step, then the guided way"),
-                row(&["F"], "The guided way, with the wisp"),
+                row(&["Esc"], "Back out, then back to tonight's list"),
+                row(&["F"], "Back to tonight's list"),
             ]
         } else {
             vec![
                 row(&["← ↑ ↓ →"], "Look around (or drag)"),
                 row(&["+", "−"], "Zoom in and out (or scroll)"),
-                row(&["Space", "Enter"], "Carry on: the next word, card or find"),
+                row(
+                    &["Space", "Enter"],
+                    "The next word, card or thing on the list",
+                ),
                 row(&["Hold Space"], "Catch what's in the ring"),
                 row(&["Tab"], "Back to anything you skipped"),
                 row(&["Click"], "Something on the list, to turn to it"),
                 row(&["Esc"], "Put a card away"),
                 row(
                     &["F"],
-                    if self.handed_over {
-                        "Free look, with the mouse"
+                    if self.free_look_open() {
+                        "Look around on your own"
                     } else {
-                        "Free look, once we've looked together a while"
+                        "Look around on your own, after the first find"
                     },
                 ),
                 row(&["C"], "Draw a constellation of your own"),
@@ -725,16 +726,21 @@ impl Game {
 
     pub(super) fn draw_reticle(&mut self, real: UnixMs, tempo: f64) {
         let ringed = matches!(self.session.phase(), Phase::Hunt | Phase::Arrival) || self.placing();
-        if !ringed
-            || self.card.is_some()
-            || self.keeping()
-            || (self.free_look() && !self.placing())
-            || self.ring_resting
-        {
+        if !ringed || self.card.is_some() || self.keeping() {
+            return;
+        }
+        let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
+        if self.free_look() {
+            // No ring: a faint mark at the middle, where Space looks.
+            for (dx, dy) in [(-8.0, 0.0), (8.0, 0.0), (0.0, -8.0), (0.0, 8.0)] {
+                self.field.splat(cx + dx, cy + dy, RETICLE, 0.3);
+            }
+            return;
+        }
+        if self.ring_resting {
             return;
         }
         let r = self.reticle_radius();
-        let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
         let has = self.catch.target.is_some() || self.placing();
         let breathe = 0.5 + 0.5 * ((real as f64 / 1000.0) * 1.1 * tempo).sin();
         let points = 28;
@@ -786,8 +792,15 @@ impl Game {
                 ("SW", 225.0),
                 ("NW", 315.0),
             ] {
+                // Out of the way of a word at the foot of the screen.
+                let under_hint = |x: f64, y: f64| {
+                    self.status_up(real)
+                        && y - 26.0 > cam.height - 70.0
+                        && (x - cx).abs() < cam.width.min(520.0) / 2.0
+                };
                 if let Some((x, y)) = cam.project(from_alt_az(hills(az) + 0.8, az))
                     && cam.on_screen(x, y, -10.0)
+                    && !under_hint(x, y)
                 {
                     let (size, alpha) = if name.len() == 1 {
                         (17.0, 0.6)

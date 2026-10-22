@@ -1,7 +1,8 @@
 //! What's under the pointer. Moving the mouse over the sky names whatever
 //! it's near, in a small line beside the pointer; a click on it tells more,
-//! on a card. One of tonight's finds not yet caught keeps its secret: the
-//! click turns the view to it instead, so it can be caught.
+//! on a card. On the tour, one of tonight's finds not yet caught keeps its
+//! secret: the click turns the view to it instead, so it can be caught. In
+//! free look everything with more to tell glows, and a click looks closer.
 
 use crate::game::{Card, Game, Subject, envelope};
 use crate::view::{Glow, Text};
@@ -49,7 +50,9 @@ const NAMELESS: f32 = 4.5;
 /// delta and nu Ophiuchi in the Serpent's, which passes through Ophiuchus's
 /// hands.
 const BORROWED: [(u16, &str); 3] = [(2451, "Pup"), (6056, "Oph"), (6698, "Oph")];
-/// How far from the pointer things start to glow, in free look.
+/// In free look everything with more to tell glows this much, and more
+/// within this many pixels of the pointer.
+const GLOW_BASE: f64 = 0.3;
 const GLOW_REACH: f64 = 260.0;
 /// A hint fades once the pointer has been still this long.
 const STILL_MS: UnixMs = 4_000;
@@ -110,8 +113,13 @@ impl Game {
         let now = self.sky_now(real);
         let hz = westering_core::coords::horizon(self.observer, now);
         let prec = westering_core::coords::precession(now);
-        self.pick(x, y, now, &hz, &prec)
-            .is_some_and(|h| h.find.is_some() || h.more.is_some())
+        self.pick(x, y, now, &hz, &prec).is_some_and(|h| {
+            if self.free_look() {
+                self.has_closer_look(h.subject)
+            } else {
+                h.find.is_some() || h.more.is_some()
+            }
+        })
     }
 
     /// The nearest thing to a point on the screen, if anything's near.
@@ -123,14 +131,48 @@ impl Game {
         hz: &Mat3,
         prec: &Mat3,
     ) -> Option<Hovered> {
-        self.near(x, y, now, hz, prec, REACH)
+        self.near(x, y, now, hz, prec, REACH, true)
             .into_iter()
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .map(|(_, h)| h)
     }
 
+    /// Whether free look has a closer look to give at something.
+    fn has_closer_look(&self, subject: Subject) -> bool {
+        match subject {
+            Subject::Plain => false,
+            Subject::Find(i) => matches!(
+                self.finds[i].target,
+                Target::Body(_) | Target::Showpiece(_) | Target::Star(_) | Target::Figure(_)
+            ),
+            Subject::Body(_) | Subject::Piece(_) | Subject::Star(_) => true,
+        }
+    }
+
+    /// What's nearest the middle of the screen with a closer look to give,
+    /// if anything's near enough.
+    fn in_the_middle(&self, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<Hovered> {
+        let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
+        self.near(cx, cy, now, hz, prec, self.reticle_radius(), false)
+            .into_iter()
+            .filter(|(_, h)| self.has_closer_look(h.subject))
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, h)| h)
+    }
+
+    /// Free look: a closer look at what's in the middle. Says whether
+    /// there was anything there.
+    pub(crate) fn look_at_middle(&mut self, real: UnixMs) -> bool {
+        let now = self.sky_now(real);
+        let hz = westering_core::coords::horizon(self.observer, now);
+        let prec = westering_core::coords::precession(now);
+        self.in_the_middle(now, &hz, &prec)
+            .is_some_and(|h| self.inspect(h.subject, h.x, real))
+    }
+
     /// Everything within `reach` pixels of a point, beyond its own size,
-    /// with how far.
+    /// with how far; the stars with nothing more to tell only if `plain`.
+    #[allow(clippy::too_many_arguments)]
     fn near(
         &self,
         x: f64,
@@ -139,6 +181,7 @@ impl Game {
         hz: &Mat3,
         prec: &Mat3,
         reach: f64,
+        plain: bool,
     ) -> Vec<(f64, Hovered)> {
         let cam = self.camera;
         let ppd = cam.px_per_degree();
@@ -250,7 +293,7 @@ impl Game {
         // Any star bright enough to pick out: which figure it belongs to.
         let named: Vec<u16> = self.sky.lists.stars.iter().map(|s| s.hr).collect();
         for (k, star) in self.sky.stars.stars.iter().enumerate() {
-            if star.mag > NAMELESS {
+            if !plain || star.mag > NAMELESS {
                 break;
             }
             if named.contains(&star.hr) {
@@ -451,26 +494,33 @@ impl Game {
         all
     }
 
-    /// Looks round the pointer, on the frames the sky is drawn: what it's
-    /// on, and in free look everything near enough to glow and how much.
+    /// Looks round, on the frames the sky is drawn: what the pointer is on,
+    /// and in free look everything with more to tell, glowing softly, more
+    /// near the pointer and most in the middle, where Space looks.
     pub(crate) fn hover_scan(&mut self, now: UnixMs, hz: &Mat3, prec: &Mat3) {
         for g in &mut self.glowing {
             g.target = 0.0;
         }
-        let Some((px, py, _)) = self.pointer.filter(|_| self.hinting()) else {
-            self.hovered = None;
-            return;
-        };
-        let looking_at = self.inspect.as_ref().map(|i| i.subject);
+        let pointer = self
+            .pointer
+            .filter(|_| self.hinting())
+            .map(|(x, y, _)| (x, y));
         // Not while looking at something close up: nothing competes with it.
-        if self.free_look() && self.inspect.is_none() {
-            for (d, h) in self.near(px, py, now, hz, prec, GLOW_REACH) {
-                if (h.find.is_none() && h.more.is_none()) || Some(h.subject) == looking_at {
+        if self.free_look() && self.hinting() && self.inspect.is_none() {
+            let middle = self.in_the_middle(now, hz, prec).map(|h| h.subject);
+            let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
+            for (_, h) in self.near(cx, cy, now, hz, prec, f64::INFINITY, false) {
+                if !self.has_closer_look(h.subject) || !self.camera.on_screen(h.x, h.y, 40.0) {
                     continue;
                 }
-                // Faint at the edge of reach, coming alive the nearer it is.
-                let close = (1.0 - d.max(0.0) / GLOW_REACH).clamp(0.0, 1.0);
-                let target = 0.22 + 0.78 * close.powf(1.3);
+                let close = pointer.map_or(0.0, |(px, py)| {
+                    let d = ((h.x - px).powi(2) + (h.y - py).powi(2)).sqrt() - h.radius;
+                    (1.0 - d.max(0.0) / GLOW_REACH).clamp(0.0, 1.0).powf(1.3)
+                });
+                let mut target = GLOW_BASE + (1.0 - GLOW_BASE) * close;
+                if middle == Some(h.subject) {
+                    target = target.max(0.7);
+                }
                 let key = format!("{:?} {}", h.subject, h.name);
                 match self.glowing.iter_mut().find(|g| g.key == key) {
                     Some(g) => {
@@ -487,8 +537,9 @@ impl Game {
                 }
             }
         }
-        self.hovered = self
-            .pick(px, py, now, hz, prec)
+        let looking_at = self.inspect.as_ref().map(|i| i.subject);
+        self.hovered = pointer
+            .and_then(|(px, py)| self.pick(px, py, now, hz, prec))
             .filter(|h| Some(h.subject) != looking_at || h.subject == Subject::Plain);
     }
 
@@ -558,11 +609,11 @@ impl Game {
         let y = (py + 14.0).min(hgt - 60.0);
         out.push(Text::new(x, y, h.name.clone(), 14.0, 0.92 * a).bold());
         let action = match (h.find.is_some(), h.more.is_some()) {
-            (true, _) if free => {
-                format!("{} · one of tonight's finds · click to look closer", h.kind)
+            _ if free && self.has_closer_look(h.subject) => {
+                format!("{} · click to look closer", h.kind)
             }
-            (true, _) => format!("{} · one of tonight's finds · click to turn to it", h.kind),
-            (false, true) if free => format!("{} · click to look closer", h.kind),
+            _ if free => h.kind.clone(),
+            (true, _) => format!("{} · on tonight's list · click to turn to it", h.kind),
             (false, true) => format!("{} · click for more", h.kind),
             (false, false) => h.kind.clone(),
         };
@@ -582,19 +633,13 @@ impl Game {
         let Some(h) = self.pick(x, y, now, &hz, &prec) else {
             return false;
         };
-        // Free look: a find is caught with the click, once close enough in
-        // to see, and anything tells all there is about it, quietly.
+        // Free look: a closer look, telling all there is about it. Nothing
+        // here is caught or ticked off the list.
         if self.free_look() {
-            match h.find {
-                Some(i) if self.caught[i] => return self.inspect(Subject::Find(i), x, real),
-                Some(i) if self.catchable(i) => self.caught_one(i, real),
-                Some(i) => self.turn_to(i, real),
-                None => return self.inspect(h.subject, x, real),
-            }
-            return true;
+            return self.has_closer_look(h.subject) && self.inspect(h.subject, x, real);
         }
         if let Some(i) = h.find {
-            // The guided way turns to it, for the ring.
+            // The tour turns to it, for the ring.
             self.turn_to(i, real);
             return true;
         }

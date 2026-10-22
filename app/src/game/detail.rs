@@ -340,7 +340,6 @@ impl Game {
             .as_ref()
             .map_or((cam.az, cam.alt, cam.fov), |i| i.before);
         self.track = None;
-        self.free_moment = None;
         self.inspect = Some(Inspect {
             subject,
             before,

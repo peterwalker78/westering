@@ -175,16 +175,36 @@ journal, not therapy or a crisis service.
 
 ## Keys
 
+Every evening starts with tonight's list. Once you've found something, `F`
+(or Free look in Settings) switches to looking around on your own, and back.
+
+With tonight's list:
+
 | Key | |
 | --- | --- |
 | Arrows, or drag | Look around |
 | Scroll, `+` and `-` | Zoom |
-| Tap `Space` (or `Enter`, or click while a card is up) | Carry on, one step at a time |
+| Tap `Space` (or `Enter`, or click while a card is up) | The next step: the wisp's next word, the card away, the next thing on the list |
+| Hold `Space`, or press and hold on the ring | Catch what's in the ring |
 | `Tab` | Back to the first find you haven't seen yet |
-| Hold `Space`, or press and hold on the ring | Catch what's in the ring; in free look, a closer look at what's in the middle |
-| `F`, or Free look in the menu | Free look, once the wisp has walked the evening with you: drag to look around, click anything that glows, `Esc` to back out a step and then to the guided way |
 | Click one in the list | Turn towards it |
 | `C` | Draw a constellation: arrows step between stars, `Enter` joins, `C` finishes |
+
+In free look there's no list, no ring and the wisp keeps quiet. Anything with
+more to tell glows:
+
+| Key | |
+| --- | --- |
+| Arrows, or drag | Look around |
+| Scroll, `+` and `-` | Zoom |
+| `Space` | A closer look at what's in the middle |
+| Click anything that glows | A closer look at it |
+| `Esc` | Back out of the closer look, then back to tonight's list |
+
+Any time:
+
+| Key | |
+| --- | --- |
 | `L` | The logbook |
 | `?`, or click the wisp | The keys, and away again |
 | Point at anything | What it is; click it to hear more |

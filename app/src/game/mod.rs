@@ -102,6 +102,16 @@ pub(crate) struct Look {
     pub(crate) rate: f64,
 }
 
+/// The two ways of looking at the sky. Every evening starts on the tour.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Looking {
+    /// Tonight's list, the ring and the wisp, a step at a time.
+    Tour,
+    /// No list and no ring, and the wisp quiet: anything with more to
+    /// tell glows, and nothing moves or speaks by itself.
+    Free,
+}
+
 #[derive(Default)]
 pub(crate) struct Catch {
     pub(crate) target: Option<usize>,
@@ -212,7 +222,7 @@ pub struct Game {
     pub(crate) handoff: Option<Handoff>,
     pub(crate) finale_turned: bool,
     pub(crate) last_input: UnixMs,
-    /// When the guided evening next turns to something to find by itself:
+    /// When the tour next turns to something to find by itself:
     /// a beat after a card's put away, or a question's answered or let
     /// pass. Anything the user does in the meantime takes over instead.
     pub(crate) move_on: Option<UnixMs>,
@@ -226,25 +236,11 @@ pub struct Game {
     pub urgent: bool,
     /// After a story or a walk, the ring rests until the view moves on.
     pub(crate) ring_resting: bool,
-    /// Looking round freely tonight, with the mouse, rather than the
-    /// guided way. Every evening starts guided.
-    pub(crate) free: bool,
-    /// Whether the wisp has handed tonight's sky over, opening free look.
-    pub(crate) handed_over: bool,
-    /// Whether it's said tonight to look together first.
-    pub(crate) told_wait: bool,
-    /// When the next look at whether to hand the sky over is due.
-    pub(crate) next_handover_check: UnixMs,
-    /// In free look, when a waiting question may be offered: a moment
-    /// after backing out from a card that was read.
-    pub(crate) free_moment: Option<UnixMs>,
-    /// Whether free look has had its one question tonight.
-    pub(crate) free_asked: bool,
+    /// Tonight's list with the wisp, or looking round on your own.
+    pub(crate) looking: Looking,
     /// When a press on the ring began, held with the mouse to catch as
     /// Space does.
     pub(crate) mouse_hold: Option<UnixMs>,
-    /// When free look began, for the wisp's one suggestion.
-    pub(crate) free_since: UnixMs,
     /// Which of tonight's finds have been seen: caught with the card up
     /// long enough to read, or a story begun.
     pub(crate) viewed: Vec<bool>,
@@ -298,7 +294,7 @@ pub struct Game {
     /// Where the pointer is over the sky, and when it last moved.
     pub(crate) pointer: Option<(f64, f64, UnixMs)>,
     pub(crate) hovered: Option<crate::hover::Hovered>,
-    /// What's glowing near the pointer, in free look.
+    /// What's glowing in free look, and how much.
     pub(crate) glowing: Vec<crate::hover::GlowState>,
     /// How far the ring round what the pointer is on has come in.
     pub(crate) ring_level: f64,
@@ -386,10 +382,6 @@ pub(crate) fn compact(width: f64, height: f64) -> bool {
 
 /// A card up at least this long has been seen.
 const VIEWED_MS: UnixMs = 3_000;
-
-/// A press of Space on something in the ring, let go sooner than this, is
-/// a tap rather than the start of a catch.
-const TAP_MS: UnixMs = 350;
 
 /// How many finds a visit in the small hours offers.
 const LATE_FINDS: usize = 5;
@@ -655,13 +647,7 @@ impl Game {
             space_caught: false,
             urgent: false,
             ring_resting: false,
-            free_since: real_now,
-            free: false,
-            handed_over: false,
-            told_wait: false,
-            next_handover_check: 0,
-            free_moment: None,
-            free_asked: false,
+            looking: Looking::Tour,
             mouse_hold: None,
             viewed,
             told_tab: false,
@@ -934,7 +920,7 @@ impl Game {
         let now = self.sky_now(real);
         let hz = horizon(self.observer, now);
         let prec = precession(now);
-        self.update_catch(dt, tempo, real, now, &hz, &prec);
+        self.update_catch(dt, real, now, &hz, &prec);
         self.spawn_meteors(real, now, &hz);
         self.draw(real, now, &hz, &prec, tempo, dt)
     }
@@ -1037,11 +1023,15 @@ impl Game {
                 0,
                 "Write down what's on your mind, or choose Nothing tonight",
             ),
-            Phase::Hunt if self.tour.is_some() => (1, "Space goes on, Esc stops here"),
-            Phase::Hunt if self.card.is_some() && self.free_look() => {
+            Phase::Hunt if self.free_look() && self.card.is_some() => {
                 (1, "Esc, or a click on the sky, zooms back out")
             }
-            Phase::Hunt if self.card.is_some() => (1, "Space to carry on"),
+            Phase::Hunt if self.free_look() => (
+                1,
+                "Click anything that glows, or bring it to the middle and press Space",
+            ),
+            Phase::Hunt if self.tour.is_some() => (1, "Space goes on, Esc stops here"),
+            Phase::Hunt if self.card.is_some() => (1, "Space to go on"),
             Phase::Hunt if self.talk.prompt.is_some() => {
                 (1, "Answer if you like, or Esc to let it pass")
             }
@@ -1051,10 +1041,6 @@ impl Game {
             Phase::Hunt if self.session.all_found() => (
                 1,
                 "That's tonight's sky. Look around, or wind down when you're ready",
-            ),
-            Phase::Hunt if self.free_look() => (
-                1,
-                "Drag to look around, and click anything that glows for a closer look. F for the guided way",
             ),
             Phase::Hunt
                 if self.track.is_some_and(|i| {
@@ -1070,7 +1056,7 @@ impl Game {
             }
             Phase::Hunt if self.caught.iter().any(|c| *c) => (
                 1,
-                "Tap Space for the next find, hold it to catch. Point at anything to see what it is",
+                "Tap Space for the next on the list, hold it to catch. Point at anything to see what it is",
             ),
             Phase::Hunt => (
                 1,

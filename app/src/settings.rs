@@ -299,12 +299,12 @@ impl Settings {
             "The wisp stays on its moss and the stars twinkle less.",
             &calm,
         )];
-        // Free look is there once the wisp has handed tonight's sky over.
-        let (handed_over, free_now) = {
+        // Free look is there once something's been found tonight.
+        let (open, free_now) = {
             let g = self.game.borrow();
-            (g.handed_over && !g.by_day(), g.free_look())
+            (g.free_look_open() && !g.by_day(), g.free_look())
         };
-        if handed_over {
+        if open {
             let free = gtk::Switch::new();
             free.set_active(free_now);
             let game = self.game.clone();
@@ -316,7 +316,7 @@ impl Settings {
             });
             motion.push(row(
                 "Free look, tonight",
-                "Look around with the mouse and click anything that glows for a closer look, while the wisp keeps quiet, instead of the guided way with the keyboard and the ring. F switches.",
+                "Look around on your own, without the list or the ring, while the wisp keeps quiet. Anything that glows has more to tell. F switches.",
                 &free,
             ));
         }

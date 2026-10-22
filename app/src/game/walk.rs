@@ -499,33 +499,102 @@ fn the_wisp_never_holds_the_evening_up() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Holding Space looks closer at what's in the middle in free look too,
-/// and Esc steps back out: the card, then free look.
-#[test]
-fn space_and_esc_mean_the_same_in_free_look() {
-    let dir = scratch("keys");
-    let mut w = Walker::new(&dir, october(22, 20.3), 100);
-    while !w.game.hunting() {
-        w.act();
-        w.wait(1_000);
+/// Through the first evening to its first catch, with the card up.
+fn to_first_catch(w: &mut Walker) {
+    let start = w.real;
+    while w.game.card.is_none() || w.game.tour.is_some() {
+        assert!(w.real - start < 300_000, "nothing was caught: {}", w.seen());
+        let g = &w.game;
+        if g.talk.prompt.is_some() || g.placing() || g.tour.is_some() {
+            w.act();
+        } else if !g.hunting() {
+            w.wait(4_000);
+            w.tap(gdk::Key::space);
+        } else if g.catch.target.is_some() && !g.ring_resting && !g.more_now() {
+            w.act();
+        } else {
+            w.wait(FRAME);
+        }
     }
-    w.game.handed_over = true;
-    w.game.toggle_look(w.real);
-    assert!(w.game.free_look());
-    w.game.turn_to(0, w.real);
+}
+
+/// Free look never turns the view, speaks or asks by itself, and nothing
+/// done in it ticks anything off tonight's list. Space looks closer at
+/// what's in the middle and Esc backs out, then back to the list.
+#[test]
+fn free_look_never_turns_or_speaks_by_itself() {
+    use westering_core::coords::{alt_az, horizon, precession};
+    let dir = scratch("free");
+    let mut w = Walker::new(&dir, october(22, 20.3), 100);
+    to_first_catch(&mut w);
+    w.tap(gdk::Key::f);
+    assert!(w.game.free_look() && !w.game.show_tonight(), "{}", w.seen());
+    let (caught, viewed) = (w.game.caught.clone(), w.game.viewed.clone());
+    let quiet = |w: &Walker| {
+        let g = &w.game;
+        assert!(g.guide.said().0.is_none(), "the wisp spoke: {}", w.seen());
+        assert!(
+            g.talk.prompt.is_none() && g.move_on.is_none(),
+            "{}",
+            w.seen()
+        );
+        assert!(g.track.is_none() && g.free_look(), "{}", w.seen());
+        assert_eq!((&g.caught, &g.viewed), (&caught, &viewed));
+    };
+    // A couple of minutes of Space, Enter and Tab, wherever the view is.
+    for n in 0..24 {
+        w.tap([gdk::Key::space, gdk::Key::Return, gdk::Key::Tab][n % 3]);
+        w.wait(5_000);
+        quiet(&w);
+    }
+    // Something in the middle: Space looks closer, Esc backs out.
+    let now = w.game.sky_now(w.real);
+    let (hz, prec) = (horizon(w.game.observer, now), precession(now));
+    let (alt, az) = (0..w.game.finds.len())
+        .filter(|&i| {
+            matches!(
+                w.game.finds[i].target,
+                Target::Body(_) | Target::Showpiece(_) | Target::Star(_)
+            )
+        })
+        .filter_map(|i| w.game.find_dir(i, now, &hz, &prec).map(alt_az))
+        .find(|(alt, _)| *alt > 10.0)
+        .expect("something up to look at");
+    w.game.look = None;
+    (w.game.camera.alt, w.game.camera.az) = (alt, az);
+    w.game.camera.update();
+    w.wait(200);
+    w.tap(gdk::Key::space);
+    assert!(w.game.inspect.is_some(), "{}", w.seen());
     w.wait(4_000);
-    w.game.key_pressed(gdk::Key::space, w.real);
-    w.wait(800);
-    w.game.key_released(gdk::Key::space, w.real);
-    w.wait(300);
-    assert!(
-        w.game.card.is_some() || w.game.inspect.is_some(),
-        "{}",
-        w.seen()
-    );
+    quiet(&w);
     w.tap(gdk::Key::Escape);
     assert!(w.game.card.is_none() && w.game.free_look(), "{}", w.seen());
     w.tap(gdk::Key::Escape);
     assert!(!w.game.free_look(), "{}", w.seen());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Switching between tonight's list and free look clears whatever the
+/// wisp still had to say and anything waiting to happen, both ways.
+#[test]
+fn switching_clears_the_wisp_queue() {
+    let dir = scratch("switch");
+    let mut w = Walker::new(&dir, october(22, 20.3), 100);
+    to_first_catch(&mut w);
+    for to_free in [true, false] {
+        for k in 0..3 {
+            w.game.say(format!("Line {k}"), w.real, 5_000);
+        }
+        w.game.move_on = Some(w.real + 1_000);
+        assert!(w.game.guide.said().1 > 0);
+        w.game.key_pressed(gdk::Key::f, w.real);
+        assert_eq!(w.game.free_look(), to_free);
+        assert_eq!(w.game.guide.said(), (None, 0), "{}", w.seen());
+        assert!(w.game.move_on.is_none() && w.game.talk.pending.is_none());
+        assert!(w.game.card.is_none() && w.game.catch.target.is_none());
+        w.game.key_released(gdk::Key::f, w.real);
+        w.wait(300);
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }

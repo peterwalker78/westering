@@ -585,15 +585,21 @@ impl PromptBar {
         self.entry.set_placeholder_text(Some(&p.placeholder));
         for (i, chip) in p.chips.iter().enumerate() {
             // The words, then its key drawn as a small key, so the number
-            // doesn't read as part of the words.
+            // doesn't read as part of the words. Beside a box to write in
+            // a number would be typed into it, so there's none.
             let inside = gtk::Box::new(gtk::Orientation::Horizontal, 8);
             inside.append(&gtk::Label::new(Some(chip)));
-            let key_name = p.chip_keys.get(i).cloned().unwrap_or((i + 1).to_string());
-            let key = gtk::Label::new(Some(&key_name));
-            key.add_css_class("chip-key");
-            key.set_valign(gtk::Align::Center);
-            key.set_tooltip_text(Some(&format!("Press {key_name} for this")));
-            inside.append(&key);
+            let key_name = match p.chip_keys.get(i) {
+                Some(k) => Some(k.clone()),
+                None => (!p.entry).then(|| (i + 1).to_string()),
+            };
+            if let Some(key_name) = key_name {
+                let key = gtk::Label::new(Some(&key_name));
+                key.add_css_class("chip-key");
+                key.set_valign(gtk::Align::Center);
+                key.set_tooltip_text(Some(&format!("Press {key_name} for this")));
+                inside.append(&key);
+            }
             let b = gtk::Button::new();
             b.set_child(Some(&inside));
             b.add_css_class("chip");

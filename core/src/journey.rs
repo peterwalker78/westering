@@ -64,16 +64,12 @@ pub struct DayLines {
     pub dusk: String,
 }
 
-/// What the wisp says in free look, where it mostly keeps quiet.
+/// Free look, where the wisp keeps quiet.
 #[derive(Deserialize)]
 pub struct FreeLines {
-    pub suggest: String,
-    /// The first time the sky is handed over, once the list's been walked.
+    /// The list is done: the wisp hands the sky over.
     pub handover: String,
-    /// On later nights, said at the bottom of the screen instead.
-    pub open: String,
-    /// F pressed before the sky's been handed over, the first night and after.
-    pub wait_first: String,
+    /// F before anything's been found tonight, at the foot of the screen.
     pub wait: String,
 }
 

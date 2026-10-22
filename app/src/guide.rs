@@ -105,8 +105,6 @@ pub struct Guide {
     moss: Option<(UnixMs, f64, gtk::gdk::Texture)>,
     /// The wisp's picture as last drawn: when it's next due, at what scale.
     wisp_drawn: Option<(UnixMs, f64, gtk::gdk::Texture)>,
-    /// Whether it's suggested the guided way, after a long free look.
-    suggested_guided: bool,
 }
 
 /// What the wisp is holding its tongue for.
@@ -114,18 +112,13 @@ pub struct Guide {
 struct Held {
     card_up: bool,
     asking: bool,
-    /// Looking round freely: only a word from the moss, and everything
-    /// else waits for the guided way.
-    quiet: bool,
 }
 
-/// Whether a line waits: while a card is up only its own line speaks,
-/// while a question is asked only lines about the question do, and in
-/// free look only what it says from its moss.
+/// Whether a line waits: while a card is up only its own line speaks, and
+/// while a question is asked only lines about the question do.
 fn waiting(held: Held, l: &Line) -> bool {
     (held.card_up && l.aim != Aim::Card && l.aim != Aim::Stay)
         || (held.asking && l.aim != Aim::Prompt && l.aim != Aim::Stay)
-        || (held.quiet && l.aim != Aim::Home)
 }
 
 /// Whether a line is about what's in front of you just now: a find, the
@@ -138,9 +131,6 @@ fn of_the_moment(aim: Aim) -> bool {
 /// How often, at the least, the wisp's picture is drawn afresh when it
 /// hasn't said: its breath runs smoothly between, as a scale.
 const WISP_REDRAW_MS: UnixMs = 66;
-/// How long in free look before the wisp suggests a moment of the guided
-/// evening, once.
-const FREE_SUGGEST_MS: UnixMs = 8 * 60_000;
 /// How long someone can look around without finding anything before the
 /// wisp offers to help.
 const STUCK_MS: UnixMs = 35_000;
@@ -199,7 +189,6 @@ impl Guide {
             lines: Lines::bundled(),
             moss: None,
             wisp_drawn: None,
-            suggested_guided: false,
         }
     }
 }
@@ -304,22 +293,14 @@ impl Game {
         }
     }
 
-    /// What the wisp is holding its tongue for: a card that's up, a
-    /// question being asked, or someone looking round on their own.
+    /// What the wisp is holding its tongue for: a card that's up, or a
+    /// question being asked.
     fn held_back(&self) -> Held {
         let asking =
             self.talk.prompt.is_some() && matches!(self.talk.flow, Some(Flow::Question { .. }));
-        // A question offered in free look is still asked in full.
-        let quiet = self.free_look()
-            && self.talk.prompt.is_none()
-            && self.hunting()
-            && self.tour.is_none()
-            && !self.keeping()
-            && !self.winding();
         Held {
             card_up: self.card.is_some(),
             asking,
-            quiet,
         }
     }
 
@@ -706,65 +687,8 @@ impl Game {
         self.hush();
     }
 
-    /// Whether the guided part of tonight is done enough to hand the sky
-    /// over: the first time, the whole list (but for meteors, which need
-    /// luck, and anything that's set); after that, the first find and
-    /// whatever it brought up.
-    fn ready_to_hand_over(&self, real: UnixMs) -> bool {
-        if self.card.is_some()
-            || self.talk.prompt.is_some()
-            || self.talk.pending.is_some()
-            || self.tour.is_some()
-            || self.drawing.is_some()
-            || self.wisp_busy(real)
-        {
-            return false;
-        }
-        if self.seen("handover") {
-            return self.caught.iter().any(|c| *c);
-        }
-        let now = self.sky_now(real);
-        let hz = westering_core::coords::horizon(self.observer, now);
-        let prec = westering_core::coords::precession(now);
-        (0..self.finds.len()).all(|i| {
-            self.caught[i]
-                || matches!(self.finds[i].target, Target::Meteor(_))
-                || self
-                    .find_dir(i, now, &hz, &prec)
-                    .is_none_or(|v| westering_core::coords::alt_az(v).0 < 0.0)
-        })
-    }
-
-    /// Free look opens: said in full the first time, and after that only
-    /// at the foot of the screen.
-    fn hand_over(&mut self, real: UnixMs) {
-        self.handed_over = true;
-        if self.seen("handover") {
-            let line = self.guide.lines.free.open.clone();
-            self.status_for(line, real, 7_000);
-        } else {
-            self.mark_seen("handover");
-            let line = self.guide.lines.free.handover.clone();
-            self.say_at(Aim::Near(0.5, 0.35), line, real, 12_000);
-        }
-    }
-
-    /// F before the sky's been handed over: a word once, then just a line
-    /// at the foot of the screen.
-    pub(crate) fn guide_not_yet(&mut self, real: UnixMs) {
-        let line = if self.seen("handover") {
-            self.guide.lines.free.wait.clone()
-        } else {
-            self.guide.lines.free.wait_first.clone()
-        };
-        if self.told_wait {
-            self.status_for(line, real, 5_000);
-        } else {
-            self.told_wait = true;
-            self.say(line, real, 7_000);
-        }
-    }
-
+    /// The list is done. By night the wisp says one line and hands the sky
+    /// over to free look.
     pub(crate) fn guide_all_found(&mut self, real: UnixMs) {
         if self.by_day() {
             let done = self.guide.lines.day.done.clone();
@@ -772,32 +696,17 @@ impl Game {
             return;
         }
         self.guide.cheer_until = real + 5_000;
-        if self.say_once(
-            "tomorrow",
-            Aim::Near(0.5, 0.35),
-            "That's tonight's sky. By tomorrow it will have turned: new things will be up and the Moon will have moved on. Look around as long as you like, then W, or Wind down at the top left, when you're ready.",
-            real,
-            11_000,
-        ) {
-            return;
-        }
-        self.say_at(
-            Aim::Near(0.5, 0.35),
-            "That's tonight's sky, all of it. Look around as long as you like, then wind down when you're ready.",
-            real,
-            9_000,
-        );
-        self.say_once(
-            "company",
-            Aim::Near(0.5, 0.35),
-            "Or, if you'd like the music on while you get on with something else, press K. I'll keep you company in the background, in a window as small as you like, and look in on you now and then.",
-            real,
-            12_000,
-        );
+        self.set_looking(crate::game::Looking::Free, real);
+        let line = self.guide.lines.free.handover.clone();
+        self.say_at(Aim::Near(0.5, 0.35), line, real, 9_000);
     }
 
-    /// More has come out as the sky darkened.
+    /// More has come out as the sky darkened: news for the list, so not
+    /// in free look.
     pub(crate) fn guide_darker(&mut self, n: usize, real: UnixMs) {
+        if self.free_look() {
+            return;
+        }
         let news = &self.guide.lines.news;
         let text = if n == 1 {
             news.darker_one.clone()
@@ -987,7 +896,9 @@ impl Game {
             && self.card.is_none()
             && self.talk.prompt.is_none()
             && self.drawing.is_none();
-        if hunting && self.catch.target.is_some() {
+        // Only the tour nudges.
+        let touring = hunting && !self.free_look();
+        if touring && self.catch.target.is_some() {
             self.say_once(
                 "ring",
                 Aim::Ring,
@@ -999,9 +910,8 @@ impl Game {
         // Only on the very first night, once, and only if nothing at all
         // has happened for a while: otherwise the wisp waits to be asked.
         let left = self.to_find();
-        if hunting
+        if touring
             && left > 0
-            && !self.free_look()
             && self.talk.first_night
             && self.guide.last_nudge == 0
             && real - self.guide.last_progress.max(self.last_input) > STUCK_MS
@@ -1028,32 +938,13 @@ impl Game {
                 );
             }
         }
-        // Once tonight's sky has been walked together, it's handed over.
-        if hunting && !self.handed_over && real >= self.next_handover_check {
-            self.next_handover_check = real + 1_000;
-            if self.ready_to_hand_over(real) {
-                self.hand_over(real);
-            }
-        }
-        // A long while in free look: one quiet suggestion, from the moss.
-        if hunting
-            && self.free_look()
-            && !self.guide.suggested_guided
-            && real - self.free_since > FREE_SUGGEST_MS
-            && !self.wisp_busy(real)
-        {
-            self.guide.suggested_guided = true;
-            let line = self.guide.lines.free.suggest.clone();
-            self.say_at(Aim::Home, line, real, 12_000);
-        }
         // A quarter of an hour in: the way to wind down, offered once, in
-        // a pause. Once the list's done the wisp has said it already.
+        // a pause, at the foot of the screen.
         if hunting
             && !self.by_day()
             && self.tour.is_none()
             && self.session.in_phase(real) > self.session.timings.offer
             && !self.offered_wind_down()
-            && !self.session.all_found()
             && !self.wisp_busy(real)
         {
             self.set_offered_wind_down();

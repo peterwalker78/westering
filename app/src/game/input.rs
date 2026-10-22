@@ -1,6 +1,6 @@
 //! What the user does: keys, the pointer, dragging and scrolling, and the
-//! one way on that Space, Enter and Tab share; the two ways of looking;
-//! quiet words at the foot of the screen.
+//! one way on that Space, Enter and Tab share on the tour; the two ways of
+//! looking; quiet words at the foot of the screen.
 
 use super::*;
 
@@ -20,41 +20,67 @@ impl Game {
         self.urgent = true;
     }
 
-    /// Looking around with the mouse, rather than the keyboard and the
-    /// ring. Never by day, where there's no ring.
+    /// Looking round on your own. Never by day, where there's no ring.
     pub(crate) fn free_look(&self) -> bool {
-        self.free && !self.by_day()
+        self.looking == Looking::Free && !self.by_day()
     }
 
-    /// F: between the guided way, with the keyboard and the ring, and free
-    /// look, with the mouse, once the wisp has handed the sky over.
+    /// Free look opens once something has been found tonight.
+    pub(crate) fn free_look_open(&self) -> bool {
+        self.caught.iter().any(|c| *c)
+    }
+
+    /// F: between tonight's list and looking round on your own.
     pub(crate) fn toggle_look(&mut self, real: UnixMs) {
         if self.by_day() {
             return;
         }
-        if !self.free && !self.handed_over {
-            self.guide_not_yet(real);
-            return;
+        if self.free_look() {
+            self.set_looking(Looking::Tour, real);
+            self.status_for("Back to tonight's list".into(), real, 3_000);
+        } else if self.free_look_open() {
+            self.set_looking(Looking::Free, real);
+            self.status_for(
+                "Free look: anything that glows has more to tell".into(),
+                real,
+                4_000,
+            );
+        } else {
+            let line = self.guide.lines().free.wait.clone();
+            self.status_for(line, real, 5_000);
         }
-        if self.free && self.card.is_some() {
+    }
+
+    /// Switches between the two ways of looking. Nothing carries over:
+    /// whatever was up is put away, and the wisp's queue, the turn to come
+    /// and the ring are cleared.
+    pub(crate) fn set_looking(&mut self, to: Looking, real: UnixMs) {
+        self.end_tour(real);
+        if self.card.is_some() {
             self.dismiss_card(real);
         }
-        let free = !self.free;
-        self.free = free;
+        self.looking = to;
+        self.hush();
+        self.talk.pending = None;
+        self.move_on = None;
+        self.track = None;
         self.catch = Catch::default();
         self.mouse_hold = None;
+        self.space_since = None;
         self.ring_resting = false;
-        self.free_since = real;
-        self.status_for(
-            if free {
-                "Free look: drag to look around, and click anything that glows for a closer look"
-            } else {
-                "Guided: Space carries on, and the ring catches what's in it"
-            }
-            .into(),
-            real,
-            4_000,
-        );
+    }
+
+    /// Space in free look: a closer look at what's in the middle, or back
+    /// out of one.
+    fn look_closer(&mut self, real: UnixMs) {
+        if self.card.is_some() {
+            self.dismiss_card(real);
+        } else if !self.look_at_middle(real) {
+            self.status(
+                "Bring something that glows to the middle first".into(),
+                real,
+            );
+        }
     }
 
     /// A little louder or quieter, and kept.
@@ -238,8 +264,16 @@ impl Game {
             gdk::Key::m | gdk::Key::M => self.toggle_music(real),
             gdk::Key::k | gdk::Key::K => self.toggle_company(real),
             gdk::Key::f | gdk::Key::F => self.toggle_look(real),
+            gdk::Key::space | gdk::Key::Return | gdk::Key::KP_Enter if self.free_look() => {
+                self.look_closer(real)
+            }
+            gdk::Key::Tab if self.free_look() => {}
             gdk::Key::c | gdk::Key::C => {
-                if self.hunting() && self.card.is_none() && self.talk.prompt.is_none() {
+                if self.hunting()
+                    && !self.free_look()
+                    && self.card.is_none()
+                    && self.talk.prompt.is_none()
+                {
                     self.start_drawing(real);
                 }
             }
@@ -252,16 +286,11 @@ impl Game {
             gdk::Key::minus | gdk::Key::KP_Subtract => self.held.zoom_out = true,
             gdk::Key::Shift_L | gdk::Key::Shift_R => self.held.fast = true,
             // Space held on what's in the ring catches it; otherwise, like
-            // Enter and Tab, it carries on, when it's let go.
+            // Enter, it takes the next step when it's let go.
             gdk::Key::space => {
                 self.space_since = Some(real);
                 self.space_caught = false;
-                if self.card.is_none()
-                    && self.talk.prompt.is_none()
-                    && !self.more_now()
-                    && self.hunting()
-                    && !self.free_look()
-                {
+                if self.card.is_none() && self.talk.prompt.is_none() && self.hunting() {
                     self.catch.holding = true;
                     if self.catch.target.is_none() {
                         self.try_meteor(real);
@@ -320,7 +349,7 @@ impl Game {
         }
     }
 
-    /// The guided evening carries itself on: a beat after a card is put
+    /// The tour carries itself on: a beat after a card is put
     /// away, or a question is answered or let pass, the view turns to the
     /// next thing to find, as a tap of Space would. It waits for the wisp
     /// to finish and for anything being asked, and gives way to whatever
@@ -385,7 +414,7 @@ impl Game {
         }
         self.guide_next(real);
         // Something is already in the ring: don't swing away from it.
-        if self.catch.target.is_some() && !self.free_look() && !self.ring_resting {
+        if self.catch.target.is_some() && !self.ring_resting {
             self.status(
                 "Hold Space, or press and hold on the ring, to catch it".into(),
                 real,
@@ -408,20 +437,15 @@ impl Game {
             gdk::Key::space => {
                 self.held.space = false;
                 self.catch.holding = false;
-                // Letting go carries on, however long the key was down,
-                // unless the press was spent on the ring: one that caught
-                // something has made a card, which mustn't be put away, and
-                // one let go part-way is told to keep holding.
-                if let Some(down) = self.space_since.take()
+                // Letting go takes the next step, however long the key was
+                // down, unless the press caught something: that has made a
+                // card, which mustn't be put away at once.
+                if self.space_since.take().is_some()
+                    && !std::mem::take(&mut self.space_caught)
                     && !self.by_day()
                     && !self.winding()
                 {
-                    if std::mem::take(&mut self.space_caught) {
-                    } else if self.catch.progress > 0.0 && at - down >= TAP_MS {
-                        self.status("Keep Space held until the ring closes".into(), at);
-                    } else {
-                        self.carry_on(at);
-                    }
+                    self.carry_on(at);
                 }
             }
             _ => {}
@@ -430,7 +454,7 @@ impl Game {
 
     pub fn drag_begin(&mut self, x: f64, y: f64, real: UnixMs) {
         self.input(real);
-        // The guided way: a press held on the ring catches, as Space does.
+        // On the tour, a press held on the ring catches, as Space does.
         let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
         let on_ring = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt() < self.reticle_radius() + 12.0;
         if on_ring
@@ -441,7 +465,6 @@ impl Game {
             && self.talk.prompt.is_none()
             && self.drawing.is_none()
             && self.tour.is_none()
-            && !self.more_now()
         {
             self.mouse_hold = Some(real);
             self.catch.holding = true;
@@ -530,8 +553,8 @@ impl Game {
         if self.click_hovered(x, y, real) {
             return;
         }
-        // Free look: a click on empty sky backs out. The guided way: it
-        // carries on, as Space does, so the mouse alone will do.
+        // Free look: a click on empty sky backs out. On the tour it takes
+        // the next step, as Space does, so the mouse alone will do.
         if self.card.is_some() {
             if self.free_look() {
                 self.dismiss_card(real);
