@@ -181,8 +181,8 @@ journal, not therapy or a crisis service.
 | Scroll, `+` and `-` | Zoom |
 | Tap `Space` (or `Enter`, or click while a card is up) | Carry on, one step at a time |
 | `Tab` | Back to the first find you haven't seen yet |
-| Hold `Space`, or press and hold on the ring | Catch what's in the ring |
-| `F`, or Free look in the menu | Free look, once the wisp has walked the evening with you: drag to look around, click anything that glows, `Esc` to zoom back out |
+| Hold `Space`, or press and hold on the ring | Catch what's in the ring; in free look, a closer look at what's in the middle |
+| `F`, or Free look in the menu | Free look, once the wisp has walked the evening with you: drag to look around, click anything that glows, `Esc` to back out a step and then to the guided way |
 | Click one in the list | Turn towards it |
 | `C` | Draw a constellation: arrows step between stars, `Enter` joins, `C` finishes |
 | `L` | The logbook |

@@ -197,6 +197,23 @@ impl Game {
         // until the view moves on.
         if self.free_look() || self.ring_resting {
             self.catch = Catch::default();
+            // Space held in free look: a closer look at what's in the
+            // middle, as a click there would, so holding it means the same
+            // both ways.
+            if self.free_look()
+                && self.held.space
+                && !self.space_caught
+                && self.space_since.is_some_and(|s| real - s >= TAP_MS)
+            {
+                self.space_caught = true;
+                let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
+                if !self.click_hovered(cx, cy, real) {
+                    self.status(
+                        "Hold Space with something in the middle for a closer look".into(),
+                        real,
+                    );
+                }
+            }
             return;
         }
         let r = self.reticle_radius();

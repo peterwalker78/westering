@@ -498,3 +498,34 @@ fn the_wisp_never_holds_the_evening_up() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Holding Space looks closer at what's in the middle in free look too,
+/// and Esc steps back out: the card, then free look.
+#[test]
+fn space_and_esc_mean_the_same_in_free_look() {
+    let dir = scratch("keys");
+    let mut w = Walker::new(&dir, october(22, 20.3), 100);
+    while !w.game.hunting() {
+        w.act();
+        w.wait(1_000);
+    }
+    w.game.handed_over = true;
+    w.game.toggle_look(w.real);
+    assert!(w.game.free_look());
+    w.game.turn_to(0, w.real);
+    w.wait(4_000);
+    w.game.key_pressed(gdk::Key::space, w.real);
+    w.wait(800);
+    w.game.key_released(gdk::Key::space, w.real);
+    w.wait(300);
+    assert!(
+        w.game.card.is_some() || w.game.inspect.is_some(),
+        "{}",
+        w.seen()
+    );
+    w.tap(gdk::Key::Escape);
+    assert!(w.game.card.is_none() && w.game.free_look(), "{}", w.seen());
+    w.tap(gdk::Key::Escape);
+    assert!(!w.game.free_look(), "{}", w.seen());
+    let _ = std::fs::remove_dir_all(&dir);
+}

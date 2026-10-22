@@ -277,9 +277,13 @@ impl Game {
                 self.back_to_skipped(real);
             }
             gdk::Key::Escape => {
+                // A step back out each time: the card, then free look,
+                // then, asked twice, the evening.
                 if self.card.is_some() {
                     self.end_tour(real);
                     self.dismiss_card(real);
+                } else if self.free_look() {
+                    self.toggle_look(real);
                 } else if matches!(phase, Phase::Arrival | Phase::Hunt) {
                     if real < self.esc_armed {
                         self.wind_down(real);
