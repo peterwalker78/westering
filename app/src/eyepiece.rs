@@ -32,13 +32,9 @@ pub struct Credit {
     /// exposure, light we can't see, marks the telescope makes.
     #[serde(default)]
     pub caption: Option<String>,
-    /// Shown in the card rather than laid over the sky: a constellation's
-    /// wide field, or a star's close-up.
+    /// Shown in the card rather than laid over the sky: a star's close-up.
     #[serde(default)]
     pub card_only: bool,
-    /// The constellation a wide-field photograph shows, by abbreviation.
-    #[serde(default)]
-    pub constellation: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -150,13 +146,6 @@ impl Photos {
         self.card = Some((id.to_owned(), texture.clone()));
         Some(texture)
     }
-
-    /// The card-only photograph of a constellation, by abbreviation.
-    pub fn of_constellation(&self, abbrev: &str) -> Option<&Credit> {
-        self.credits
-            .iter()
-            .find(|c| c.constellation.as_deref() == Some(abbrev))
-    }
 }
 
 /// Darkens the part of a disc turned away from the Sun, leaving a trace of
@@ -204,24 +193,19 @@ mod tests {
     use super::*;
     use westering_core::sky::Sky;
 
-    /// Anything that can be found or clicked has a photograph to show:
-    /// its own, or for a named star its constellation's.
+    /// Anything that can be found or clicked has a photograph to show,
+    /// apart from constellations and named stars, whose cards draw them.
     #[test]
     fn everything_findable_is_pictured() {
         let photos = Photos::load();
         let dir = photos.dir.clone().expect("the photographs' folder");
-        assert!(photos.credits.len() > 200, "credits.toml didn't load");
+        assert!(photos.credits.len() > 150, "credits.toml didn't load");
         for c in &photos.credits {
             let file = dir.join(format!("{}.jpg", c.id));
             assert!(file.is_file(), "no photograph on disk for {}", c.id);
         }
         let sky = Sky::bundled();
         let mut without = Vec::new();
-        for figure in &sky.figures {
-            if photos.of_constellation(&figure.abbrev).is_none() {
-                without.push(figure.name.clone());
-            }
-        }
         for piece in &sky.lists.showpieces {
             if photos.credit(&piece.id).is_none() {
                 without.push(piece.name.clone());
@@ -230,13 +214,6 @@ mod tests {
         for body in &sky.lists.bodies {
             if photos.credit(&body.id).is_none() {
                 without.push(body.id.clone());
-            }
-        }
-        for star in &sky.lists.stars {
-            if photos.credit(&star.name.to_lowercase()).is_none()
-                && photos.of_constellation(&star.constellation).is_none()
-            {
-                without.push(star.name.clone());
             }
         }
         assert!(without.is_empty(), "nothing to show for: {without:?}");

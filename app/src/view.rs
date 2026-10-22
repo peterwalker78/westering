@@ -102,6 +102,29 @@ pub struct CardView {
     pub footnote: Option<String>,
     /// Centred up and down on `y`, rather than hanging from it.
     pub middle: bool,
+    /// A constellation drawn as it sits in the sky now, in place of a
+    /// photograph.
+    pub chart: Option<Chart>,
+}
+
+/// A constellation's stars and lines, turned the way they sit on the
+/// screen.
+#[derive(Clone)]
+pub struct Chart {
+    pub stars: Vec<ChartStar>,
+    /// Lines between stars, by their place in `stars`.
+    pub lines: Vec<(usize, usize)>,
+}
+
+#[derive(Clone)]
+pub struct ChartStar {
+    /// Where it is, x right and y down, at any scale.
+    pub x: f64,
+    pub y: f64,
+    pub mag: f64,
+    pub name: Option<String>,
+    /// The star the card is about.
+    pub marked: bool,
 }
 
 /// A soft light round something worth a click, and a fine ring round the
@@ -433,12 +456,13 @@ fn draw_card(widget: &gtk::Widget, snapshot: &gtk::Snapshot, c: &CardView) {
         .as_ref()
         .map_or(0.0, |l| l.pixel_size().1 as f32 + 10.0);
     let text_h = pad + kh as f32 + 6.0 + th as f32 + 10.0 + bh as f32 + foot_h + keys_h + pad;
-    let pic_h = c.picture.as_ref().map_or(0.0, |(t, _)| {
-        let natural = inner * t.height() as f32 / t.width().max(1) as f32;
-        natural
-            .min(if c.compact { 130.0 } else { 240.0 })
-            .min((room - text_h - 60.0).max(0.0))
-    });
+    let pic_h = match (&c.picture, &c.chart) {
+        (Some((t, _)), _) => inner * t.height() as f32 / t.width().max(1) as f32,
+        (None, Some(_)) => inner * 0.62,
+        (None, None) => 0.0,
+    }
+    .min(if c.compact { 130.0 } else { 240.0 })
+    .min((room - text_h - 60.0).max(0.0));
     let credit_h = credit
         .as_ref()
         .map_or(0.0, |l| l.pixel_size().1 as f32 + 6.0);
@@ -457,6 +481,19 @@ fn draw_card(widget: &gtk::Widget, snapshot: &gtk::Snapshot, c: &CardView) {
     let (x, y) = (c.x as f32, top.min(room - height - 8.0).max(8.0));
     panel(snapshot, &graphene::Rect::new(x, y, width, height), 14.0, a);
     let mut cy = y + pad;
+    if top_h > 0.0
+        && c.picture.is_none()
+        && let Some(chart) = &c.chart
+    {
+        draw_chart(
+            widget,
+            snapshot,
+            chart,
+            &graphene::Rect::new(x + pad, cy, inner, pic_h),
+            a,
+        );
+        cy += pic_h + 10.0;
+    }
     if top_h > 0.0
         && let Some((texture, _)) = &c.picture
     {
@@ -531,6 +568,83 @@ fn draw_card(widget: &gtk::Widget, snapshot: &gtk::Snapshot, c: &CardView) {
         );
         kx += l.pixel_size().0 as f32 + 18.0;
     }
+}
+
+/// A constellation chart filling `frame`: lines, stars sized by
+/// brightness, names beside the named, and a ring round the marked one.
+fn draw_chart(
+    widget: &gtk::Widget,
+    snapshot: &gtk::Snapshot,
+    chart: &Chart,
+    frame: &graphene::Rect,
+    a: f32,
+) {
+    snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(*frame, 8.0));
+    snapshot.append_color(&gdk::RGBA::new(0.02, 0.025, 0.05, 0.9 * a), frame);
+    let (x0, x1, y0, y1) = chart.stars.iter().fold(
+        (f64::MAX, f64::MIN, f64::MAX, f64::MIN),
+        |(x0, x1, y0, y1), s| (x0.min(s.x), x1.max(s.x), y0.min(s.y), y1.max(s.y)),
+    );
+    // Room round the edge, and to the right for names.
+    let (side, right) = (22.0, 64.0);
+    let (w, h) = (frame.width() as f64, frame.height() as f64);
+    let scale =
+        ((w - side - right) / (x1 - x0).max(1e-6)).min((h - 2.0 * side) / (y1 - y0).max(1e-6));
+    let ox = frame.x() as f64 + side + (w - side - right - (x1 - x0) * scale) / 2.0;
+    let oy = frame.y() as f64 + side + (h - 2.0 * side - (y1 - y0) * scale) / 2.0;
+    let at = |s: &ChartStar| {
+        (
+            (ox + (s.x - x0) * scale) as f32,
+            (oy + (s.y - y0) * scale) as f32,
+        )
+    };
+    let builder = gsk::PathBuilder::new();
+    for &(p, q) in &chart.lines {
+        let ((px, py), (qx, qy)) = (at(&chart.stars[p]), at(&chart.stars[q]));
+        builder.move_to(px, py);
+        builder.line_to(qx, qy);
+    }
+    let stroke = gsk::Stroke::new(1.2);
+    stroke.set_line_cap(gsk::LineCap::Round);
+    snapshot.append_stroke(
+        &builder.to_path(),
+        &stroke,
+        &gdk::RGBA::new(0.66, 0.78, 1.0, 0.5 * a),
+    );
+    for s in &chart.stars {
+        let (x, y) = at(s);
+        let radius = (4.2 - 0.6 * s.mag).clamp(1.3, 4.0) as f32;
+        let rect = graphene::Rect::new(x - radius, y - radius, 2.0 * radius, 2.0 * radius);
+        snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(rect, radius));
+        snapshot.append_color(&gdk::RGBA::new(0.97, 0.96, 0.92, a), &rect);
+        snapshot.pop();
+        if s.marked {
+            let r = radius + 5.0;
+            let ring = graphene::Rect::new(x - r, y - r, 2.0 * r, 2.0 * r);
+            snapshot.append_border(
+                &gsk::RoundedRect::from_rect(ring, r),
+                &[1.5; 4],
+                &[gdk::RGBA::new(1.0, 0.8, 0.55, 0.9 * a); 4],
+            );
+        }
+        if let Some(name) = &s.name {
+            let l = layout(
+                widget,
+                name,
+                if s.marked { 12.5 } else { 11.0 },
+                s.marked,
+                None,
+            );
+            let (_, lh) = l.pixel_size();
+            let color = if s.marked {
+                gdk::RGBA::new(1.0, 0.82, 0.6, a)
+            } else {
+                gdk::RGBA::new(0.8, 0.83, 0.9, 0.75 * a)
+            };
+            text_at(snapshot, &l, x + radius + 6.0, y - lh as f32 / 2.0, color);
+        }
+    }
+    snapshot.pop();
 }
 
 /// A line with round ends and a faint glow either side of it.
