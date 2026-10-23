@@ -15,6 +15,7 @@ use crate::sprite::{FLYING, NOOK, SIZE, render_flying, render_moss};
 use crate::talk::Flow;
 use crate::view::{Bubble, Point, Sprite};
 use westering_core::coords::{apply, unit};
+use westering_core::ease::smoothstep;
 use westering_core::journey::Lines;
 use westering_core::session::Phase;
 use westering_core::time::UnixMs;
@@ -572,7 +573,7 @@ impl Game {
         let (w, h) = (NOOK.0 * SIZE, NOOK.1 * SIZE);
         // Keeping company it drifts to the middle, where it reads in a
         // window of any size.
-        let mix = self.keep.mix * self.keep.mix * (3.0 - 2.0 * self.keep.mix);
+        let mix = smoothstep(self.keep.mix);
         let x = 10.0 + (((self.camera.width - w) / 2.0).max(10.0) - 10.0) * mix;
         (x, self.camera.height - h - 34.0 + 20.0 * mix, w, h)
     }
