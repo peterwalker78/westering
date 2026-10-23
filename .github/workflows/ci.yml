@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -16,11 +19,12 @@ jobs:
     name: the core
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
+          toolchain: stable
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo test --locked -p westering-core
       - run: cargo clippy --locked -p westering-core --all-targets -- -D warnings
 
@@ -35,7 +39,7 @@ jobs:
           dnf install -y --setopt=install_weak_deps=False \
             cargo rust clippy rustfmt gcc pkgconf-pkg-config \
             gtk4-devel glib2-devel git tar findutils
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # There is no distrobox here, so this runs where it stands.
       - name: Check
         run: scripts/check

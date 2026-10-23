@@ -5,8 +5,9 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Only the job that publishes can write to the repository.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   linux:
@@ -16,13 +17,13 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
-      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6
         with:
           bundle: westering-x86_64.flatpak
           manifest-path: flatpak/io.github.peterwalker78.Westering.yml
           cache-key: flatpak-builder-${{ github.sha }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: westering-linux
           path: westering-x86_64.flatpak
@@ -33,12 +34,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [linux]
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       TAG: ${{ github.ref_name }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: westering-linux
           path: built
@@ -48,8 +51,8 @@ jobs:
           cd built
           sha256sum westering-x86_64.flatpak > westering-x86_64.flatpak.sha256
       - name: Sign
-        # Slipstream checks the bundle against this signature once its file for this app names
-        # the public key. Without the secret the release still goes out, unsigned.
+        # Slipstream checks the bundle against this signature and refuses an unsigned one,
+        # so without the secret the release stops here.
         env:
           EXTRA_SIGNING_KEY: ${{ secrets.EXTRA_SIGNING_KEY }}
         run: |
