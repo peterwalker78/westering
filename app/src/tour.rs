@@ -3,7 +3,7 @@
 //! at a time; and a walk across the Moon's lit face, with the wisp flying
 //! from place to place.
 
-use crate::game::{Card, Game, Look, dot3};
+use crate::game::{Card, Catch, Game, Look, dot3};
 use crate::guide::Aim;
 use westering_core::coords::{Mat3, Vec3, alt_az, angles, apply, from_alt_az, unit};
 use westering_core::ephem::Body;
@@ -136,7 +136,7 @@ impl Game {
     /// Whether a find can be caught yet: the Moon walk waits for the Moon.
     pub(crate) fn catchable(&self, i: usize) -> bool {
         match self.finds[i].target {
-            Target::MoonWalk => self.moon_find().is_none_or(|m| self.caught[m]),
+            Target::MoonWalk => self.moon_find().is_none_or(|m| self.finds[m].caught),
             _ => true,
         }
     }
@@ -147,7 +147,7 @@ impl Game {
             return None;
         };
         let steps = &self.sky.tours.hops[h].steps;
-        steps.get(self.steps[i].min(steps.len() - 1))
+        steps.get(self.finds[i].steps.min(steps.len() - 1))
     }
 
     /// A step of a hop found: on to the next, or the hop is done.
@@ -156,18 +156,19 @@ impl Game {
             return false;
         };
         let len = self.sky.tours.hops[h].steps.len();
-        if self.steps[i] + 1 >= len {
+        if self.finds[i].steps + 1 >= len {
             return false;
         }
-        self.steps[i] += 1;
-        self.space_caught = true;
-        self.catch.progress = 0.0;
-        self.catch.target = None;
-        self.catch.holding = false;
-        self.catch.fov_before = None;
+        self.finds[i].steps += 1;
+        if let Some(t) = self.on_tour_mut() {
+            t.space_caught = true;
+            t.catch = Catch::default();
+        }
         self.guide.last_progress = real;
-        let line = self.sky.tours.hops[h].steps[self.steps[i]].say.clone();
-        let step = format!("{} of {}. {line}", self.steps[i] + 1, len);
+        let line = self.sky.tours.hops[h].steps[self.finds[i].steps]
+            .say
+            .clone();
+        let step = format!("{} of {}. {line}", self.finds[i].steps + 1, len);
         self.guide_turned(Some((Aim::Ring, step)), real);
         true
     }
@@ -229,7 +230,9 @@ impl Game {
         };
         if matches!(self.finds[i].target, Target::Story(_)) {
             // The story moves the view about; don't hold it on one star.
-            self.track = None;
+            if let Some(t) = self.on_tour_mut() {
+                t.track = None;
+            }
         }
         self.tour = Some(Tour {
             find: i,
@@ -328,7 +331,9 @@ impl Game {
         if let Some(tour) = self.tour.take() {
             // The story's over: the ring waits until the view moves on,
             // rather than coming back over what it left on screen.
-            self.ring_resting = true;
+            if let Some(t) = self.on_tour_mut() {
+                t.ring_resting = true;
+            }
             if let Target::Story(s) = self.finds[tour.find].target
                 && tour.on_last_page()
             {
@@ -352,7 +357,9 @@ impl Game {
                     }
                 }
                 // Back out to see the Moon in its sky.
-                self.catch.fov_before = Some(30.0);
+                if let Some(t) = self.on_tour_mut() {
+                    t.catch.fov_before = Some(30.0);
+                }
             }
             self.after_catch(tour.find, real);
         }
@@ -366,16 +373,16 @@ impl Game {
             let Target::Hop(h) = self.finds[i].target else {
                 continue;
             };
-            let reached = if self.caught[i] {
+            let reached = if self.finds[i].caught {
                 self.sky.tours.hops[h].steps.len()
             } else {
-                self.steps[i] + 1
+                self.finds[i].steps + 1
             };
             let points: Vec<Option<(f64, f64)>> = self.sky.tours.hops[h].steps[..reached]
                 .iter()
                 .map(|s| self.stop_dir(s, hz, prec).and_then(|v| cam.project(v)))
                 .collect();
-            let alpha = if self.caught[i] { 0.12 } else { 0.3 };
+            let alpha = if self.finds[i].caught { 0.12 } else { 0.3 };
             for pair in points.windows(2) {
                 if let [Some(a), Some(b)] = pair {
                     // Stop short of the stars themselves.

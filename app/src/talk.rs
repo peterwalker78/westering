@@ -184,8 +184,8 @@ impl Game {
                     ..Default::default()
                 });
         let night = self.night.clone();
-        for (i, f) in self.finds.iter().enumerate() {
-            self.caught[i] = self.journal.found_on(&f.id, &night);
+        for f in &mut self.finds {
+            f.caught = self.journal.found_on(&f.id, &night);
         }
     }
 

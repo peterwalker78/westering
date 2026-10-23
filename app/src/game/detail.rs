@@ -281,7 +281,7 @@ impl Game {
     /// side of the screen, photograph and all, with its card beside it and
     /// the wisp between the two. Esc glides back out to where it was.
     pub(crate) fn inspect(&mut self, subject: Subject, clicked_x: f64, real: UnixMs) -> bool {
-        if self.inspect.as_ref().is_some_and(|i| i.subject == subject) {
+        if self.inspecting().is_some_and(|i| i.subject == subject) {
             return true;
         }
         let now = self.sky_now(real);
@@ -336,11 +336,12 @@ impl Game {
         };
         let ox = if small { w / 2.0 } else { ox };
         let before = self
-            .inspect
-            .as_ref()
+            .inspecting()
             .map_or((cam.az, cam.alt, cam.fov), |i| i.before);
-        self.track = None;
-        self.inspect = Some(Inspect {
+        let Some(slot) = self.inspect_slot() else {
+            return false;
+        };
+        *slot = Some(Inspect {
             subject,
             before,
             fov,
@@ -349,7 +350,9 @@ impl Game {
             arrived: false,
         });
         if !self.show_detail(subject, card_x, real, eye.is_some()) {
-            self.inspect = None;
+            if let Some(slot) = self.inspect_slot() {
+                *slot = None;
+            }
             return false;
         }
         // The wisp keeps it company between the two, a little above the
@@ -373,7 +376,7 @@ impl Game {
             || self.pan.0.abs() > 1e-3
             || self.pan.1.abs() > 1e-3
             || self.drag_from.is_some();
-        let Some(ins) = &mut self.inspect else {
+        let Some(Some(ins)) = self.inspect_slot() else {
             self.hold_beside_card();
             return;
         };
@@ -407,7 +410,7 @@ impl Game {
                 rate: 1.4,
             });
             if off < 0.003
-                && let Some(i) = &mut self.inspect
+                && let Some(Some(i)) = self.inspect_slot()
             {
                 i.arrived = true;
             }
@@ -424,14 +427,22 @@ impl Game {
 
     /// Stops steering the view, for a look round by hand.
     pub(super) fn let_go(&mut self) {
-        if let Some(i) = &mut self.inspect {
+        if let Some(Some(i)) = self.inspect_slot() {
             i.steering = false;
+        }
+    }
+
+    /// Where free look keeps its close look.
+    fn inspect_slot(&mut self) -> Option<&mut Option<Inspect>> {
+        match &mut self.looking {
+            Looking::Free(f) => Some(&mut f.inspect),
+            Looking::Tour(_) => None,
         }
     }
 
     /// Back out to the view from before the click, and the wisp home.
     pub(crate) fn end_inspect(&mut self, real: UnixMs) {
-        if let Some(ins) = self.inspect.take() {
+        if let Some(ins) = self.inspect_slot().and_then(Option::take) {
             self.backing_out = real + 2_500;
             let (az, alt, fov) = ins.before;
             self.look = Some(Look {

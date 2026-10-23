@@ -217,7 +217,7 @@ impl Game {
             };
             let f = &self.finds[i];
             taken.push(f.name.clone());
-            let caught = self.caught[i];
+            let caught = self.finds[i].caught;
             consider(
                 sx,
                 sy,
@@ -473,7 +473,7 @@ impl Game {
                 continue;
             };
             if let Some((sx, sy)) = cam.project(v) {
-                let caught = self.caught[i];
+                let caught = self.finds[i].caught;
                 consider(
                     sx,
                     sy,
@@ -506,7 +506,7 @@ impl Game {
             .filter(|_| self.hinting())
             .map(|(x, y, _)| (x, y));
         // Not while looking at something close up: nothing competes with it.
-        if self.free_look() && self.hinting() && self.inspect.is_none() {
+        if self.free_look() && self.hinting() && self.inspecting().is_none() {
             let middle = self.in_the_middle(now, hz, prec).map(|h| h.subject);
             let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
             for (_, h) in self.near(cx, cy, now, hz, prec, f64::INFINITY, false) {
@@ -537,7 +537,7 @@ impl Game {
                 }
             }
         }
-        let looking_at = self.inspect.as_ref().map(|i| i.subject);
+        let looking_at = self.inspecting().map(|i| i.subject);
         self.hovered = pointer
             .and_then(|(px, py)| self.pick(px, py, now, hz, prec))
             .filter(|h| Some(h.subject) != looking_at || h.subject == Subject::Plain);
@@ -571,7 +571,7 @@ impl Game {
             return (glows, out);
         };
         // What's in the ring already has its own label.
-        if h.find.is_some() && h.find == self.catch.target {
+        if h.find.is_some() && h.find == self.ring_target() {
             return (glows, out);
         }
         let since = self.pointer.map_or(real, |p| p.2);
@@ -665,7 +665,9 @@ impl Game {
             fov: self.camera.fov,
             rate: 1.8,
         });
-        self.track = None;
+        if let Some(t) = self.on_tour_mut() {
+            t.track = None;
+        }
         true
     }
 }

@@ -444,7 +444,7 @@ impl Game {
     }
 
     fn to_find(&self) -> usize {
-        self.caught.iter().filter(|c| !**c).count()
+        self.finds.iter().filter(|f| !f.caught).count()
     }
 
     pub(crate) fn guide_arrival(&mut self, real: UnixMs) {
@@ -666,7 +666,7 @@ impl Game {
         ) {
             return;
         }
-        let caught = self.caught.iter().filter(|c| **c).count();
+        let caught = self.finds.iter().filter(|f| f.caught).count();
         if caught >= 2 {
             self.say_once(
                 "draw",
@@ -695,7 +695,7 @@ impl Game {
             return;
         }
         self.guide.cheer_until = real + 5_000;
-        self.set_looking(crate::game::Looking::Free, real);
+        self.set_looking(crate::game::Looking::Free(Default::default()), real);
         let line = self.guide.lines.free.handover.clone();
         self.say_at(Aim::Near(0.5, 0.35), line, real, 9_000);
     }
@@ -891,13 +891,12 @@ impl Game {
 
     /// Nudges someone who seems stuck, now and then, and keeps the face right.
     pub(crate) fn guide_tick(&mut self, real: UnixMs) {
-        let hunting = self.hunting()
+        // Only the tour nudges.
+        let touring = self.touring()
             && self.card.is_none()
             && self.talk.prompt.is_none()
             && self.drawing.is_none();
-        // Only the tour nudges.
-        let touring = hunting && !self.free_look();
-        if touring && self.catch.target.is_some() {
+        if touring && self.ring_target().is_some() {
             self.say_once(
                 "ring",
                 Aim::Ring,
@@ -917,9 +916,9 @@ impl Game {
         {
             self.guide.last_nudge = real;
             let only_meteor = (0..self.finds.len())
-                .filter(|&i| !self.caught[i])
+                .filter(|&i| !self.finds[i].caught)
                 .all(|i| matches!(self.finds[i].target, Target::Meteor(_)));
-            if self.catch.target.is_some() {
+            if self.ring_target().is_some() {
                 self.say_at(
                     Aim::Ring,
                     "There's one in the ring. Hold Space to catch it.",
@@ -1033,7 +1032,7 @@ impl Game {
                 let (x, y) = self.camera.project(self.find_dir(i, now, &hz, &prec)?)?;
                 self.camera
                     .on_screen(x, y, 40.0)
-                    .then_some((self.caught[i], (x, y)))
+                    .then_some((self.finds[i].caught, (x, y)))
             })
             .collect();
         spots.sort_by_key(|(caught, _)| *caught);
