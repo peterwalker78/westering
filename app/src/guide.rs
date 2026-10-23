@@ -474,7 +474,7 @@ impl Game {
             );
             self.say_at(
                 Aim::Evening,
-                "Every evening has the same three parts, shown up here: set down what's on your mind, look up for a while, then wind down.",
+                "Every evening has the same four parts, shown up here: set down what's on your mind, explore tonight's list, look up on your own, then wind down.",
                 real + 1_200,
                 9_000,
             );

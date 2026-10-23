@@ -47,10 +47,11 @@ Some finds take a few minutes:
   and Mercury at their real phase, Algol dimming on its real schedule, and on
   dark nights one fainter thing to zoom in on, from a list of over a hundred.
 
-Every evening has the same three parts, shown at the top left: **set it down**
-(anything weighing on you, hung low in the west), **look up** (the finds, a
-story, now and then a small question about your life), and **wind down**,
-when you choose. The wisp asks whether you'd like a few slow breaths and a
+Every evening has the same four parts, shown at the top left: **set it down**
+(anything weighing on you, hung low in the west), **explore** (tonight's list
+with the wisp: the finds, a story, now and then a small question about your
+life), **look up** (the sky on your own, once you've found something), and
+**wind down**, when you choose. The wisp asks whether you'd like a few slow breaths and a
 moment to think back over the day: if so, it breathes with you (in for four,
 out for six) while a ring swells and settles, then offers one last thought:
 the one tonight's story closed on, if you heard it to the end, and otherwise
@@ -176,7 +177,8 @@ journal, not therapy or a crisis service.
 ## Keys
 
 Every evening starts with tonight's list. Once you've found something, `F`
-(or Free look in Settings) switches to looking around on your own, and back.
+(or Explore and Look up at the top left) switches to looking around on your
+own, and back.
 
 With tonight's list:
 

@@ -294,32 +294,11 @@ impl Settings {
             j.settings.calm = b.is_active();
             let _ = j.save_settings();
         });
-        let mut motion = vec![row(
+        let motion = [row(
             "Calmer",
             "The wisp stays on its moss and the stars twinkle less.",
             &calm,
         )];
-        // Free look is there once something's been found tonight.
-        let (open, free_now) = {
-            let g = self.game.borrow();
-            (g.free_look_open() && !g.by_day(), g.free_look())
-        };
-        if open {
-            let free = gtk::Switch::new();
-            free.set_active(free_now);
-            let game = self.game.clone();
-            free.connect_active_notify(move |b| {
-                let mut g = game.borrow_mut();
-                if g.free_look() != b.is_active() {
-                    g.toggle_look(crate::wall_clock());
-                }
-            });
-            motion.push(row(
-                "Free look, tonight",
-                "Look around on your own, without the list or the ring, while the wisp keeps quiet. Anything that glows has more to tell. F switches.",
-                &free,
-            ));
-        }
         group(&self.body, "MOTION", &motion);
 
         let ask = gtk::DropDown::from_strings(&["Sometimes", "Rarely", "Never"]);

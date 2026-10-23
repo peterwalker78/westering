@@ -41,7 +41,7 @@ impl Game {
         } else if self.free_look_open() {
             self.set_looking(Looking::Free, real);
             self.status_for(
-                "Free look: anything that glows has more to tell".into(),
+                "Look up: anything that glows has more to tell".into(),
                 real,
                 4_000,
             );
@@ -332,7 +332,10 @@ impl Game {
     }
 
     pub fn key_released(&mut self, key: gdk::Key, real: UnixMs) {
-        self.input(real);
+        // Letting go isn't steering: the press already was. Otherwise the
+        // Enter that answers a question would stop the tour carrying on.
+        self.last_input = real;
+        self.urgent = true;
         self.releases.push((key, real));
     }
 

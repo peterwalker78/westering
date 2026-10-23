@@ -139,12 +139,12 @@ impl Tonight {
     }
 }
 
-/// The evening's three parts at the top left, the one it's at lit, and a
-/// line saying what to do now. Wind down can be chosen from here.
+/// The evening's four parts at the top left, the one it's at lit, and a
+/// line saying what to do now. The last three can be chosen from here.
 pub struct EveningGuide {
     pub root: gtk::Revealer,
     panel: gtk::Box,
-    steps: [gtk::Widget; 3],
+    steps: [gtk::Widget; 4],
     now: gtk::Label,
     shown: RefCell<Option<crate::game::Evening>>,
 }
@@ -173,15 +173,23 @@ impl EveningGuide {
         root.set_margin_top(12);
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         let set_down = label("Set it down", "evening-step");
-        let look_up = label("Look up", "evening-step");
-        for l in [&set_down, &look_up] {
-            l.set_wrap(false);
+        set_down.set_wrap(false);
+        let step = |text: &str, key: &str| {
+            let b = gtk::Button::with_label(text);
+            b.add_css_class("evening-step");
+            b.add_css_class("evening-button");
+            b.set_focus_on_click(false);
+            b.set_tooltip_text(Some(key));
+            b
+        };
+        // Explore and Look up switch between the two ways of looking.
+        let explore = step("Explore", "F");
+        let look_up = step("Look up", "F");
+        for b in [&explore, &look_up] {
+            let game = game.clone();
+            b.connect_clicked(move |_| game.borrow_mut().toggle_look(wall_clock()));
         }
-        let wind = gtk::Button::with_label("Wind down");
-        wind.add_css_class("evening-step");
-        wind.add_css_class("evening-button");
-        wind.set_focus_on_click(false);
-        wind.set_tooltip_text(Some("W"));
+        let wind = step("Wind down", "W");
         {
             let game = game.clone();
             wind.connect_clicked(move |_| game.borrow_mut().wind_down(wall_clock()));
@@ -192,6 +200,8 @@ impl EveningGuide {
             d
         };
         row.append(&set_down);
+        row.append(&dot());
+        row.append(&explore);
         row.append(&dot());
         row.append(&look_up);
         row.append(&dot());
@@ -204,7 +214,12 @@ impl EveningGuide {
         Rc::new(EveningGuide {
             root,
             panel: panel.clone(),
-            steps: [set_down.upcast(), look_up.upcast(), wind.upcast()],
+            steps: [
+                set_down.upcast(),
+                explore.upcast(),
+                look_up.upcast(),
+                wind.upcast(),
+            ],
             now,
             shown: RefCell::new(None),
         })
@@ -234,7 +249,9 @@ impl EveningGuide {
                         w.add_css_class("done");
                     }
                 }
-                self.steps[2].set_sensitive(e.step == 1);
+                self.steps[1].set_sensitive(e.step == 2);
+                self.steps[2].set_sensitive(e.step == 1 && e.look_up_open);
+                self.steps[3].set_sensitive(matches!(e.step, 1 | 2));
                 self.now.set_text(&e.now);
             }
         }

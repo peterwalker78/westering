@@ -373,6 +373,61 @@ fn the_guided_evening_carries_itself_on() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Answering at the keyboard carries the tour on too: letting go of the
+/// Enter that answered isn't the user taking over.
+#[test]
+fn answering_a_question_carries_the_tour_on() {
+    let dir = scratch("answer");
+    let mut w = Walker::new(&dir, october(11, 22.5), 100);
+    to_first_catch(&mut w);
+    w.wait(6_000);
+    while w.game.card.is_some() || w.game.more_now() {
+        w.tap(gdk::Key::space);
+    }
+    w.wait(300);
+    let question = w
+        .game
+        .talk
+        .bank
+        .iter()
+        .find(|q| {
+            q.answer == westering_core::questions::AnswerKind::Name
+                && q.needs.is_none()
+                && !q.on.starts_with("pole")
+        })
+        .expect("a question asking for a name")
+        .clone();
+    let chosen = westering_core::questions::Chosen {
+        text: question.text.clone(),
+        question,
+        person: None,
+        event: None,
+    };
+    w.game.show_question(chosen, None);
+    w.wait(300);
+    let facing = |w: &Walker| w.game.look.as_ref().map(|l| (l.az as i64, l.alt as i64));
+    let before = (facing(&w), w.game.track);
+    w.game.key_pressed(gdk::Key::Return, w.real);
+    w.game.answer_text("Louise", w.real);
+    w.wait(w.press);
+    w.game.key_released(gdk::Key::Return, w.real);
+    w.wait(FRAME);
+    assert!(
+        w.game.move_on.is_some(),
+        "nothing set to carry on: {}",
+        w.seen()
+    );
+    for _ in 0..40 {
+        w.wait(1_000);
+        if (facing(&w), w.game.track) != before || w.game.catch.target.is_some() {
+            break;
+        }
+    }
+    let turned = (facing(&w), w.game.track) != before || w.game.catch.target.is_some();
+    assert!(turned, "the tour stopped after the answer: {}", w.seen());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// With the whole list found, Tab has nothing to go back for: it says the
 /// sky's done, and doesn't swing round to a card that went by quickly.
 #[test]
@@ -527,8 +582,11 @@ fn free_look_never_turns_or_speaks_by_itself() {
     let dir = scratch("free");
     let mut w = Walker::new(&dir, october(22, 20.3), 100);
     to_first_catch(&mut w);
+    let step = |w: &Walker| w.game.evening(w.real).map(|e| e.step);
+    assert_eq!(step(&w), Some(1), "not exploring: {}", w.seen());
     w.tap(gdk::Key::f);
     assert!(w.game.free_look() && !w.game.show_tonight(), "{}", w.seen());
+    assert_eq!(step(&w), Some(2), "not looking up: {}", w.seen());
     let (caught, viewed) = (w.game.caught.clone(), w.game.viewed.clone());
     let quiet = |w: &Walker| {
         let g = &w.game;

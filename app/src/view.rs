@@ -724,7 +724,13 @@ fn draw_compass(
     } else {
         12.0
     };
-    let strip_w = 600.0f32.min(width - 40.0);
+    // Along the top it narrows to keep clear of the evening's guide, which
+    // reaches about this far from the left.
+    let strip_w = if c.bottom {
+        600.0f32.min(width - 40.0)
+    } else {
+        600.0f32.min(width - 2.0 * 410.0).max(240.0)
+    };
     let x0 = (width - strip_w) / 2.0;
     panel(
         snapshot,

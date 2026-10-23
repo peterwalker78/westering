@@ -42,11 +42,14 @@ pub enum Ending {
 /// it's at, and what to do now.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Evening {
-    /// 0 setting things down, 1 looking up, 2 winding down.
+    /// 0 setting things down, 1 exploring tonight's list, 2 looking up on
+    /// your own, 3 winding down.
     pub step: usize,
     pub now: String,
     /// The wisp has finished and it's over to the user.
     pub yours: bool,
+    /// Something's been found, so looking up on your own is open.
+    pub look_up_open: bool,
 }
 
 /// One line of the Tonight list.
@@ -1024,10 +1027,10 @@ impl Game {
                 "Write down what's on your mind, or choose Nothing tonight",
             ),
             Phase::Hunt if self.free_look() && self.card.is_some() => {
-                (1, "Esc, or a click on the sky, zooms back out")
+                (2, "Esc, or a click on the sky, zooms back out")
             }
             Phase::Hunt if self.free_look() => (
-                1,
+                2,
                 "Click anything that glows, or bring it to the middle and press Space",
             ),
             Phase::Hunt if self.tour.is_some() => (1, "Space goes on, Esc stops here"),
@@ -1063,21 +1066,21 @@ impl Game {
                 "Pick something from Tonight's list, then hold Space or a click when it's in the ring",
             ),
             Phase::Dimming if self.reflecting() => {
-                (2, "One thought to end on. Enter moves on when you're ready")
+                (3, "One thought to end on. Enter moves on when you're ready")
             }
-            Phase::Dimming if self.winding() => (2, "Breathe with the wisp, or Esc to stop"),
+            Phase::Dimming if self.winding() => (3, "Breathe with the wisp, or Esc to stop"),
             Phase::Dimming if matches!(self.talk.flow, Some(crate::talk::Flow::WindChoice)) => {
-                (2, "Choose, or let the screen dim")
+                (3, "Choose, or let the screen dim")
             }
-            Phase::Dimming if self.talk.prompt.is_some() => (2, "Choose how tonight ends"),
-            Phase::Dimming => (2, "The screen is dimming: let your eyes and mind settle"),
+            Phase::Dimming if self.talk.prompt.is_some() => (3, "Choose how tonight ends"),
+            Phase::Dimming => (3, "The screen is dimming: let your eyes and mind settle"),
             Phase::Finale if !self.session.last_line(real) && self.page.weights.is_empty() => {
-                (2, "Watch the sky turn through the rest of the night")
+                (3, "Watch the sky turn through the rest of the night")
             }
             Phase::Finale if !self.session.last_line(real) => {
-                (2, "Watch the west: what you set down tonight is setting")
+                (3, "Watch the west: what you set down tonight is setting")
             }
-            Phase::Finale => (2, "That's all for tonight"),
+            Phase::Finale => (3, "That's all for tonight"),
             Phase::LightsOut | Phase::Over => return None,
         };
         // When the wisp has nothing more to say and something is asked of
@@ -1094,6 +1097,7 @@ impl Game {
                 now.to_owned()
             },
             yours,
+            look_up_open: self.free_look_open(),
         })
     }
 
