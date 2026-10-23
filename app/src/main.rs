@@ -477,10 +477,17 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
                     let (sum, n, since) = spent.get();
                     let sum = sum + began.elapsed().as_secs_f64() * 1000.0;
                     if real - since > 5_000 {
+                        // The draw is timed in the view, between ticks.
+                        let (draw, draws) = view.take_spent();
+                        let secs = (real - since) as f64 / 1000.0;
+                        let tick = sum / (n + 1) as f64;
+                        let draw = draw / draws.max(1) as f64;
                         eprintln!(
-                            "westering: {:.2} ms a frame, {:.1} frames a second",
-                            sum / (n + 1) as f64,
-                            (n + 1) as f64 / ((real - since) as f64 / 1000.0)
+                            "westering: {:.2} ms a frame ({tick:.2} tick, {draw:.2} draw), \
+                             {:.1} frames a second, {:.1}% of a core",
+                            tick + draw,
+                            (n + 1) as f64 / secs,
+                            (sum + draw * draws as f64) / secs / 10.0
                         );
                         spent.set((0.0, 0, real));
                     } else {

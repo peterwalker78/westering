@@ -5,7 +5,7 @@
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, graphene, gsk, pango};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Align {
@@ -798,6 +798,8 @@ mod imp {
     pub struct SkyView {
         pub frame: RefCell<Frame>,
         pub tile: RefCell<Option<(f32, i32, gdk::Texture)>>,
+        /// Time spent drawing, in ms, and how many draws.
+        pub spent: Cell<(f64, u32)>,
     }
 
     #[glib::object_subclass]
@@ -811,6 +813,16 @@ mod imp {
 
     impl WidgetImpl for SkyView {
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
+            let began = std::time::Instant::now();
+            self.draw(snapshot);
+            let (ms, n) = self.spent.get();
+            self.spent
+                .set((ms + began.elapsed().as_secs_f64() * 1000.0, n + 1));
+        }
+    }
+
+    impl SkyView {
+        fn draw(&self, snapshot: &gtk::Snapshot) {
             let widget = self.obj();
             let (w, h) = (widget.width() as f32, widget.height() as f32);
             let frame = self.frame.borrow();
@@ -1054,6 +1066,11 @@ impl SkyView {
     pub fn show(&self, frame: Frame) {
         *self.imp().frame.borrow_mut() = frame;
         self.queue_draw();
+    }
+
+    /// Time spent drawing since last asked, in ms, and how many draws.
+    pub fn take_spent(&self) -> (f64, u32) {
+        self.imp().spent.take()
     }
 }
 
