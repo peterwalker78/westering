@@ -2,9 +2,9 @@
 //! it's near, in a small line beside the pointer; a click on it tells more,
 //! on a card. On the tour, one of tonight's finds not yet caught keeps its
 //! secret: the click turns the view to it instead, so it can be caught. In
-//! free look everything with a card glows wherever it is above the
+//! free look everything with a photograph glows wherever it is above the
 //! horizon, however faint and however wide the view, and a click looks
-//! closer.
+//! closer; constellations and the other stars too, if asked for.
 
 use crate::game::{Card, Game, envelope};
 use crate::view::{Glow, Text};
@@ -125,24 +125,35 @@ impl Game {
             .map(|(_, h)| h)
     }
 
+    /// Whether free look shows everything with a card, not only
+    /// photographs.
+    fn everything(&self) -> bool {
+        self.journal.settings.everything
+    }
+
     /// Whether free look has a closer look to give at something.
     fn has_closer_look(&self, subject: Option<Target>) -> bool {
         match subject {
             Some(Target::Body(_) | Target::Showpiece(_)) => true,
+            // Unless everything is asked for, only photographs of the
+            // thing itself: no constellations, and stars only with their own.
             Some(t @ Target::Figure(_)) => {
-                self.find_of(t).is_some() || self.photos.pictures(&self.sky, &t)
+                self.everything()
+                    && (self.find_of(t).is_some() || self.photos.pictures(&self.sky, &t))
             }
-            // A star glows as one of tonight's finds, for its own photograph,
-            // for something to tell about it, or for someone's name.
+            // A star glows for its own photograph, or else as one of
+            // tonight's finds, for something to tell about it, or for
+            // someone's name.
             Some(t @ Target::Star(hr)) => {
-                self.find_of(t).is_some()
-                    || self.photos.pictures(&self.sky, &t)
-                    || self
-                        .sky
-                        .lists
-                        .star_name(hr)
-                        .is_some_and(|s| s.fact.is_some() || !s.more.is_empty())
-                    || self.journal.person_on(hr).is_some()
+                self.photos.pictures(&self.sky, &t)
+                    || self.everything()
+                        && (self.find_of(t).is_some()
+                            || self
+                                .sky
+                                .lists
+                                .star_name(hr)
+                                .is_some_and(|s| s.fact.is_some() || !s.more.is_empty())
+                            || self.journal.person_on(hr).is_some())
             }
             _ => false,
         }
@@ -472,8 +483,8 @@ impl Game {
                 }
             }
         }
-        // Every constellation at its middle, in free look.
-        if every {
+        // Every constellation at its middle, in free look, when asked for.
+        if every && self.everything() {
             for (f, figure) in self.sky.figures.iter().enumerate() {
                 let target = Target::Figure(f);
                 if self.find_of(target).is_some() {

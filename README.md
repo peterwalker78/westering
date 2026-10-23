@@ -193,8 +193,8 @@ With tonight's list:
 | Click one in the list | Turn towards it |
 | `C` | Draw a constellation: arrows step between stars, `Enter` joins, `C` finishes |
 
-In free look there's no list, no ring and the wisp keeps quiet. Anything with
-more to tell glows:
+In free look there's no list, no ring and the wisp keeps quiet. Everything
+with a photograph glows; Settings can add every constellation and named star:
 
 | Key | |
 | --- | --- |

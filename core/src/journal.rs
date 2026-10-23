@@ -131,6 +131,10 @@ pub struct Settings {
     /// Less movement: the wisp stays on its moss and the stars twinkle less.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub calm: bool,
+    /// Free look shows constellations and stars without a photograph too,
+    /// not only what has one.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub everything: bool,
     /// What the wisp has already shown, so it doesn't say it twice.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub seen: Vec<String>,
@@ -909,6 +913,13 @@ mod tests {
             std::env::temp_dir().join(format!("westering-test-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn free_look_shows_photographs_only_until_asked_for_everything() {
+        assert!(!Settings::default().everything);
+        let old: Settings = toml::from_str("calm = true").unwrap();
+        assert!(!old.everything);
     }
 
     #[test]

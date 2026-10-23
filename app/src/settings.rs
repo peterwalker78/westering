@@ -301,6 +301,25 @@ impl Settings {
         )];
         group(&self.body, "MOTION", &motion);
 
+        let photos = gtk::Switch::new();
+        photos.set_active(!settings.everything);
+        let game = self.game.clone();
+        photos.connect_active_notify(move |b| {
+            let mut g = game.borrow_mut();
+            let j = g.journal_mut();
+            j.settings.everything = !b.is_active();
+            g.save_settings();
+        });
+        group(
+            &self.body,
+            "LOOK UP",
+            &[row(
+                "Photographs only",
+                "In Look up, only what has a photograph to show glows. Turn it off to see every constellation and named star as well.",
+                &photos,
+            )],
+        );
+
         let ask = gtk::DropDown::from_strings(&["Sometimes", "Rarely", "Never"]);
         ask.set_selected(match settings.ask {
             Ask::Sometimes => 0,
