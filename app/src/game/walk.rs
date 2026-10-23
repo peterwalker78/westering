@@ -651,6 +651,16 @@ fn free_look_never_turns_or_speaks_by_itself() {
     assert!(w.game.card.is_none() && w.game.free_look(), "{}", w.seen());
     w.tap(gdk::Key::Escape);
     assert!(!w.game.free_look(), "{}", w.seen());
+    // Winding down from a closer look leaves nothing holding the view.
+    w.tap(gdk::Key::f);
+    w.game.look = None;
+    (w.game.camera.alt, w.game.camera.az) = (alt, az);
+    w.game.camera.update();
+    w.wait(200);
+    w.tap(gdk::Key::space);
+    assert!(w.game.inspecting().is_some(), "{}", w.seen());
+    w.tap(gdk::Key::w);
+    assert!(w.game.inspecting().is_none(), "{}", w.seen());
     let _ = std::fs::remove_dir_all(&dir);
 }
 

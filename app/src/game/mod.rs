@@ -976,6 +976,9 @@ impl Game {
             Phase::Weights => self.begin_weights(real),
             Phase::Hunt => self.guide_hunt(real),
             Phase::Dimming => {
+                // A closer look ends with the card, or it would keep pulling
+                // the view back while the evening widens out.
+                self.end_inspect(real);
                 self.card = None;
                 if let Some(t) = self.on_tour_mut() {
                     t.catch = Catch::default();
