@@ -14,6 +14,7 @@ mod walk;
 
 pub(crate) use detail::Subject;
 pub(crate) use finds::TonightFind;
+pub(crate) use sky::{envelope, gather, hills};
 
 use crate::camera::Camera;
 use crate::field::{Field, Rgb, noise3};
@@ -404,56 +405,6 @@ const LATE_FINDS: usize = 5;
 pub(crate) fn late(now: UnixMs, offset_s: i32) -> bool {
     westering_core::time::clock(now, offset_s).0 < 5
 }
-const RETICLE: Rgb = [0.78, 0.84, 1.0];
-
-/// Fades in over `rise`, holds, and fades out over `fall`.
-pub(crate) fn envelope(age: UnixMs, rise: UnixMs, hold: UnixMs, fall: UnixMs) -> f64 {
-    if age < 0 {
-        0.0
-    } else if age < rise {
-        smoothstep(age as f64 / rise as f64)
-    } else if age < rise + hold {
-        1.0
-    } else {
-        1.0 - smoothstep((age - rise - hold) as f64 / fall.max(1) as f64)
-    }
-}
-
-/// The gentle hills along the horizon, in degrees of altitude.
-pub(crate) fn hills(az: f64) -> f64 {
-    let a = az.to_radians();
-    (0.75
-        + 0.45 * (3.0 * a + 0.7).sin()
-        + 0.3 * (7.0 * a + 2.1).sin()
-        + 0.18 * (13.0 * a + 0.3).sin())
-    .max(0.15)
-}
-
-/// How many magnitudes fainter the view reaches when zoomed in to `fov`,
-/// the way a telescope gathers more light than the eye.
-pub(crate) fn gather(fov: f64) -> f64 {
-    2.5 * (60.0 / fov).clamp(1.0, 100.0).log10()
-}
-
-/// Stars brighter than this are drawn as true points; fainter ones on the lattice.
-const BRIGHT: f64 = 3.0;
-
-/// A bright star or planet as a crisp point with a halo, sized by its light.
-fn point(x: f64, y: f64, color: Rgb, amount: f32, halo: f32) -> crate::view::Point {
-    crate::view::Point {
-        x,
-        y,
-        radius: (1.05 + 0.62 * amount).min(4.4),
-        color,
-        alpha: (0.5 + 0.35 * amount).min(1.0),
-        halo: (0.25 + amount / 2.2).min(1.0) * halo,
-    }
-}
-
-/// How much light a star of magnitude `mag` puts on its dot.
-fn light(mag: f64) -> f32 {
-    (1.6 * 10f64.powf(-0.4 * (mag - 1.0)).powf(0.55)) as f32
-}
 
 pub(crate) fn angle_between(a: Vec3, b: Vec3) -> f64 {
     dot(a, b).clamp(-1.0, 1.0).acos().to_degrees()
@@ -584,7 +535,7 @@ impl Game {
             .map(|(s, &dir)| Prepared {
                 dir,
                 mag: s.mag as f64,
-                light: light(s.mag as f64),
+                light: sky::light(s.mag as f64),
                 tint: westering_core::stars::tint(s.bv),
                 rate: 0.9 + (s.hr % 7) as f64 * 0.23,
                 phase: s.hr as f64,
