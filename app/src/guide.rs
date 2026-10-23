@@ -103,8 +103,9 @@ pub struct Guide {
     lines: Lines,
     /// The moss as last drawn: when, at what scale.
     moss: Option<(UnixMs, f64, gtk::gdk::Texture)>,
-    /// The wisp's picture as last drawn: when it's next due, at what scale.
-    wisp_drawn: Option<(UnixMs, f64, gtk::gdk::Texture)>,
+    /// The wisp's picture as last drawn: when it's next due, at what scale,
+    /// and whether still, behind a page.
+    wisp_drawn: Option<(UnixMs, f64, bool, gtk::gdk::Texture)>,
 }
 
 /// What the wisp is holding its tongue for.
@@ -1400,8 +1401,10 @@ impl Game {
             .guide
             .wisp_drawn
             .as_ref()
-            .is_none_or(|(due, scale, _)| real >= *due || *scale != self.guide.scale);
-        if busy || stale || self.panel_open {
+            .is_none_or(|(due, scale, still, _)| {
+                real >= *due || *scale != self.guide.scale || *still != self.panel_open
+            });
+        if busy || stale {
             self.guide.wisp_drawn = render_flying(
                 &mut self.guide.wisp,
                 real as f64,
@@ -1410,10 +1413,10 @@ impl Game {
             )
             .map(|(t, next)| {
                 let wait = next.map_or(WISP_REDRAW_MS, |ms| (ms as UnixMs).min(WISP_REDRAW_MS * 4));
-                (real + wait, self.guide.scale, t)
+                (real + wait, self.guide.scale, self.panel_open, t)
             });
         }
-        if let Some((_, _, texture)) = self.guide.wisp_drawn.clone() {
+        if let Some((_, _, _, texture)) = self.guide.wisp_drawn.clone() {
             let breath = if self.panel_open {
                 1.0
             } else {
