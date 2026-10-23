@@ -73,58 +73,15 @@ impl Game {
 
     /// What kind of thing find `i` is, in a word or two.
     pub(crate) fn kind_word(&self, i: usize) -> &'static str {
-        match self.finds[i].target {
-            Target::Body(Body::Moon) => "Our Moon",
-            Target::Body(_) => "Planet",
-            Target::Star(_) => "Star",
-            Target::Showpiece(p) => match self.sky.lists.showpieces[p].kind {
-                Kind::Cluster => "Star cluster",
-                Kind::Galaxy => "Galaxy",
-                Kind::Nebula => "Nebula",
-                Kind::Double => "Double star",
-                Kind::Star => "Star",
-                Kind::Dark => "Dark cloud",
-                Kind::Cloud => "Star cloud",
-                Kind::Asterism => "Asterism",
-            },
-            Target::Meteor(_) => "Meteor",
-            Target::Figure(_) => "Constellation",
-            Target::Hop(_) => "Star-hop",
-            Target::Story(_) => "Tonight's story",
-            Target::MoonWalk => "Moon walk",
-        }
+        self.finds[i].target.kind_word(&self.sky.lists.showpieces)
     }
 
     /// What to look out for, to help find it.
     pub(crate) fn look_for(&self, i: usize) -> &'static str {
-        match self.finds[i].target {
-            Target::Body(Body::Moon) => "You can't miss it.",
-            Target::Body(_) => "Look for a bright, steady light that doesn't twinkle.",
-            Target::Star(_) => "Look for a single bright star.",
-            Target::Showpiece(p) if self.sky.lists.showpieces[p].kind == Kind::Cloud => {
-                "Look for the brightest patch of the Milky Way there."
-            }
-            Target::Showpiece(p) if self.sky.lists.showpieces[p].deep => {
-                "Too faint for the eye alone: turn to it and zoom in close with +, and it will show."
-            }
-            Target::Showpiece(p) => match self.sky.lists.showpieces[p].kind {
-                Kind::Cluster => "Look for a little knot of faint stars.",
-                Kind::Asterism => "Look for a little pattern of stars.",
-                Kind::Galaxy | Kind::Nebula => "Look for a faint smudge of light.",
-                Kind::Double => "It looks like a single star, but close up it's two.",
-                _ => "Look for a single star.",
-            },
-            Target::Meteor(_) => "Watch the sky, and press Space the moment one flies.",
-            Target::Figure(_) => "Look for its shape; put the ring in the middle of it.",
-            Target::Hop(_) => "Start from a star you know, and hop from star to star.",
-            Target::Story(_) => {
-                "Tonight's story starts at the star I'm showing you: hold Space when it's in the ring."
-            }
-            Target::MoonWalk if self.moon_find().is_some_and(|m| !self.finds[m].caught) => {
-                "Catch the Moon first, then hold Space on it again to go closer."
-            }
-            Target::MoonWalk => "Hold Space on the Moon to go closer.",
-        }
+        let moon_first = self.moon_find().is_some_and(|m| !self.finds[m].caught);
+        self.finds[i]
+            .target
+            .look_for(&self.sky.lists.showpieces, moon_first)
     }
 
     /// How narrow the view goes to show a find close up.
