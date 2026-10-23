@@ -161,7 +161,7 @@ pub fn render_flying(
 ) -> Option<(gdk::Texture, Option<f64>)> {
     let mut next = None;
     let texture = paint(FLYING, scale, |c| {
-        next = wisp.draw(now, moving, true, c);
+        next = wisp.draw(now, moving, c);
     })?;
     Some((texture, next))
 }

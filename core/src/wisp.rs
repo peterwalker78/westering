@@ -4,8 +4,8 @@
 //!
 //! This is the whole of it — its moods, its motion, its face and its moss —
 //! drawn on a `Canvas`, so none of it depends on how it reaches the screen.
-//! What it cannot know it is told: its mode, the frame's time, whether
-//! animation is wanted, and whether it is drawn over something dark.
+//! What it cannot know it is told: its mode, the frame's time, and whether
+//! animation is wanted.
 //!
 //! Its colours come from `core/data/wisp.toml`; its face, motion and moss
 //! are set by the constants below. It asks to be redrawn only as often as
@@ -115,6 +115,10 @@ const CHEEKS: f64 = 0.93;
 const BROW_LIFT: f64 = 0.36;
 /// A blink lasts this long, and comes every 2.5-7 s.
 const BLINK_MS: f64 = 170.0;
+/// Eyes open less than this lose their brows, and a face happier than this
+/// smiles with its eyes: either way a blink there can't be seen.
+const BROWLESS: f64 = 0.05;
+const BEAMING: f64 = 0.5;
 /// Noticing a change of mode: a glance aside and a small hop, so the user
 /// sees at once that the wisp registered it.
 const NOTICE_MS: f64 = 1100.0;
@@ -157,8 +161,6 @@ const MOSS_FRESH: Rgb = Rgb(0.49, 0.62, 0.34);
 const FROST: Rgb = Rgb(0.86, 0.93, 1.0);
 const PETAL: Rgb = Rgb(1.0, 0.96, 0.84);
 const LEAF: Rgb = Rgb(0.86, 0.5, 0.2);
-/// Over something light only: the soft shadow the wisp glows in.
-const WELL_DEPTH: f64 = 0.07;
 /// The face's dark ink.
 const FACE_INK: Rgb = Rgb(0.17, 0.13, 0.10);
 /// Warm cheeks: amber, never pink or red.
@@ -371,16 +373,7 @@ impl Wisp {
 
     /// Just the moss, on a canvas `width` by `height`.
     pub fn draw_moss_alone(&self, width: f64, height: f64, now: f64, canvas: &mut dyn Canvas) {
-        draw_moss(
-            canvas,
-            width,
-            height,
-            self.happy,
-            true,
-            now,
-            true,
-            self.season,
-        );
+        draw_moss(canvas, width, height, self.happy, now, true, self.season);
     }
 
     /// The nook has been given a new size.
@@ -398,17 +391,10 @@ impl Wisp {
     }
 
     /// Draw one frame, at `now` milliseconds. `moving` is whether the
-    /// platform allows animation, `dark` whether it is drawn over something
-    /// dark. Returns
-    /// how long until the next frame is wanted, or `None` to rest.
-    pub fn draw(
-        &mut self,
-        now: f64,
-        moving: bool,
-        dark: bool,
-        canvas: &mut dyn Canvas,
-    ) -> Option<f64> {
-        draw(self, now, moving, dark, canvas)
+    /// platform allows animation. Returns how long until the next frame is
+    /// wanted, or `None` to rest.
+    pub fn draw(&mut self, now: f64, moving: bool, canvas: &mut dyn Canvas) -> Option<f64> {
+        draw(self, now, moving, canvas)
     }
 }
 
@@ -443,7 +429,7 @@ fn ease_toward(value: f64, target: f64, dt: f64, time_ms: f64) -> f64 {
 }
 
 /// Draw one frame. Returns how long until the next one is wanted.
-fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas) -> Option<f64> {
+fn draw(wisp: &mut Wisp, now: f64, moving: bool, cr: &mut dyn Canvas) -> Option<f64> {
     let dt = wisp
         .last_tick
         .map_or(16.0, |last| (now - last).clamp(0.0, 250.0));
@@ -504,16 +490,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     let width = wisp.width;
     let home_x = width / 2.0;
     if !wisp.flying {
-        draw_moss(
-            cr,
-            width,
-            height,
-            wisp.happy,
-            dark,
-            now,
-            moving,
-            wisp.season,
-        );
+        draw_moss(cr, width, height, wisp.happy, now, moving, wisp.season);
     }
 
     // --- Where and how big ---------------------------------------------------
@@ -691,7 +668,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     }
     brightness = (brightness * (1.0 + 0.25 * warm) * (1.0 - 0.12 * wisp.tender)).min(1.15);
 
-    draw_particles(wisp, cr, now, look, dark);
+    draw_particles(wisp, cr, now, look);
     // Squash and stretch about the base, so it stays on its feet.
     let base = y + radius;
     let shaped = (body_w - 1.0).abs() > 1e-3 || (body_h - 1.0).abs() > 1e-3;
@@ -710,15 +687,15 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
             sway,
             look,
             brightness,
-            dark,
         },
     );
-    let openness = EYES_OPEN
-        * (1.0 - blink)
+    let open = EYES_OPEN
         * (1.0 - wisp.sleep)
         * (1.0 - 0.28 * wisp.tender)
         * (1.0 - 0.42 * wisp.sleepy * (1.0 - wisp.listening))
         * (1.0 - shut);
+    let openness = open * (1.0 - blink);
+    let happy = face_happy * awake;
     draw_face(
         cr,
         Face {
@@ -726,7 +703,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
             y,
             radius,
             openness,
-            happy: face_happy * awake,
+            happy,
             glance: wisp.glance,
             glance_y: wisp.glance_y,
             smile: SMILE
@@ -754,7 +731,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
         return None;
     }
     let settling = |v: f64| v > 0.02 && v < 0.98;
-    let bursting = blink > 0.0
+    let bursting = (blink > 0.0 && open > BROWLESS && happy <= BEAMING)
         || noticing
         || wisp.gesturing(now)
         || settling(wisp.listening)
@@ -786,26 +763,21 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
 }
 
 /// A soft mound of moss along the nook's floor, with a few tufts.
-#[allow(clippy::too_many_arguments)]
 fn draw_moss(
     cr: &mut dyn Canvas,
     width: f64,
     height: f64,
     happy: f64,
-    dark: bool,
     now: f64,
     moving: bool,
     season: Option<Season>,
 ) {
     let moss_left = width * (1.0 - MOSS_SPAN) / 2.0;
     let moss_right = width - moss_left;
-    // Over something dark it wants deeper moss; delight perks it up.
-    let colour = if dark {
-        MOSS_FRESH.mix(Rgb(0.1, 0.12, 0.08), 0.35)
-    } else {
-        MOSS_FRESH
-    };
-    let colour = colour.mix(MOSS_FRESH, happy * 0.3);
+    // Deep against the night sky; delight perks it up.
+    let colour = MOSS_FRESH
+        .mix(Rgb(0.1, 0.12, 0.08), 0.35)
+        .mix(MOSS_FRESH, happy * 0.3);
     // Frost pales it in winter.
     let colour = if season == Some(Season::Winter) {
         colour.mix(FROST, 0.22)
@@ -953,7 +925,6 @@ struct Sprite {
     sway: f64,
     look: Look,
     brightness: f64,
-    dark: bool,
 }
 
 /// The flame-topped teardrop body and its glow.
@@ -965,25 +936,9 @@ fn draw_sprite(cr: &mut dyn Canvas, s: Sprite) {
         sway,
         look,
         brightness,
-        dark,
     } = s;
 
-    if !dark {
-        let ink = Rgb(0.15, 0.16, 0.14);
-        let well = r * 2.8;
-        cr.set_paint(Paint::glow(
-            x,
-            y,
-            well,
-            &[
-                stop(0.0, ink, WELL_DEPTH),
-                stop(0.6, ink, WELL_DEPTH * 0.4),
-                stop(1.0, ink, 0.0),
-            ],
-        ));
-        cr.disc(x, y, well);
-    }
-    cr.set_adding(dark);
+    cr.set_adding(true);
     let halo = r * 2.4;
     cr.set_paint(Paint::glow(
         x,
@@ -1079,7 +1034,7 @@ fn draw_face(cr: &mut dyn Canvas, f: Face) {
 
         // The brow, a short stroke that lifts with a bright mood and lowers
         // with a heavy one, its outer end dipping as it goes.
-        if f.openness > 0.05 || f.happy > 0.5 {
+        if f.openness > BROWLESS || f.happy > BEAMING {
             let brow_y = eye_y - r * BROW_ABOVE - r * BROW_TRAVEL * f.brow;
             // Arched while the mood is bright, flat while it is heavy.
             let arch = r * BROW_ARCH * f.brow.max(0.0);
@@ -1097,7 +1052,7 @@ fn draw_face(cr: &mut dyn Canvas, f: Face) {
             cr.stroke();
         }
 
-        if f.happy > 0.5 {
+        if f.happy > BEAMING {
             // ^ ^
             cr.set_paint(Paint::solid(FACE_INK, alpha));
             cr.set_line_width(r * 0.09);
@@ -1203,7 +1158,7 @@ fn spawn(wisp: &mut Wisp, now: f64, x: f64, y: f64, kind: ParticleKind) {
     });
 }
 
-fn draw_particles(wisp: &mut Wisp, cr: &mut dyn Canvas, now: f64, look: Look, dark: bool) {
+fn draw_particles(wisp: &mut Wisp, cr: &mut dyn Canvas, now: f64, look: Look) {
     wisp.particles.retain(|p| now - p.born < p.life);
     for p in &wisp.particles {
         let age = (now - p.born) / p.life;
@@ -1242,12 +1197,7 @@ fn draw_particles(wisp: &mut Wisp, cr: &mut dyn Canvas, now: f64, look: Look, da
                 cr.stroke();
             }
             ParticleKind::Z => {
-                let ink = if dark {
-                    Rgb(0.85, 0.86, 0.83)
-                } else {
-                    Rgb(0.17, 0.18, 0.16)
-                };
-                cr.set_paint(Paint::solid(ink, 0.45 * fade));
+                cr.set_paint(Paint::solid(Rgb(0.85, 0.86, 0.83), 0.45 * fade));
                 cr.set_line_width(1.1);
                 cr.set_round_ends(true);
                 let s = p.size * (1.0 + age * 0.5);
@@ -1316,11 +1266,11 @@ mod tests {
         let mut wisp = Wisp::new(100.0, 100.0);
         wisp.update(mode);
         wisp.set_flight(true, 0.0, None);
-        wisp.draw(0.0, false, true, &mut palette);
+        wisp.draw(0.0, false, &mut palette);
         wisp.set_flight(false, 0.0, None);
         wisp.resize(56.0, 56.0);
         wisp.set_season(Some(Season::Winter));
-        wisp.draw(0.0, false, true, &mut palette);
+        wisp.draw(0.0, false, &mut palette);
         palette.0.into_iter().collect()
     }
 
@@ -1349,5 +1299,20 @@ mod tests {
             expect(&[&wisp, &moss, &glint])
         );
         assert_eq!(still_colours(Mode::Nourishing), expect(&[&wisp, &perked]));
+    }
+
+    #[test]
+    fn an_asleep_wisp_never_wakes_for_a_blink() {
+        let mut palette = Palette::default();
+        let mut wisp = Wisp::new(56.0, 56.0);
+        wisp.update(Mode::Away);
+        let mut now = 0.0;
+        while now < 70_000.0 {
+            let delay = wisp.draw(now, true, &mut palette).expect("moving");
+            if now > 10_000.0 {
+                assert!(delay >= 1000.0 / DOZING_FPS, "{delay} ms at {now}");
+            }
+            now += delay;
+        }
     }
 }
