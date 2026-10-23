@@ -198,8 +198,7 @@ fn lit(photo: &gdk::Texture, phase: Phase) -> gdk::Texture {
             }
             let z = (1.0 - rho2.min(1.0)).sqrt();
             let light = (u * phase.sun.0 + v * phase.sun.1) * si + z * ci;
-            let t = (light * 7.0 + 0.5).clamp(0.0, 1.0);
-            let day = t * t * (3.0 - 2.0 * t);
+            let day = westering_core::ease::smoothstep(light * 7.0 + 0.5);
             let keep = (day + (1.0 - day) * 0.05) as f32;
             let i = y * stride + x * 4;
             for c in &mut data[i..i + 3] {

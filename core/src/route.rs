@@ -58,7 +58,7 @@ pub fn route(start: Vec3, dirs: &[Option<Vec3>]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::coords::from_alt_az;
+    use crate::coords::{from_alt_az, turn};
 
     fn length(start: Vec3, dirs: &[Option<Vec3>], order: &[usize]) -> f64 {
         let mut here = start;
@@ -85,10 +85,7 @@ mod tests {
         let seen: Vec<f64> = order.iter().map(|&i| azimuths[i]).collect();
         // One way round from the south, never back across what's been seen.
         assert_eq!(seen[0], 160.0, "{seen:?}");
-        let steps: Vec<f64> = seen
-            .windows(2)
-            .map(|w| (w[1] - w[0] + 540.0f64).rem_euclid(360.0) - 180.0)
-            .collect();
+        let steps: Vec<f64> = seen.windows(2).map(|w| turn(w[0], w[1])).collect();
         assert!(
             steps.iter().all(|s| s.signum() == steps[0].signum()),
             "{seen:?}"

@@ -3,9 +3,10 @@
 //! evening waits while they happen, and Esc, or choosing something else,
 //! lets them go at any point.
 
-use crate::game::{Game, smoothstep};
+use crate::game::Game;
 use crate::talk::{Flow, Prompt};
 use crate::view::{Point, Text};
+use westering_core::ease::smoothstep;
 use westering_core::time::UnixMs;
 use westering_core::winddown::{About, WindDown};
 
@@ -75,7 +76,7 @@ impl Game {
     fn wind_line(&self) -> (String, String) {
         let words = &self.wind.words;
         if let Some(story) = self.story_heard {
-            let mirror = self.sky.tours.stories[story].mirror.clone();
+            let mirror = self.sky.trails.stories[story].mirror.clone();
             return (mirror, words.story_kicker.clone());
         }
         let mut covered = Vec::new();

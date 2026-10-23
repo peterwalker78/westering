@@ -8,11 +8,12 @@
 //! step outside.
 
 use crate::field::noise3;
-use crate::game::{Card, Game, Row, smoothstep, turn};
+use crate::game::{Card, Game, Row};
 use crate::guide::Aim;
 use crate::view::{Frame, Point, Text};
 use gtk::gdk;
-use westering_core::coords::{Observer, compass};
+use westering_core::coords::{Observer, compass, turn};
+use westering_core::ease::smoothstep;
 use westering_core::ephem::Body;
 use westering_core::finale::whereabouts;
 use westering_core::ground::{self, Ground, Shape, Thing, Today};
@@ -479,7 +480,9 @@ impl Game {
             if let Some(day) = &mut self.day {
                 day.found[i] = true;
             }
-            self.session.found_one(real);
+            if self.day_ref().found.iter().all(|f| *f) {
+                self.session.found_all(real);
+            }
             if let Err(e) = self.journal.mark_found(&id, &self.night) {
                 eprintln!("westering: couldn't keep today's find: {e}");
             }
@@ -614,7 +617,7 @@ impl Game {
             gdk::Key::k | gdk::Key::K => self.toggle_company(real),
             gdk::Key::m | gdk::Key::M => self.toggle_music(real),
             gdk::Key::l | gdk::Key::L => {
-                self.request = Some(crate::talk::Request::Book(Some(self.night.clone())));
+                self.request = Some(crate::pages::Request::Book(Some(self.night.clone())));
             }
             _ => return false,
         }
@@ -641,10 +644,10 @@ impl Game {
             self.say_at(aim, text, real + 1_200, 8_000);
         }
         let now = self.clock.sky(real);
-        let (_, month, d) = civil_date(now, self.offset_s);
+        let (_, month, d) = civil_date(now, self.offset_s(now));
         let mut line = format!(
             "{} {} {} · the Sun is up",
-            westering_core::time::weekday(now, self.offset_s),
+            westering_core::time::weekday(now, self.offset_s(now)),
             d,
             westering_core::time::MONTHS[month as usize - 1]
         );
@@ -711,7 +714,8 @@ impl Game {
                 let dark = crossing(now, DAY, -6.0, false, |at| {
                     see(Body::Sun, self.observer, at).alt
                 });
-                let (h, m) = clock(dark.unwrap_or(now + 40 * MINUTE), self.offset_s);
+                let at = dark.unwrap_or(now + 40 * MINUTE);
+                let (h, m) = clock(at, self.offset_s(at));
                 lines.dusk.replace("{time}", &format!("{h:02}:{m:02}"))
             }
         }
@@ -747,7 +751,7 @@ impl Game {
         let now = self.clock.sky(real);
         let minute = now / (5 * MINUTE);
         if self.day_ref().stamp.is_some_and(|s| s.2 != minute) {
-            let fresh = ground::today(self.observer, now, self.offset_s);
+            let fresh = ground::today(self.observer, now, self.offset_s(now));
             if let Some(day) = &mut self.day {
                 let moon = fresh.moon.clone().or(day.today.moon.take());
                 day.today = ground::Today { moon, ..fresh };

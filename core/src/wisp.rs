@@ -1,21 +1,22 @@
 //! The wisp: a flame-shaped sprite with a friendly face, resting on a tuft of
-//! moss in its nook. It is the same wisp that lives in the Glimmerwood
-//! browser; here it comes out at night to show someone the sky.
+//! moss. It comes out at night to show someone the sky, and goes back to
+//! sleep when the evening is over.
 //!
 //! This is the whole of it — its moods, its motion, its face and its moss —
-//! drawn on a `Canvas` and so the same wherever Glimmerwood runs. What it
-//! cannot know it is told: the frame's time, whether the platform wants
-//! animation, and whether the chrome around it is dark.
+//! drawn on a `Canvas`, so none of it depends on how it reaches the screen.
+//! What it cannot know it is told: its mode, the frame's time, and whether
+//! animation is wanted.
 //!
-//! Its colours along the dose come from `core/data/wisp.toml`; its face,
-//! motion and moss are set by the constants below. It asks to be redrawn
-//! only as often as what it is doing needs, and a still wisp (reduced
-//! motion) only when the dose moves.
+//! Its colours come from `core/data/wisp.toml`; its face, motion and moss
+//! are set by the constants below. It asks to be redrawn only as often as
+//! what it is doing needs, and a still wisp (reduced motion) only when its
+//! mode changes.
 
 use std::f64::consts::{PI, TAU};
 
 use crate::canvas::{Canvas, Paint, stop};
-use crate::look::{Look, Stops};
+use crate::ease::smoothstep;
+use crate::look::Look;
 use crate::oklab::Rgb;
 
 /// How the wisp feels about the moment, which sets its face.
@@ -23,8 +24,6 @@ use crate::oklab::Rgb;
 pub enum Mode {
     /// Asleep.
     Away,
-    /// Wary.
-    Draining,
     /// Calm.
     Resting,
     /// Delighted.
@@ -96,40 +95,34 @@ impl Gesture {
     }
 }
 
-/// Which way things are going, shown as a wash of colour behind it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Trend {
-    Rising,
-    Falling,
-    Steady,
-}
-
 // Feel constants. Alternatives are noted beside some of them.
 /// Body radius at rest, in CSS pixels: about 27 px across, which fits a
 /// 56 px nook with its glow.
-const BODY_RADIUS: f64 = 13.5;
+const BODY_RADIUS: f64 = 13.338;
 /// A slow breath of about six seconds at rest.
 const BREATH_MS: f64 = 6000.0;
 /// How much the body swells with each breath: 0.1 made the face bounce.
 const BREATH_DEPTH: f64 = 0.05;
 /// How much the light swells with it.
 const BREATH_GLOW: f64 = 0.07;
-/// Time for the shown dose to catch up with a changed one.
-const EASE_MS: f64 = 1500.0;
+/// Awake and at ease, it bobs this far, in CSS pixels.
+const BOB: f64 = 1.8;
+/// The face at ease: eyes all but wide open, a broad smile, warm cheeks,
+/// and brows lifted a little.
+const EYES_OPEN: f64 = 0.982_857_142_857;
+const SMILE: f64 = 0.941_666_666_667;
+const CHEEKS: f64 = 0.93;
+const BROW_LIFT: f64 = 0.36;
 /// A blink lasts this long, and comes every 2.5-7 s.
 const BLINK_MS: f64 = 170.0;
-/// Giving privacy: roughly the time to slip out of sight, or come back.
-const PRIVACY_MS: f64 = 1200.0;
-/// Noticing a change of site: a glance toward the page and a small hop, so
-/// the user sees at once that the wisp registered where they went.
+/// Eyes open less than this lose their brows, and a face happier than this
+/// smiles with its eyes: either way a blink there can't be seen.
+const BROWLESS: f64 = 0.05;
+const BEAMING: f64 = 0.5;
+/// Noticing a change of mode: a glance aside and a small hop, so the user
+/// sees at once that the wisp registered it.
 const NOTICE_MS: f64 = 1100.0;
 const NOTICE_HOP: f64 = 3.0;
-/// How strongly the kind of site shows on its face, independent of the
-/// dose: wary on draining sites (lids a little lower, the smile flattened,
-/// the glow a touch dimmer; never sad), calm on ordinary ones, curious on
-/// unlisted ones.
-const WARY_LIDS: f64 = 0.34;
-const WARY_DIM: f64 = 0.1;
 /// Eyebrows: how far above the eyes they sit, and how much a mood lifts or
 /// lowers them. They carry most of what the face says, so a mood reads from
 /// across the room rather than only close up.
@@ -138,65 +131,36 @@ const BROW_TRAVEL: f64 = 0.16;
 /// Brows stay level and only move up or down: tilting either end turns the
 /// face sad (inner end up) or stern (inner end down), and it is never either.
 const BROW_ARCH: f64 = 0.06;
-/// At night the glow warms by this much and the breath slows by
-/// this factor, whatever the dose.
+/// At night the glow warms by this much and the breath slows by this
+/// factor.
 const NIGHT_WARMTH: f64 = 0.35;
 const NIGHT_BREATH: f64 = 1.4;
 const NIGHT_GLOW: Rgb = Rgb(0.96, 0.66, 0.36);
-/// Coming back after a long time away: brighter and a little bigger.
-const WELCOME_BRIGHTER: f64 = 0.3;
-const WELCOME_BIGGER: f64 = 0.08;
 /// Frames per second by what the wisp is doing. Each frame per second costs
-/// about 0.11% of a core. A dozing wisp breathes at 2; resting, 4;
-/// drifting, smoking or releasing motes, 6. Blinks, slipping away and catching
-/// up with a changed dose get short bursts of 20.
+/// about 0.11% of a core. A dozing wisp breathes at 2; resting, 4; releasing
+/// motes or notes, 6. Blinks, gestures and changes of mood get short bursts
+/// of 20.
 const DOZING_FPS: f64 = 2.0;
 const RESTING_FPS: f64 = 4.0;
 const LIVELY_FPS: f64 = 6.0;
 const BURST_FPS: f64 = 20.0;
 /// Nourishing: a mote now and then, not a fountain.
 const MOTE_EVERY_MS: f64 = 1400.0;
-/// Clouded and drained: faint smoke.
-const SMOKE_EVERY_MS: f64 = 2200.0;
 /// Humming: a note drifts up now and then.
 const NOTE_EVERY_MS: f64 = 4200.0;
 /// Dozing: a small z drifts up now and then.
 const Z_EVERY_MS: f64 = 3200.0;
-/// Drained: out toward the window edge, pause, back, rest.
-const DRIFT_CYCLE_MS: f64 = 14000.0;
-/// When drained it drifts toward the window's edge, to the right: to this
-/// far from the nook's right side.
-const EDGE_MARGIN: f64 = 34.0;
-/// How far an engaged wisp wanders around its nook.
-const ROAM_X: f64 = 18.0;
-const ROAM_Y: f64 = 3.0;
 /// The moss: the share of the nook's width its mound spans, and its floor
 /// and height.
 const MOSS_SPAN: f64 = 0.74;
 const MOSS_FLOOR: f64 = 7.0;
 const MOSS_HEIGHT: f64 = 8.0;
-/// Moss colours along the dose: fresh, tired olive, dry tan. It browns and
-/// its tufts droop as the dose rises, and greens again as it falls. It never
-/// goes bare: the garden never dies, and neither does this.
+/// Moss colour: fresh green.
 const MOSS_FRESH: Rgb = Rgb(0.49, 0.62, 0.34);
-const MOSS_TIRED: Rgb = Rgb(0.55, 0.56, 0.34);
-const MOSS_DRY: Rgb = Rgb(0.62, 0.52, 0.33);
 /// The seasons on the moss: winter's frost, a spring flower, an autumn leaf.
 const FROST: Rgb = Rgb(0.86, 0.93, 1.0);
 const PETAL: Rgb = Rgb(1.0, 0.96, 0.84);
 const LEAF: Rgb = Rgb(0.86, 0.5, 0.2);
-/// The sky in the nook: a wash behind the wisp saying which way the dose is
-/// going, so recovering and wearing read at a glance rather than only from
-/// the wisp's colour. Fresh green-blue while it recovers, a dusky haze while
-/// it wears (never red, never alarm), nothing at all when it holds steady.
-const SKY_RECOVERING: Rgb = Rgb(0.40, 0.75, 0.65);
-const SKY_WEARING: Rgb = Rgb(0.37, 0.28, 0.54);
-/// How strong that wash gets, and how long it takes to arrive: slow enough
-/// that it reads as weather rather than a status light.
-const SKY_ALPHA: f64 = 0.52;
-const SKY_MS: f64 = 2500.0;
-/// Light themes only: the soft shadow the wisp glows in.
-const WELL_DEPTH: f64 = 0.07;
 /// The face's dark ink.
 const FACE_INK: Rgb = Rgb(0.17, 0.13, 0.10);
 /// Warm cheeks: amber, never pink or red.
@@ -216,7 +180,6 @@ struct Particle {
 #[derive(Clone, Copy, PartialEq)]
 enum ParticleKind {
     Mote,
-    Smoke,
     Z,
     /// A little note, drifting up while it hums along to music.
     Note,
@@ -224,22 +187,8 @@ enum ParticleKind {
 
 /// Everything the wisp is doing, and everything it is about to do.
 pub struct Wisp {
-    stops: Stops,
-    target: f64,
-    shown: f64,
+    light: Look,
     mode: Mode,
-    private: bool,
-    night: bool,
-    welcome: bool,
-    trend: Trend,
-    /// 0-1, eased: how much the sky shows the dose falling or rising.
-    recovering: f64,
-    wearing: f64,
-    /// 0-1, eased toward `night` and `welcome`.
-    night_mix: f64,
-    welcome_mix: f64,
-    /// 0 = here, 1 = out of sight.
-    privacy: f64,
     /// 0 = normal, 1 = happily closed eyes; eased.
     happy: f64,
     /// 0 = awake, 1 = asleep; eased.
@@ -247,8 +196,7 @@ pub struct Wisp {
     /// The mode the wisp last reacted to, and when it noticed the change.
     noticed: Mode,
     notice_start: f64,
-    /// 0-1, eased: how wary, calm or curious it looks.
-    wary: f64,
+    /// 0-1, eased: how calm or curious it looks.
     calm: f64,
     curious: f64,
     glance: f64,
@@ -258,7 +206,6 @@ pub struct Wisp {
     particles: Vec<Particle>,
     last_tick: Option<f64>,
     last_mote: f64,
-    last_smoke: f64,
     last_z: f64,
     seed: u64,
     width: f64,
@@ -298,27 +245,15 @@ pub struct Wisp {
 }
 
 impl Wisp {
-    /// A wisp asleep in a nook of this size, before the chrome says otherwise.
+    /// A wisp asleep in a nook of this size.
     pub fn new(width: f64, height: f64) -> Wisp {
         Wisp {
-            stops: Stops::bundled(),
-            target: 0.0,
-            shown: 0.0,
+            light: Look::bundled(),
             mode: Mode::Away,
-            trend: Trend::Steady,
-            recovering: 0.0,
-            wearing: 0.0,
-            private: false,
-            night: false,
-            welcome: false,
-            night_mix: 0.0,
-            welcome_mix: 0.0,
-            privacy: 0.0,
             happy: 0.0,
             sleep: 1.0,
             noticed: Mode::Away,
             notice_start: f64::NEG_INFINITY,
-            wary: 0.0,
             calm: 0.0,
             curious: 0.0,
             glance: 0.0,
@@ -328,7 +263,6 @@ impl Wisp {
             particles: Vec::new(),
             last_tick: None,
             last_mote: 0.0,
-            last_smoke: 0.0,
             last_z: 0.0,
             seed: 0x9e37_79b9_7f4a_7c15,
             width,
@@ -439,17 +373,7 @@ impl Wisp {
 
     /// Just the moss, on a canvas `width` by `height`.
     pub fn draw_moss_alone(&self, width: f64, height: f64, now: f64, canvas: &mut dyn Canvas) {
-        draw_moss(
-            canvas,
-            width,
-            height,
-            self.shown,
-            self.happy,
-            true,
-            now,
-            true,
-            self.season,
-        );
+        draw_moss(canvas, width, height, self.happy, now, true, self.season);
     }
 
     /// The nook has been given a new size.
@@ -458,48 +382,19 @@ impl Wisp {
         self.height = height;
     }
 
-    /// `private`: the visible tab is on the privacy list, so the wisp slips
-    /// out of sight. `night`: it winds down. `welcome`: the user has just
-    /// come back after a long time away. Says whether anything moved, so a
-    /// platform knows whether it is worth a redraw.
-    pub fn update(
-        &mut self,
-        dose: f64,
-        mode: Mode,
-        trend: Trend,
-        private: bool,
-        night: bool,
-        welcome: bool,
-    ) -> bool {
-        if (self.target - dose).abs() < 1e-6
-            && self.mode == mode
-            && self.trend == trend
-            && self.private == private
-            && self.night == night
-            && self.welcome == welcome
-        {
-            return false;
-        }
-        self.target = dose;
+    /// Sets its mode. Says whether that changed anything, so a platform
+    /// knows whether it is worth a redraw.
+    pub fn update(&mut self, mode: Mode) -> bool {
+        let changed = self.mode != mode;
         self.mode = mode;
-        self.trend = trend;
-        self.private = private;
-        self.night = night;
-        self.welcome = welcome;
-        true
+        changed
     }
 
     /// Draw one frame, at `now` milliseconds. `moving` is whether the
-    /// platform allows animation, `dark` whether the chrome is dark. Returns
-    /// how long until the next frame is wanted, or `None` to rest.
-    pub fn draw(
-        &mut self,
-        now: f64,
-        moving: bool,
-        dark: bool,
-        canvas: &mut dyn Canvas,
-    ) -> Option<f64> {
-        draw(self, now, moving, dark, canvas)
+    /// platform allows animation. Returns how long until the next frame is
+    /// wanted, or `None` to rest.
+    pub fn draw(&mut self, now: f64, moving: bool, canvas: &mut dyn Canvas) -> Option<f64> {
+        draw(self, now, moving, canvas)
     }
 }
 
@@ -511,12 +406,6 @@ fn breathing(phase: f64) -> f64 {
     } else {
         ((phase - 0.4) / 0.6 * PI).cos()
     }
-}
-
-/// 0-1, eased at both ends; values past 1 hold at 1.
-fn smooth(x: f64) -> f64 {
-    let x = x.clamp(0.0, 1.0);
-    x * x * (3.0 - 2.0 * x)
 }
 
 fn wander(t: f64, seed: f64) -> f64 {
@@ -539,23 +428,8 @@ fn ease_toward(value: f64, target: f64, dt: f64, time_ms: f64) -> f64 {
     value + (target - value) * (1.0 - (-dt / time_ms).exp())
 }
 
-/// Linear interpolation of `points` (dose, value), clamped at the ends.
-fn along(points: &[(f64, f64)], dose: f64) -> f64 {
-    let first = points[0];
-    if dose <= first.0 {
-        return first.1;
-    }
-    for pair in points.windows(2) {
-        let ((d0, v0), (d1, v1)) = (pair[0], pair[1]);
-        if dose <= d1 {
-            return v0 + (v1 - v0) * (dose - d0) / (d1 - d0);
-        }
-    }
-    points[points.len() - 1].1
-}
-
 /// Draw one frame. Returns how long until the next one is wanted.
-fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas) -> Option<f64> {
+fn draw(wisp: &mut Wisp, now: f64, moving: bool, cr: &mut dyn Canvas) -> Option<f64> {
     let dt = wisp
         .last_tick
         .map_or(16.0, |last| (now - last).clamp(0.0, 250.0));
@@ -565,7 +439,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     let nourishing = wisp.mode == Mode::Nourishing;
     let as_f64 = |b: bool| f64::from(u8::from(b));
 
-    // A change of site (or coming back): notice it straight away.
+    // A change of mode (or waking): notice it straight away.
     let mut just_noticed = false;
     if wisp.mode != wisp.noticed {
         let woke = wisp.noticed == Mode::Away;
@@ -573,39 +447,21 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
         if !asleep {
             wisp.notice_start = now;
             just_noticed = true;
-            // Look toward the page, where the user went.
+            // Glance aside, toward whatever changed.
             wisp.glance_target = if woke { 0.0 } else { -1.0 };
             wisp.next_glance = now + NOTICE_MS;
         }
     }
 
     let targets = (
-        as_f64(wisp.mode == Mode::Draining),
         as_f64(wisp.mode == Mode::Resting),
         as_f64(wisp.mode == Mode::Holding),
     );
     if moving {
-        wisp.shown = ease_toward(wisp.shown, wisp.target, dt, EASE_MS);
-        wisp.privacy = ease_toward(wisp.privacy, as_f64(wisp.private), dt, PRIVACY_MS / 3.0);
         wisp.happy = ease_toward(wisp.happy, as_f64(nourishing), dt, 400.0);
         wisp.sleep = ease_toward(wisp.sleep, as_f64(asleep), dt, 900.0);
-        wisp.wary = ease_toward(wisp.wary, targets.0, dt, 450.0);
-        wisp.calm = ease_toward(wisp.calm, targets.1, dt, 450.0);
-        wisp.curious = ease_toward(wisp.curious, targets.2, dt, 450.0);
-        wisp.recovering = ease_toward(
-            wisp.recovering,
-            as_f64(wisp.trend == Trend::Falling),
-            dt,
-            SKY_MS,
-        );
-        wisp.wearing = ease_toward(
-            wisp.wearing,
-            as_f64(wisp.trend == Trend::Rising),
-            dt,
-            SKY_MS,
-        );
-        wisp.night_mix = ease_toward(wisp.night_mix, as_f64(wisp.night), dt, 4000.0);
-        wisp.welcome_mix = ease_toward(wisp.welcome_mix, as_f64(wisp.welcome), dt, 1500.0);
+        wisp.calm = ease_toward(wisp.calm, targets.0, dt, 450.0);
+        wisp.curious = ease_toward(wisp.curious, targets.1, dt, 450.0);
         let feel = wisp.feel;
         wisp.listening = ease_toward(wisp.listening, as_f64(feel.listening), dt, 500.0);
         // A warm moment arrives quickly and fades slowly.
@@ -619,72 +475,33 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
         wisp.moved = as_f64(feel.moved);
         wisp.tender = as_f64(feel.tender);
         wisp.sleepy = as_f64(feel.sleepy);
-        wisp.shown = wisp.target;
-        wisp.privacy = as_f64(wisp.private);
         wisp.happy = as_f64(nourishing);
         wisp.sleep = as_f64(asleep);
-        (wisp.wary, wisp.calm, wisp.curious) = targets;
-        wisp.recovering = as_f64(wisp.trend == Trend::Falling);
-        wisp.wearing = as_f64(wisp.trend == Trend::Rising);
-        wisp.night_mix = as_f64(wisp.night);
-        wisp.welcome_mix = as_f64(wisp.welcome);
+        (wisp.calm, wisp.curious) = targets;
     }
 
-    let dose = wisp.shown;
-    let mut look: Look = wisp.stops.at(dose);
-    look.glow = look.glow.mix(
-        NIGHT_GLOW,
-        NIGHT_WARMTH * wisp.night_mix + 0.3 * wisp.tender,
-    );
-    look.core = look
-        .core
-        .mix(NIGHT_GLOW, NIGHT_WARMTH * 0.3 * wisp.night_mix);
+    let mut look = wisp.light;
+    look.glow = look.glow.mix(NIGHT_GLOW, NIGHT_WARMTH + 0.3 * wisp.tender);
+    look.core = look.core.mix(NIGHT_GLOW, NIGHT_WARMTH * 0.3);
     let height = wisp.height;
-    let rested = (1.0 - dose / 0.5).max(0.0);
-    let engaged = if (0.15..0.6).contains(&dose) {
-        1.0 - ((dose - 0.35) / 0.25).abs().min(1.0)
-    } else {
-        0.0
-    };
-    let clouded = ((dose - 0.45) / 0.3).clamp(0.0, 1.0);
-    let drained = ((dose - 0.72) / 0.28).clamp(0.0, 1.0);
     let awake = 1.0 - wisp.sleep;
 
-    // The sky is behind everything, then the moss the wisp rests on.
+    // The moss it rests on is behind everything.
     let width = wisp.width;
     let home_x = width / 2.0;
     if !wisp.flying {
-        draw_sky(
-            cr,
-            width,
-            height,
-            wisp.recovering * (1.0 - wisp.privacy),
-            wisp.wearing * (1.0 - wisp.privacy),
-            dark,
-        );
-        draw_moss(
-            cr,
-            width,
-            height,
-            dose,
-            wisp.happy,
-            dark,
-            now,
-            moving,
-            wisp.season,
-        );
+        draw_moss(cr, width, height, wisp.happy, now, moving, wisp.season);
     }
 
     // --- Where and how big ---------------------------------------------------
-    let mut radius =
-        BODY_RADIUS * along(&[(0.0, 1.0), (0.5, 0.88), (0.75, 0.78), (1.0, 0.7)], dose);
-    let mut x = home_x;
+    let mut radius = BODY_RADIUS;
+    let x = home_x;
     let mut y = if wisp.flying {
         height / 2.0
     } else {
         height - MOSS_FLOOR - MOSS_HEIGHT - radius * 1.15
     };
-    let mut brightness = (look.brightness * (1.0 + WELCOME_BRIGHTER * wisp.welcome_mix)).min(1.0);
+    let mut brightness = look.brightness;
     let mut sway = 0.0;
     let mut blink = 0.0;
 
@@ -693,7 +510,6 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     if noticing {
         y -= (since_notice / NOTICE_MS * PI).sin() * NOTICE_HOP;
     }
-    brightness *= 1.0 - WARY_DIM * wisp.wary;
 
     // Squash and stretch, from flying and from gestures, about its base.
     let (mut body_w, mut body_h) = wisp.body;
@@ -704,9 +520,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     if moving {
         // Still while it listens or keeps someone company.
         let still = 1.0 - 0.8 * wisp.listening.max(wisp.tender);
-        let slow = (1.0 + wisp.sleep * 0.4)
-            * (1.0 + (NIGHT_BREATH - 1.0) * wisp.night_mix)
-            * (1.0 + 0.15 * wisp.sleepy);
+        let slow = (1.0 + wisp.sleep * 0.4) * NIGHT_BREATH * (1.0 + 0.15 * wisp.sleepy);
         // Kept as a running phase, so a changing pace never skips a beat.
         wisp.breath_slow = slow;
         wisp.breath = match wisp.paced {
@@ -725,15 +539,11 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
         } else {
             BREATH_DEPTH
         };
-        radius *= (1.0 + breath * depth)
-            * (1.0 + WELCOME_BIGGER * wisp.welcome_mix)
-            * (1.0 + 0.03 * wisp.listening);
+        radius *= (1.0 + breath * depth) * (1.0 + 0.03 * wisp.listening);
         // The light swells with each breath too, so a slow breath is easy to
         // fall in with.
         brightness *= 1.0 + BREATH_GLOW * breath;
-        y -= ((now / 2400.0 * TAU).sin() * 0.5 + 0.5) * 2.0 * rested * awake * still;
-        x += wander(now, 1.3) * ROAM_X * engaged * awake * still;
-        y -= wander(now, 4.2).abs() * ROAM_Y * engaged * awake * still;
+        y -= ((now / 2400.0 * TAU).sin() * 0.5 + 0.5) * BOB * awake * still;
         sway = wander(now * 1.7, 5.1) * radius * 0.22 * still + wisp.lean * radius * 0.6;
 
         if let Some((gesture, start)) = wisp.gesture {
@@ -751,14 +561,14 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
                         body_h *= 1.0 - squash + 0.06 * (air * PI).sin();
                     }
                     Gesture::Stretch => {
-                        let s = smooth(bump * 1.4);
+                        let s = smoothstep(bump * 1.4);
                         body_h *= 1.0 + 0.16 * s;
                         body_w *= 1.0 - 0.08 * s;
                         shut = s;
                         face_happy = face_happy.max(s);
                     }
                     Gesture::Yawn => {
-                        let s = smooth(bump * 1.5);
+                        let s = smoothstep(bump * 1.5);
                         body_h *= 1.0 + 0.07 * s;
                         yawn = s;
                         shut = s;
@@ -784,25 +594,6 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
             }
         }
 
-        // Clouded: an occasional flicker.
-        let flick = (wander(now * 3.1, 7.7) - 0.55).max(0.0) * 1.6;
-        brightness *= 1.0 - flick * clouded * 0.45 * awake;
-        // Drained: unsteady, drifting toward the edge as if ready to leave.
-        if drained > 0.0 {
-            brightness *= 1.0 - wander(now * 5.0, 2.9).abs() * 0.25 * drained;
-            let phase = (now % DRIFT_CYCLE_MS) / DRIFT_CYCLE_MS;
-            let out = if phase < 0.3 {
-                phase / 0.3
-            } else if phase < 0.5 {
-                1.0
-            } else if phase < 0.8 {
-                1.0 - (phase - 0.5) / 0.3
-            } else {
-                0.0
-            };
-            x += (width - EDGE_MARGIN - home_x) * out * out * (3.0 - 2.0 * out) * drained * awake;
-        }
-
         // Blinks and glances.
         if now >= wisp.next_blink {
             wisp.next_blink = now + 2500.0 + random(wisp) * 4500.0;
@@ -813,7 +604,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
         }
         if now >= wisp.next_glance {
             wisp.next_glance = now + 2000.0 + random(wisp) * 3000.0;
-            wisp.glance_target = (random(wisp) * 2.0 - 1.0) * engaged.max(wisp.curious * 0.8);
+            wisp.glance_target = (random(wisp) * 2.0 - 1.0) * (wisp.curious * 0.8);
         }
         if just_noticed && nourishing {
             for _ in 0..3 {
@@ -847,13 +638,6 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
             wisp.last_mote = now;
             spawn(wisp, now, x, y - radius, ParticleKind::Mote);
         }
-        if clouded > 0.3
-            && awake > 0.5
-            && now - wisp.last_smoke > SMOKE_EVERY_MS * (0.7 + random(wisp) * 0.6)
-        {
-            wisp.last_smoke = now;
-            spawn(wisp, now, x, y - radius * 1.4, ParticleKind::Smoke);
-        }
         if wisp.humming
             && awake > 0.5
             && now - wisp.last_note > NOTE_EVERY_MS * (0.7 + random(wisp) * 0.6)
@@ -867,7 +651,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
                 ParticleKind::Note,
             );
         }
-        if wisp.sleep > 0.8 && wisp.privacy < 0.1 && now - wisp.last_z > Z_EVERY_MS {
+        if wisp.sleep > 0.8 && now - wisp.last_z > Z_EVERY_MS {
             wisp.last_z = now;
             spawn(
                 wisp,
@@ -879,120 +663,88 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
         }
     }
 
-    // Giving privacy: turn, slip toward the edge, fade.
-    let privacy = wisp.privacy;
-    x += privacy * privacy * home_x;
-    let presence = (1.0 - privacy * 1.4).clamp(0.0, 1.0);
     if nourishing {
         brightness = (brightness * 1.15).min(1.0);
     }
     brightness = (brightness * (1.0 + 0.25 * warm) * (1.0 - 0.12 * wisp.tender)).min(1.15);
 
-    if presence > 0.0 {
-        draw_particles(wisp, cr, now, look, dark, presence);
-        // Squash and stretch about the base, so it stays on its feet.
-        let base = y + radius;
-        let shaped = (body_w - 1.0).abs() > 1e-3 || (body_h - 1.0).abs() > 1e-3;
-        if shaped {
-            cr.save();
-            cr.translate(x, base);
-            cr.scale(body_w, body_h);
-            cr.translate(-x, -base);
-        }
-        draw_sprite(
-            cr,
-            Sprite {
-                x,
-                y,
-                radius,
-                sway,
-                droop: drained,
-                look,
-                brightness,
-                dark,
-                presence,
-            },
-        );
-        let openness = along(
-            &[
-                (0.0, 1.0),
-                (0.35, 0.88),
-                (0.6, 0.42),
-                (0.85, 0.18),
-                (1.0, 0.1),
-            ],
-            dose,
-        ) * (1.0 - blink)
-            * (1.0 - WARY_LIDS * wisp.wary)
-            * (1.0 - wisp.sleep)
-            * (1.0 - 0.28 * wisp.tender)
-            * (1.0 - 0.42 * wisp.sleepy * (1.0 - wisp.listening))
-            * (1.0 - shut)
-            * (1.0 - (privacy * 3.0).min(1.0));
-        draw_face(
-            cr,
-            Face {
-                x,
-                y,
-                radius,
-                openness,
-                happy: face_happy * awake,
-                glance: wisp.glance,
-                glance_y: wisp.glance_y,
-                smile: (along(&[(0.0, 1.0), (0.3, 0.65), (0.55, 0.05)], dose)
-                    * (1.0 - 0.7 * wisp.wary))
-                    .max(0.9 * wisp.calm * awake)
-                    .max(0.7 * wisp.listening)
-                    .min(1.0 - 0.45 * wisp.tender)
-                    * awake.max(0.4),
-                brow: (0.7 * wisp.happy * awake
-                    + 0.6 * wisp.curious * awake
-                    + 0.4 * rested
-                    + 0.35 * wisp.listening
-                    + 0.25 * wisp.tender
-                    - 1.0 * wisp.wary
-                    - 0.8 * clouded
-                    - 0.5 * drained)
-                    .clamp(-1.0, 1.0)
-                    * (1.0 - wisp.sleep * 0.6),
-                sleepy: (drained * awake).max(wisp.sleep).max(yawn),
-                yawn,
-                blush: along(&[(0.0, 1.0), (0.5, 0.3), (1.0, 0.12)], dose)
-                    * (1.0 + 1.4 * warm + 0.5 * wisp.tender),
-                ink: if drained > 0.5 { 0.72 } else { 0.9 },
-                presence,
-            },
-        );
-        if shaped {
-            cr.restore();
-        }
+    draw_particles(wisp, cr, now, look);
+    // Squash and stretch about the base, so it stays on its feet.
+    let base = y + radius;
+    let shaped = (body_w - 1.0).abs() > 1e-3 || (body_h - 1.0).abs() > 1e-3;
+    if shaped {
+        cr.save();
+        cr.translate(x, base);
+        cr.scale(body_w, body_h);
+        cr.translate(-x, -base);
+    }
+    draw_sprite(
+        cr,
+        Sprite {
+            x,
+            y,
+            radius,
+            sway,
+            look,
+            brightness,
+        },
+    );
+    let open = EYES_OPEN
+        * (1.0 - wisp.sleep)
+        * (1.0 - 0.28 * wisp.tender)
+        * (1.0 - 0.42 * wisp.sleepy * (1.0 - wisp.listening))
+        * (1.0 - shut);
+    let openness = open * (1.0 - blink);
+    let happy = face_happy * awake;
+    draw_face(
+        cr,
+        Face {
+            x,
+            y,
+            radius,
+            openness,
+            happy,
+            glance: wisp.glance,
+            glance_y: wisp.glance_y,
+            smile: SMILE
+                .max(0.9 * wisp.calm * awake)
+                .max(0.7 * wisp.listening)
+                .min(1.0 - 0.45 * wisp.tender)
+                * awake.max(0.4),
+            brow: (0.7 * wisp.happy * awake
+                + 0.6 * wisp.curious * awake
+                + BROW_LIFT
+                + 0.35 * wisp.listening
+                + 0.25 * wisp.tender)
+                .clamp(-1.0, 1.0)
+                * (1.0 - wisp.sleep * 0.6),
+            sleepy: wisp.sleep.max(yawn),
+            yawn,
+            blush: CHEEKS * (1.0 + 1.4 * warm + 0.5 * wisp.tender),
+        },
+    );
+    if shaped {
+        cr.restore();
     }
 
     if !moving {
         return None;
     }
     let settling = |v: f64| v > 0.02 && v < 0.98;
-    let bursting = blink > 0.0
+    let bursting = (blink > 0.0 && open > BROWLESS && happy <= BEAMING)
         || noticing
         || wisp.gesturing(now)
         || settling(wisp.listening)
         || settling(wisp.moved)
         || settling(wisp.tender)
-        || settling(wisp.wary)
         || settling(wisp.calm)
         || settling(wisp.curious)
-        || settling(wisp.welcome_mix)
-        || (wisp.target - wisp.shown).abs() > 0.002
-        || settling(privacy)
         || settling(wisp.sleep)
         || settling(wisp.happy);
-    let lively = wisp.particles.iter().any(|p| p.kind != ParticleKind::Z)
-        || nourishing
-        || dose >= 0.45
-        || engaged > 0.2;
+    let lively = wisp.particles.iter().any(|p| p.kind != ParticleKind::Z) || nourishing;
     let fps = if bursting {
         BURST_FPS
-    } else if wisp.sleep > 0.9 || privacy > 0.99 {
+    } else if wisp.sleep > 0.9 {
         DOZING_FPS
     } else if lively {
         LIVELY_FPS
@@ -1001,7 +753,7 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     };
     let mut delay = 1000.0 / fps;
     // Wake in time for the next blink rather than stepping over it.
-    if awake > 0.9 && privacy < 0.01 {
+    if awake > 0.9 {
         let to_blink = wisp.next_blink - BLINK_MS - now;
         if to_blink > 0.0 {
             delay = delay.min(to_blink);
@@ -1010,68 +762,22 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
     Some(delay)
 }
 
-/// The nook's weather: a soft wash of colour behind the wisp, fading out
-/// downward so the moss keeps its own green.
-fn draw_sky(
-    cr: &mut dyn Canvas,
-    width: f64,
-    height: f64,
-    recovering: f64,
-    wearing: f64,
-    dark: bool,
-) {
-    let strength = recovering.max(wearing);
-    if strength < 0.01 {
-        return;
-    }
-    let colour = SKY_RECOVERING.mix(SKY_WEARING, wearing / (recovering + wearing).max(1e-6));
-    // A dark chrome takes less of it: the same wash reads twice as strong.
-    let alpha = SKY_ALPHA * strength * if dark { 0.6 } else { 1.0 };
-    cr.set_paint(Paint::Linear {
-        from: (0.0, 0.0),
-        to: (0.0, height),
-        stops: &[
-            stop(0.0, colour, alpha),
-            stop(0.65, colour, alpha * 0.45),
-            stop(1.0, colour, 0.0),
-        ],
-    });
-    // Rounded like the nook it sits in.
-    let r = height / 3.2;
-    cr.new_path();
-    cr.arc(r, r, r, PI, 1.5 * PI);
-    cr.arc(width - r, r, r, 1.5 * PI, TAU);
-    cr.line_to(width, height);
-    cr.line_to(0.0, height);
-    cr.close_path();
-    cr.fill();
-}
-
 /// A soft mound of moss along the nook's floor, with a few tufts.
-#[allow(clippy::too_many_arguments)]
 fn draw_moss(
     cr: &mut dyn Canvas,
     width: f64,
     height: f64,
-    dose: f64,
     happy: f64,
-    dark: bool,
     now: f64,
     moving: bool,
     season: Option<Season>,
 ) {
     let moss_left = width * (1.0 - MOSS_SPAN) / 2.0;
     let moss_right = width - moss_left;
-    let tired = ((dose - 0.3) / 0.4).clamp(0.0, 1.0);
-    let dry = ((dose - 0.7) / 0.3).clamp(0.0, 1.0);
-    let base = MOSS_FRESH.mix(MOSS_TIRED, tired).mix(MOSS_DRY, dry);
-    // A dark chrome wants deeper moss; a nourishing site perks it up.
-    let colour = if dark {
-        base.mix(Rgb(0.1, 0.12, 0.08), 0.35)
-    } else {
-        base
-    };
-    let colour = colour.mix(MOSS_FRESH, happy * 0.3);
+    // Deep against the night sky; delight perks it up.
+    let colour = MOSS_FRESH
+        .mix(Rgb(0.1, 0.12, 0.08), 0.35)
+        .mix(MOSS_FRESH, happy * 0.3);
     // Frost pales it in winter.
     let colour = if season == Some(Season::Winter) {
         colour.mix(FROST, 0.22)
@@ -1079,7 +785,7 @@ fn draw_moss(
         colour
     };
     let floor = height - MOSS_FLOOR;
-    let top = floor - MOSS_HEIGHT * (1.0 - dry * 0.25);
+    let top = floor - MOSS_HEIGHT;
 
     cr.set_paint(Paint::solid(colour, 0.8));
     cr.move_to(moss_left, floor);
@@ -1094,10 +800,8 @@ fn draw_moss(
     cr.close_path();
     cr.fill();
 
-    // Cushions along the mound's top: plump and lighter when fresh, flatter
-    // as they dry.
-    let plump = 1.0 - dry * 0.4;
-    let cushion = colour.mix(Rgb(0.85, 0.92, 0.6), 0.18 * (1.0 - dry));
+    // Cushions along the mound's top, plump and a little lighter.
+    let cushion = colour.mix(Rgb(0.85, 0.92, 0.6), 0.18);
     cr.set_paint(Paint::solid(cushion, 0.85));
     for (at, size) in [
         (0.14, 3.2),
@@ -1115,29 +819,24 @@ fn draw_moss(
         let ground = floor - (top - floor).abs() * 0.75 * (4.0 * t * (1.0 - t));
         cr.save();
         cr.translate(cx, ground);
-        cr.scale(size * 1.15, size * plump);
+        cr.scale(size * 1.15, size);
         cr.arc(0.0, 0.0, 1.0, PI, TAU);
         cr.restore();
         cr.fill();
     }
 
-    // A few short sprigs stand up when fresh and bow over as they dry;
-    // summer's stand taller.
-    let lift = (1.0 - dry * 0.5)
-        * if season == Some(Season::Summer) {
-            1.35
-        } else {
-            1.0
-        };
+    // A few short sprigs stand up from it; summer's stand taller.
+    let lift = if season == Some(Season::Summer) {
+        1.35
+    } else {
+        1.0
+    };
     let stir = if moving {
         (now / 3100.0).sin() * 0.5
     } else {
         0.0
     };
-    cr.set_paint(Paint::solid(
-        cushion.mix(Rgb(0.9, 0.95, 0.7), 0.15 * (1.0 - dry)),
-        0.9,
-    ));
+    cr.set_paint(Paint::solid(cushion.mix(Rgb(0.9, 0.95, 0.7), 0.15), 0.9));
     cr.set_line_width(1.2);
     cr.set_round_ends(true);
     let mut tips = Vec::with_capacity(3);
@@ -1148,7 +847,7 @@ fn draw_moss(
         let bx = moss_left + (moss_right - moss_left) * at;
         let by = floor - MOSS_HEIGHT * 0.9;
         let rise = tall * lift;
-        let lean = (dry * 2.0 + stir) * if i % 2 == 0 { 1.0 } else { -1.0 };
+        let lean = stir * if i % 2 == 0 { 1.0 } else { -1.0 };
         cr.move_to(bx, by);
         cr.curve_to(
             bx,
@@ -1224,11 +923,8 @@ struct Sprite {
     y: f64,
     radius: f64,
     sway: f64,
-    droop: f64,
     look: Look,
     brightness: f64,
-    dark: bool,
-    presence: f64,
 }
 
 /// The flame-topped teardrop body and its glow.
@@ -1238,37 +934,19 @@ fn draw_sprite(cr: &mut dyn Canvas, s: Sprite) {
         y,
         radius: r,
         sway,
-        droop,
         look,
         brightness,
-        dark,
-        presence,
     } = s;
 
-    if !dark {
-        let ink = Rgb(0.15, 0.16, 0.14);
-        let well = r * 2.8;
-        cr.set_paint(Paint::glow(
-            x,
-            y,
-            well,
-            &[
-                stop(0.0, ink, WELL_DEPTH * presence),
-                stop(0.6, ink, WELL_DEPTH * 0.4 * presence),
-                stop(1.0, ink, 0.0),
-            ],
-        ));
-        cr.disc(x, y, well);
-    }
-    cr.set_adding(dark);
+    cr.set_adding(true);
     let halo = r * 2.4;
     cr.set_paint(Paint::glow(
         x,
         y,
         halo,
         &[
-            stop(0.0, look.glow, 0.55 * brightness * presence),
-            stop(0.45, look.glow, 0.24 * brightness * presence),
+            stop(0.0, look.glow, 0.55 * brightness),
+            stop(0.45, look.glow, 0.24 * brightness),
             stop(1.0, look.glow, 0.0),
         ],
     ));
@@ -1276,21 +954,20 @@ fn draw_sprite(cr: &mut dyn Canvas, s: Sprite) {
     cr.set_adding(false);
 
     // A dim wisp is smaller and softer, never muddy: the body stays lit.
-    let lit = (0.55 + 0.45 * brightness) * presence;
+    let lit = 0.55 + 0.45 * brightness;
     let warm = look.core.mix(look.glow, 0.3);
-    let tip_lean = sway - droop * r * 0.55;
     cr.move_to(x - r, y);
     cr.curve_to(x - r, y + r * 1.05, x + r, y + r * 1.05, x + r, y);
     cr.curve_to(
         x + r,
         y - r * 0.75,
-        x + r * 0.35 + tip_lean,
+        x + r * 0.35 + sway,
         y - r * 1.15,
-        x + r * 0.15 + tip_lean * 1.6,
-        y - r * (1.75 - droop * 0.25),
+        x + r * 0.15 + sway * 1.6,
+        y - r * 1.75,
     );
     cr.curve_to(
-        x - r * 0.05 + tip_lean,
+        x - r * 0.05 + sway,
         y - r * 1.2,
         x - r,
         y - r * 0.8,
@@ -1331,13 +1008,12 @@ struct Face {
     /// 0-1, how far into a yawn.
     yawn: f64,
     blush: f64,
-    ink: f64,
-    presence: f64,
 }
 
 fn draw_face(cr: &mut dyn Canvas, f: Face) {
     let r = f.radius;
-    let alpha = f.presence * f.ink;
+    // The ink is a little see-through, so the face sits in the light.
+    let alpha = 0.9;
     let eye_y = f.y - r * 0.08 + f.glance_y * r * 0.14;
     let (eye_w, eye_h) = (r * 0.22, r * 0.38);
     cr.set_round_ends(true);
@@ -1350,10 +1026,7 @@ fn draw_face(cr: &mut dyn Canvas, f: Face) {
             cheek_x,
             cheek_y,
             r * 0.22,
-            &[
-                stop(0.0, BLUSH, 0.45 * f.blush * f.presence),
-                stop(1.0, BLUSH, 0.0),
-            ],
+            &[stop(0.0, BLUSH, 0.45 * f.blush), stop(1.0, BLUSH, 0.0)],
         ));
         cr.disc(cheek_x, cheek_y, r * 0.22);
 
@@ -1361,7 +1034,7 @@ fn draw_face(cr: &mut dyn Canvas, f: Face) {
 
         // The brow, a short stroke that lifts with a bright mood and lowers
         // with a heavy one, its outer end dipping as it goes.
-        if f.presence > 0.0 && f.openness > 0.05 || f.happy > 0.5 {
+        if f.openness > BROWLESS || f.happy > BEAMING {
             let brow_y = eye_y - r * BROW_ABOVE - r * BROW_TRAVEL * f.brow;
             // Arched while the mood is bright, flat while it is heavy.
             let arch = r * BROW_ARCH * f.brow.max(0.0);
@@ -1379,7 +1052,7 @@ fn draw_face(cr: &mut dyn Canvas, f: Face) {
             cr.stroke();
         }
 
-        if f.happy > 0.5 {
+        if f.happy > BEAMING {
             // ^ ^
             cr.set_paint(Paint::solid(FACE_INK, alpha));
             cr.set_line_width(r * 0.09);
@@ -1418,15 +1091,14 @@ fn draw_face(cr: &mut dyn Canvas, f: Face) {
             cr.set_paint(Paint::solid(FACE_INK, alpha));
             cr.fill();
             if f.openness > 0.5 {
-                cr.set_paint(Paint::solid(Rgb(1.0, 1.0, 1.0), 0.9 * f.presence));
+                cr.set_paint(Paint::solid(Rgb(1.0, 1.0, 1.0), 0.9));
                 cr.disc(eye_x - eye_w * 0.18, eye_y - eye_h * 0.2, eye_w * 0.2);
             }
             cr.restore();
         }
     }
 
-    // The mouth: a smile that flattens as the dose rises, and falls a little
-    // open when the wisp is sleepy.
+    // The mouth: a smile, falling a little open when the wisp is sleepy.
     cr.set_paint(Paint::solid(FACE_INK, alpha * 0.9));
     let mouth_y = f.y + r * 0.32;
     if f.yawn > 0.05 {
@@ -1471,7 +1143,6 @@ fn spawn(wisp: &mut Wisp, now: f64, x: f64, y: f64, kind: ParticleKind) {
     let spread = random(wisp) - 0.5;
     let (life, dx, dy, size) = match kind {
         ParticleKind::Mote => (900.0, spread * 8.0, -16.0, 1.4),
-        ParticleKind::Smoke => (2600.0, spread * 4.0, -12.0, 5.0),
         ParticleKind::Z => (2600.0, 6.0, -14.0, 3.2),
         ParticleKind::Note => (3400.0, 7.0 + spread * 6.0, -18.0, 4.2),
     };
@@ -1487,39 +1158,17 @@ fn spawn(wisp: &mut Wisp, now: f64, x: f64, y: f64, kind: ParticleKind) {
     });
 }
 
-fn draw_particles(
-    wisp: &mut Wisp,
-    cr: &mut dyn Canvas,
-    now: f64,
-    look: Look,
-    dark: bool,
-    presence: f64,
-) {
+fn draw_particles(wisp: &mut Wisp, cr: &mut dyn Canvas, now: f64, look: Look) {
     wisp.particles.retain(|p| now - p.born < p.life);
     for p in &wisp.particles {
         let age = (now - p.born) / p.life;
         let px = p.x + p.dx * age;
         let py = p.y + p.dy * age;
-        let fade = (1.0 - age) * presence;
+        let fade = 1.0 - age;
         match p.kind {
             ParticleKind::Mote => {
                 cr.set_paint(Paint::solid(look.core, 0.85 * fade));
                 cr.disc(px, py, p.size * (1.0 - age * 0.5));
-            }
-            ParticleKind::Smoke => {
-                let size = p.size * (1.0 + age * 1.6);
-                let grey = look.glow.mix(Rgb(0.6, 0.62, 0.66), 0.6);
-                cr.set_paint(Paint::glow(
-                    px,
-                    py,
-                    size,
-                    &[
-                        stop(0.0, grey, 0.1 * fade),
-                        stop(0.6, grey, 0.04 * fade),
-                        stop(1.0, grey, 0.0),
-                    ],
-                ));
-                cr.disc(px, py, size);
             }
             ParticleKind::Note => {
                 // A quaver: a round head, a stem and a flag, swaying a little.
@@ -1548,12 +1197,7 @@ fn draw_particles(
                 cr.stroke();
             }
             ParticleKind::Z => {
-                let ink = if dark {
-                    Rgb(0.85, 0.86, 0.83)
-                } else {
-                    Rgb(0.17, 0.18, 0.16)
-                };
-                cr.set_paint(Paint::solid(ink, 0.45 * fade));
+                cr.set_paint(Paint::solid(Rgb(0.85, 0.86, 0.83), 0.45 * fade));
                 cr.set_line_width(1.1);
                 cr.set_round_ends(true);
                 let s = p.size * (1.0 + age * 0.5);
@@ -1563,6 +1207,112 @@ fn draw_particles(
                 cr.line_to(px + s, py + s);
                 cr.stroke();
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use super::*;
+
+    /// Notes every colour painted on it, to the nearest 8-bit step.
+    #[derive(Default)]
+    struct Palette(BTreeSet<String>);
+
+    impl Palette {
+        fn note(&mut self, Rgb(r, g, b): Rgb) {
+            let byte = |c: f64| (c * 255.0).round() as u8;
+            let hex = format!("#{:02x}{:02x}{:02x}", byte(r), byte(g), byte(b));
+            self.0.insert(hex);
+        }
+    }
+
+    impl Canvas for Palette {
+        fn save(&mut self) {}
+        fn restore(&mut self) {}
+        fn translate(&mut self, _: f64, _: f64) {}
+        fn scale(&mut self, _: f64, _: f64) {}
+        fn move_to(&mut self, _: f64, _: f64) {}
+        fn line_to(&mut self, _: f64, _: f64) {}
+        fn curve_to(&mut self, _: f64, _: f64, _: f64, _: f64, _: f64, _: f64) {}
+        fn arc(&mut self, _: f64, _: f64, _: f64, _: f64, _: f64) {}
+        fn rectangle(&mut self, _: f64, _: f64, _: f64, _: f64) {}
+        fn close_path(&mut self) {}
+        fn new_path(&mut self) {}
+        fn set_paint(&mut self, paint: Paint<'_>) {
+            match paint {
+                Paint::Solid { colour, .. } => self.note(colour),
+                Paint::Radial { stops, .. } | Paint::Linear { stops, .. } => {
+                    for s in stops {
+                        self.note(s.colour);
+                    }
+                }
+            }
+        }
+        fn set_line_width(&mut self, _: f64) {}
+        fn set_round_ends(&mut self, _: bool) {}
+        fn set_adding(&mut self, _: bool) {}
+        fn fill(&mut self) {}
+        fn stroke(&mut self) {}
+        fn clip(&mut self) {}
+    }
+
+    /// The colours a still wisp paints with in `mode`: out flying, then on
+    /// its moss in winter.
+    fn still_colours(mode: Mode) -> Vec<String> {
+        let mut palette = Palette::default();
+        let mut wisp = Wisp::new(100.0, 100.0);
+        wisp.update(mode);
+        wisp.set_flight(true, 0.0, None);
+        wisp.draw(0.0, false, &mut palette);
+        wisp.set_flight(false, 0.0, None);
+        wisp.resize(56.0, 56.0);
+        wisp.set_season(Some(Season::Winter));
+        wisp.draw(0.0, false, &mut palette);
+        palette.0.into_iter().collect()
+    }
+
+    #[test]
+    fn each_mode_keeps_the_wisps_colours() {
+        // Its glow, core and face, and the frost on the moss.
+        let wisp = [
+            "#2b211a", "#dbedff", "#f29e59", "#f2ba66", "#fbdfb3", "#ffefd2",
+        ];
+        let moss = ["#728967", "#849a70", "#92a77a"];
+        // Delight greens the moss a little; open eyes catch the light.
+        let perked = ["#7b946e", "#8ba375", "#99af7e"];
+        let glint = ["#ffffff"];
+        let expect = |parts: &[&[&str]]| {
+            let mut all: Vec<String> = parts.concat().iter().map(|c| c.to_string()).collect();
+            all.sort();
+            all
+        };
+        assert_eq!(still_colours(Mode::Away), expect(&[&wisp, &moss]));
+        assert_eq!(
+            still_colours(Mode::Resting),
+            expect(&[&wisp, &moss, &glint])
+        );
+        assert_eq!(
+            still_colours(Mode::Holding),
+            expect(&[&wisp, &moss, &glint])
+        );
+        assert_eq!(still_colours(Mode::Nourishing), expect(&[&wisp, &perked]));
+    }
+
+    #[test]
+    fn an_asleep_wisp_never_wakes_for_a_blink() {
+        let mut palette = Palette::default();
+        let mut wisp = Wisp::new(56.0, 56.0);
+        wisp.update(Mode::Away);
+        let mut now = 0.0;
+        while now < 70_000.0 {
+            let delay = wisp.draw(now, true, &mut palette).expect("moving");
+            if now > 10_000.0 {
+                assert!(delay >= 1000.0 / DOZING_FPS, "{delay} ms at {now}");
+            }
+            now += delay;
         }
     }
 }

@@ -2,6 +2,9 @@
 //! on it. Light is added in linear units and tone-mapped once, into a small
 //! texture with one texel per dot; the widget scales that up and masks it
 //! with a round dot.
+//!
+//! Most of a frame is the slow-changing base layer, so its tones are kept:
+//! a frame redoes only the dots something lit on top of it.
 
 use gtk::{gdk, glib};
 
@@ -15,6 +18,13 @@ pub struct Field {
     base: Vec<Rgb>,
     light: Vec<Rgb>,
     tone: Vec<u8>,
+    /// Dots lit on top of the base since the frame began.
+    touched: Vec<usize>,
+    /// The base tone-mapped at `base_gain`; stale when that's `None`.
+    base_tone: Vec<u8>,
+    base_gain: Option<f32>,
+    /// The base changed: the next frame starts from all of it.
+    base_changed: bool,
 }
 
 /// Steps per unit of light in the tone curve's table.
@@ -29,6 +39,10 @@ impl Field {
             pitch: 5.0,
             base: Vec::new(),
             light: Vec::new(),
+            touched: Vec::new(),
+            base_tone: Vec::new(),
+            base_gain: None,
+            base_changed: true,
             // Soft shoulder: faint light stays linear, bright light saturates gently.
             tone: (0..=(TONE_STEPS * TONE_MAX) as usize)
                 .map(|i| ((1.0 - (-1.5 * i as f32 / TONE_STEPS).exp()) * 255.0 + 0.5) as u8)
@@ -49,23 +63,45 @@ impl Field {
         let n = cols * rows;
         self.base = vec![[0.0; 3]; n];
         self.light = vec![[0.0; 3]; n];
+        self.base_changed = true;
+        self.base_gain = None;
         true
     }
 
     pub fn base_mut(&mut self) -> &mut [Rgb] {
+        self.base_changed = true;
+        self.base_gain = None;
         &mut self.base
     }
 
     /// Starts a frame from the slow-changing base layer.
     pub fn begin(&mut self) {
-        self.light.copy_from_slice(&self.base);
+        if self.base_changed {
+            self.light.copy_from_slice(&self.base);
+            self.base_changed = false;
+        } else {
+            for &i in &self.touched {
+                self.light[i] = self.base[i];
+            }
+        }
+        self.touched.clear();
+    }
+
+    /// The light of the dot at `c`, `r`, if it's on the lattice, noted as
+    /// touched this frame.
+    fn cell(&mut self, c: isize, r: isize) -> Option<&mut Rgb> {
+        if c < 0 || r < 0 || c as usize >= self.cols || r as usize >= self.rows {
+            return None;
+        }
+        let i = r as usize * self.cols + c as usize;
+        self.touched.push(i);
+        Some(&mut self.light[i])
     }
 
     fn add_at(&mut self, c: isize, r: isize, color: Rgb, amount: f32) {
-        if c < 0 || r < 0 || c as usize >= self.cols || r as usize >= self.rows {
+        let Some(cell) = self.cell(c, r) else {
             return;
-        }
-        let cell = &mut self.light[r as usize * self.cols + c as usize];
+        };
         cell[0] += color[0] * amount;
         cell[1] += color[1] * amount;
         cell[2] += color[2] * amount;
@@ -97,10 +133,9 @@ impl Field {
     pub fn shade(&mut self, x: f64, y: f64, factor: f32) {
         let c = (x / self.pitch as f64 - 0.5).round() as isize;
         let r = (y / self.pitch as f64 - 0.5).round() as isize;
-        if c < 0 || r < 0 || c as usize >= self.cols || r as usize >= self.rows {
+        let Some(cell) = self.cell(c, r) else {
             return;
-        }
-        let cell = &mut self.light[r as usize * self.cols + c as usize];
+        };
         for k in cell.iter_mut() {
             *k *= factor;
         }
@@ -190,19 +225,34 @@ impl Field {
 
     /// Tone-maps the frame into a texture, scaling everything by `gain`.
     pub fn texture(&mut self, gain: f32) -> gdk::Texture {
-        let last = self.tone.len() - 1;
-        let scale = gain * TONE_STEPS;
-        // Straight into the texture's own buffer: no copy afterwards.
-        let mut bytes = vec![0u8; self.light.len() * 3];
-        for (cell, out) in self
-            .light
-            .iter()
-            .zip(bytes.as_chunks_mut::<3>().0.iter_mut())
-        {
+        let (tone, scale) = (&self.tone, gain * TONE_STEPS);
+        let map = |cell: &Rgb, out: &mut [u8; 3]| {
             for (o, &value) in out.iter_mut().zip(cell) {
-                *o = self.tone[((value * scale) as usize).min(last)];
+                *o = tone[((value * scale) as usize).min(tone.len() - 1)];
             }
-        }
+        };
+        let whole = |cells: &[Rgb]| {
+            let mut bytes = vec![0u8; cells.len() * 3];
+            for (cell, out) in cells.iter().zip(bytes.as_chunks_mut::<3>().0) {
+                map(cell, out);
+            }
+            bytes
+        };
+        // When most of the frame is lit on top, doing it all is quicker.
+        let bytes = if self.touched.len() > self.light.len() / 4 {
+            whole(&self.light)
+        } else {
+            if self.base_gain != Some(gain) {
+                self.base_tone = whole(&self.base);
+                self.base_gain = Some(gain);
+            }
+            let mut bytes = self.base_tone.clone();
+            let out = bytes.as_chunks_mut::<3>().0;
+            for &i in &self.touched {
+                map(&self.light[i], &mut out[i]);
+            }
+            bytes
+        };
         let bytes = glib::Bytes::from_owned(bytes);
         gdk::MemoryTexture::new(
             self.cols as i32,
@@ -255,7 +305,7 @@ pub fn noise3(x: f64, y: f64, z: f64) -> f64 {
     }
     let (xi, yi, zi) = (x.floor(), y.floor(), z.floor());
     let (xf, yf, zf) = (x - xi, y - yi, z - zi);
-    let s = |t: f64| t * t * (3.0 - 2.0 * t);
+    let s = westering_core::ease::smoothstep;
     let (u, v, w) = (s(xf), s(yf), s(zf));
     let (xi, yi, zi) = (xi as i64, yi as i64, zi as i64);
     let lerp = |a: f64, b: f64, t: f64| a + (b - a) * t;

@@ -2,11 +2,13 @@
 //! only on the night, the place and what has been found before, so opening
 //! the app again the same night never rerolls it.
 
-use crate::catalogues::Kind;
+use crate::catalogues::{Kind, Showpiece};
 use crate::coords::{Observer, alt_az, apply, horizon, precession, unit};
 use crate::ephem::Body;
 use crate::sky::{Sky, ZOOM_REACH, limiting_magnitude, see, sun_altitude};
 use crate::time::{HOUR, UnixMs, civil_date};
+use serde::Deserialize;
+use std::sync::LazyLock;
 
 /// A moment as a local clock time, like "10:40 pm".
 pub fn civil_time(at: UnixMs, offset_s: i32) -> String {
@@ -17,7 +19,7 @@ pub fn civil_time(at: UnixMs, offset_s: i32) -> String {
     format!("{h12}:{m:02} {half}")
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Target {
     Body(Body),
     /// Index into the showpiece list.
@@ -34,6 +36,111 @@ pub enum Target {
     Story(usize),
     /// A walk across the Moon's lit face.
     MoonWalk,
+}
+
+#[derive(Deserialize)]
+struct Words {
+    kind: KindWords,
+    look: LookWords,
+}
+
+#[derive(Deserialize)]
+struct KindWords {
+    moon: String,
+    planet: String,
+    star: String,
+    cluster: String,
+    galaxy: String,
+    nebula: String,
+    double: String,
+    dark: String,
+    cloud: String,
+    asterism: String,
+    meteor: String,
+    figure: String,
+    hop: String,
+    story: String,
+    moon_walk: String,
+}
+
+#[derive(Deserialize)]
+struct LookWords {
+    moon: String,
+    planet: String,
+    star: String,
+    cloud: String,
+    deep: String,
+    cluster: String,
+    asterism: String,
+    smudge: String,
+    double: String,
+    single: String,
+    meteor: String,
+    figure: String,
+    hop: String,
+    story: String,
+    moon_walk_first: String,
+    moon_walk: String,
+}
+
+static WORDS: LazyLock<Words> = LazyLock::new(|| {
+    toml::from_str(include_str!("../data/find-words.toml")).expect("find-words.toml")
+});
+
+impl Target {
+    /// What kind of thing this is, in a word or two.
+    pub fn kind_word(&self, showpieces: &[Showpiece]) -> &'static str {
+        let w = &WORDS.kind;
+        match self {
+            Target::Body(Body::Moon) => &w.moon,
+            Target::Body(_) => &w.planet,
+            Target::Star(_) => &w.star,
+            Target::Showpiece(p) => match showpieces[*p].kind {
+                Kind::Cluster => &w.cluster,
+                Kind::Galaxy => &w.galaxy,
+                Kind::Nebula => &w.nebula,
+                Kind::Double => &w.double,
+                Kind::Star => &w.star,
+                Kind::Dark => &w.dark,
+                Kind::Cloud => &w.cloud,
+                Kind::Asterism => &w.asterism,
+            },
+            Target::Meteor(_) => &w.meteor,
+            Target::Figure(_) => &w.figure,
+            Target::Hop(_) => &w.hop,
+            Target::Story(_) => &w.story,
+            Target::MoonWalk => &w.moon_walk,
+        }
+    }
+
+    /// What to look out for, to help find it. `moon_first` is whether the
+    /// Moon itself is still to be caught tonight.
+    pub fn look_for(&self, showpieces: &[Showpiece], moon_first: bool) -> &'static str {
+        let w = &WORDS.look;
+        match self {
+            Target::Body(Body::Moon) => &w.moon,
+            Target::Body(_) => &w.planet,
+            Target::Star(_) => &w.star,
+            Target::Showpiece(p) => {
+                let piece = &showpieces[*p];
+                match piece.kind {
+                    Kind::Cloud => &w.cloud,
+                    _ if piece.deep => &w.deep,
+                    Kind::Cluster => &w.cluster,
+                    Kind::Asterism => &w.asterism,
+                    Kind::Galaxy | Kind::Nebula => &w.smudge,
+                    Kind::Double => &w.double,
+                    _ => &w.single,
+                }
+            }
+            Target::Meteor(_) => &w.meteor,
+            Target::Figure(_) => &w.figure,
+            Target::Hop(_) => &w.hop,
+            Target::Story(_) => &w.story,
+            Target::MoonWalk if moon_first => &w.moon_walk_first,
+            Target::MoonWalk => &w.moon_walk,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -404,7 +511,7 @@ pub fn tonight(
             .get(hr)
             .map(|s| (alt_az(apply(&horizon, apply(&prec, s.dir))).0, s.mag as f64))
     };
-    let alt_of_stop = |stop: &crate::tours::Stop| match (stop.hr, &stop.showpiece) {
+    let alt_of_stop = |stop: &crate::trails::Stop| match (stop.hr, &stop.showpiece) {
         (Some(hr), _) => alt_of_star(hr),
         (None, Some(id)) => sky
             .lists
@@ -418,7 +525,7 @@ pub fn tonight(
     // Tonight's story, told from a star that's well up.
     if limit >= 2.5 {
         let mut stories: Vec<(usize, String)> = sky
-            .tours
+            .trails
             .stories
             .iter()
             .enumerate()
@@ -430,8 +537,8 @@ pub fn tonight(
             out.push(Find {
                 id,
                 target: Target::Story(i),
-                name: sky.tours.stories[i].title.clone(),
-                fact: sky.tours.stories[i].mirror.clone(),
+                name: sky.trails.stories[i].title.clone(),
+                fact: sky.trails.stories[i].mirror.clone(),
             });
         }
     }
@@ -441,7 +548,7 @@ pub fn tonight(
         let north = observer.lat >= -10.0;
         let south = observer.lat <= 10.0;
         let mut hops: Vec<(usize, String)> = sky
-            .tours
+            .trails
             .hops
             .iter()
             .enumerate()
@@ -459,7 +566,7 @@ pub fn tonight(
             .collect();
         hops.sort_by_key(|(_, id)| order(id));
         if let Some((i, id)) = hops.into_iter().next() {
-            let hop = &sky.tours.hops[i];
+            let hop = &sky.trails.hops[i];
             // A star or showpiece the hop stops at is found on the way,
             // not on its own as well.
             out.retain(|f| {
@@ -481,18 +588,18 @@ pub fn tonight(
     }
 
     // A walk on the Moon, when there's enough of it lit to walk on.
-    let age = crate::ephem::moon_age(at) * crate::tours::SYNODIC_DAYS;
+    let age = crate::ephem::moon_age(at) * crate::trails::SYNODIC_DAYS;
     if moon.alt > 10.0 && (2.5..27.0).contains(&age) {
         out.push(Find {
             id: "moon-walk".into(),
             target: Target::MoonWalk,
             name: "A walk on the Moon".into(),
-            fact: sky.tours.moon_intro.clone(),
+            fact: sky.trails.moon_intro.clone(),
         });
     }
 
     // Algol, the Demon Star, in the middle of an eclipse.
-    if let Some(middle) = crate::tours::algol_eclipse(at)
+    if let Some(middle) = crate::trails::algol_eclipse(at)
         && alt_of_star(936).is_some_and(|(alt, _)| alt > 15.0)
         && limit >= 3.5
     {
@@ -535,6 +642,53 @@ mod tests {
         lat: 51.5072,
         lon: -0.1276,
     };
+
+    #[test]
+    fn every_kind_of_find_has_a_word_and_a_hint() {
+        let sky = Sky::bundled();
+        let pieces = &sky.lists.showpieces;
+        let mut targets = vec![
+            Target::Body(Body::Moon),
+            Target::Body(Body::Jupiter),
+            Target::Star(424),
+            Target::Meteor(0),
+            Target::Figure(0),
+            Target::Hop(0),
+            Target::Story(0),
+            Target::MoonWalk,
+        ];
+        targets.extend((0..pieces.len()).map(Target::Showpiece));
+        for t in &targets {
+            assert!(!t.kind_word(pieces).is_empty(), "{t:?}");
+            assert!(t.look_for(pieces, false).ends_with('.'), "{t:?}");
+        }
+        assert_eq!(Target::Body(Body::Moon).kind_word(pieces), "Our Moon");
+        assert_eq!(Target::Body(Body::Saturn).kind_word(pieces), "Planet");
+    }
+
+    #[test]
+    fn a_faint_showpiece_says_to_zoom_in_and_the_milky_way_never_does() {
+        let sky = Sky::bundled();
+        let pieces = &sky.lists.showpieces;
+        let deep = pieces.iter().position(|p| p.deep && p.kind != Kind::Cloud);
+        let deep = Target::Showpiece(deep.expect("a deep showpiece"));
+        assert!(deep.look_for(pieces, false).contains("zoom in"));
+        for (i, p) in pieces.iter().enumerate() {
+            if p.kind == Kind::Cloud {
+                let hint = Target::Showpiece(i).look_for(pieces, false);
+                assert!(hint.contains("Milky Way"), "{}", p.id);
+            }
+        }
+    }
+
+    #[test]
+    fn the_moon_walk_asks_for_the_moon_first_only_while_it_waits() {
+        let pieces = &Sky::bundled().lists.showpieces;
+        let first = Target::MoonWalk.look_for(pieces, true);
+        let then = Target::MoonWalk.look_for(pieces, false);
+        assert!(first.starts_with("Catch the Moon first"));
+        assert!(!then.contains("first"));
+    }
 
     #[test]
     fn a_dark_night_has_a_handful_of_finds_and_keeps_them() {
@@ -687,7 +841,7 @@ mod tests {
                 continue;
             };
             hops += 1;
-            for stop in &sky.tours.hops[h].steps {
+            for stop in &sky.trails.hops[h].steps {
                 assert!(
                     !finds
                         .iter()

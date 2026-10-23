@@ -1,0 +1,26 @@
+# What the conversation says around the questions: setting weights down,
+# looking back at them, and how the night ends.
+#
+# Placeholders: {words} {text} {weight} the words of a weight, {date} the
+# night it was set down, {found} what was found that night, {ago} how the
+# sky has moved since
+
+# Asked as the evening begins, and again after each weight set down.
+weigh = "Is anything weighing on you tonight? Write it in a few words and it becomes a star low in the west of this sky. At the end of tonight's visit you'll watch it set: a way of putting it down for the night."
+weigh-again = "It's waiting low in the west to set. Anything else on your mind, or is that all?"
+
+# Said in full every time: what the glowing star is, where it goes, and why.
+placing = "“{words}” is now the warm star in the ring. Move it low over the western horizon: stars there are the next to set, so at the end of tonight's visit you'll watch it go down."
+
+# An old weight, asked about again.
+look-back = "On {date}{found}, you wrote down “{text}” as something on your mind. How does it feel now?"
+look-back-since = "{ago}, on {date}{found}, you wrote down “{text}” as something on your mind. How does it feel now?"
+# Kept in this order: the last two are told apart by where they stand.
+looks = ["Lighter", "Much the same", "Heavier", "It's behind me"]
+
+course-check = "A while ago you charted a course for “{weight}”. How's it going?"
+
+ending = "How does tonight end? If it's clear, a few minutes under the real sky first can be worth it: something that vast tends to put the day in proportion, and the dark is kinder to sleep than a screen."
+ending-hint = "Either way, the screen goes off"
+# The first night.
+ending-hint-first = "Either way, the screen goes off. Everything from tonight is kept in your logbook: L opens it, any night"

@@ -371,10 +371,10 @@ impl Game {
         if let Some((f, _)) = self.reveal {
             return Some(self.sky.figures[f].edges.clone());
         }
-        if let Some(tour) = &self.tour
-            && let Target::Story(s) = self.finds[tour.find].target
+        if let Some(trail) = &self.trail
+            && let Target::Story(s) = self.finds[trail.find].target
         {
-            let story = &self.sky.tours.stories[s];
+            let story = &self.sky.trails.stories[s];
             if !story.pattern {
                 return None;
             }
@@ -467,7 +467,7 @@ impl Game {
                 };
                 // To the nearest ten minutes: it's "about", and easier read.
                 let at = (at + 300_000) / 600_000 * 600_000;
-                let time = westering_core::finds::civil_time(at, self.offset_s);
+                let time = westering_core::finds::civil_time(at, self.offset_s(at));
                 let why = say.replace("{name}", &mark.name).replace("{time}", &time);
                 (az, why)
             } else {

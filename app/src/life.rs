@@ -10,6 +10,7 @@ use crate::field::noise3;
 use crate::game::Game;
 use crate::view::Silhouette;
 use std::f64::consts::{PI, TAU};
+use westering_core::ease::smoothstep;
 use westering_core::time::UnixMs;
 use westering_core::wisp::Season;
 
@@ -295,8 +296,7 @@ impl Game {
             ((x - cx - bx * rc).powi(2) + (y - cy - by * rc).powi(2)).sqrt() / (rc * 0.6)
         })
         .fold(f64::MAX, f64::min);
-        let x = ((q - 0.75) / 0.4).clamp(0.0, 1.0);
-        1.0 - x * x * (3.0 - 2.0 * x)
+        1.0 - smoothstep((q - 0.75) / 0.4)
     }
 
     /// A small bird crossing, if one is: where it is now.
@@ -420,8 +420,7 @@ impl Game {
         let always = season.is_none();
         // Butterflies and bees go to roost as the light goes, well before
         // dark; midges carry on into dusk.
-        let x = ((day.today.sun_alt - 2.0) / 8.0).clamp(0.0, 1.0);
-        let daylight = (x * x * (3.0 - 2.0 * x)) as f32;
+        let daylight = smoothstep((day.today.sun_alt - 2.0) / 8.0) as f32;
         // Butterflies over the grass, wandering and fluttering.
         if (always || (4..=10).contains(&m)) && daylight > 0.0 {
             for k in 0..2u64 {

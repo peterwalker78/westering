@@ -1,0 +1,42 @@
+# What each kind of find is called on its card and in Tonight's list, and what
+# to look out for to find it in the sky.
+
+[kind]
+moon = "Our Moon"
+planet = "Planet"
+star = "Star"
+cluster = "Star cluster"
+galaxy = "Galaxy"
+nebula = "Nebula"
+double = "Double star"
+dark = "Dark cloud"
+cloud = "Star cloud"
+asterism = "Asterism"
+meteor = "Meteor"
+figure = "Constellation"
+hop = "Star-hop"
+story = "Tonight's story"
+moon_walk = "Moon walk"
+
+[look]
+moon = "You can't miss it."
+planet = "Look for a bright, steady light that doesn't twinkle."
+star = "Look for a single bright star."
+# A rich patch of the Milky Way.
+cloud = "Look for the brightest patch of the Milky Way there."
+# Any showpiece too faint to see without zooming in.
+deep = "Too faint for the eye alone: turn to it and zoom in close with +, and it will show."
+cluster = "Look for a little knot of faint stars."
+asterism = "Look for a little pattern of stars."
+# Galaxies and nebulae.
+smudge = "Look for a faint smudge of light."
+double = "It looks like a single star, but close up it's two."
+# Any other showpiece.
+single = "Look for a single star."
+meteor = "Watch the sky, and press Space the moment one flies."
+figure = "Look for its shape; put the ring in the middle of it."
+hop = "Start from a star you know, and hop from star to star."
+story = "Tonight's story starts at the star I'm showing you: hold Space when it's in the ring."
+# While the Moon itself is still waiting to be caught tonight.
+moon_walk_first = "Catch the Moon first, then hold Space on it again to go closer."
+moon_walk = "Hold Space on the Moon to go closer."

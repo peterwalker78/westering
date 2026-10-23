@@ -4,10 +4,57 @@
 
 use super::*;
 
+/// One of tonight's finds, and how far it has got.
+#[derive(Clone)]
+pub(crate) struct TonightFind {
+    pub(crate) find: Find,
+    pub(crate) caught: bool,
+    /// Seen: caught with the card up long enough to read, or a story begun.
+    pub(crate) viewed: bool,
+    /// How many steps of a hop have been found.
+    pub(crate) steps: usize,
+}
+
+impl TonightFind {
+    pub(crate) fn new(find: Find, caught: bool) -> TonightFind {
+        TonightFind {
+            find,
+            caught,
+            // Anything caught earlier tonight was seen then.
+            viewed: caught,
+            steps: 0,
+        }
+    }
+}
+
+impl std::ops::Deref for TonightFind {
+    type Target = Find;
+
+    fn deref(&self) -> &Find {
+        &self.find
+    }
+}
+
 impl Game {
+    /// Which of tonight's finds `target` is, if it's one.
+    pub(crate) fn find_of(&self, target: Target) -> Option<usize> {
+        self.finds.iter().position(|f| f.target == target)
+    }
+
     /// Where find `i` is, as a horizon vector.
     pub(crate) fn find_dir(&self, i: usize, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<Vec3> {
-        match self.finds[i].target {
+        self.target_dir(self.finds[i].target, now, hz, prec)
+    }
+
+    /// Where something in the sky is, as a horizon vector.
+    pub(crate) fn target_dir(
+        &self,
+        target: Target,
+        now: UnixMs,
+        hz: &Mat3,
+        prec: &Mat3,
+    ) -> Option<Vec3> {
+        match target {
             Target::Body(body) => {
                 let s = see(body, self.observer, now);
                 Some(from_alt_az(s.alt, s.az))
@@ -25,9 +72,9 @@ impl Game {
             Target::Figure(f) => self.sky.figures[f]
                 .centre(&self.sky.stars)
                 .map(|(c, _)| apply(hz, apply(prec, c))),
-            Target::Hop(_) => self.stop_dir(self.hop_stop(i)?, hz, prec),
+            Target::Hop(_) => self.stop_dir(self.hop_stop(self.find_of(target)?)?, hz, prec),
             Target::Story(s) => {
-                let anchor = self.sky.tours.stories[s].anchor;
+                let anchor = self.sky.trails.stories[s].anchor;
                 self.sky
                     .stars
                     .index_of(anchor)
@@ -42,65 +89,25 @@ impl Game {
 
     /// What kind of thing find `i` is, in a word or two.
     pub(crate) fn kind_word(&self, i: usize) -> &'static str {
-        match self.finds[i].target {
-            Target::Body(Body::Moon) => "Our Moon",
-            Target::Body(_) => "Planet",
-            Target::Star(_) => "Star",
-            Target::Showpiece(p) => match self.sky.lists.showpieces[p].kind {
-                Kind::Cluster => "Star cluster",
-                Kind::Galaxy => "Galaxy",
-                Kind::Nebula => "Nebula",
-                Kind::Double => "Double star",
-                Kind::Star => "Star",
-                Kind::Dark => "Dark cloud",
-                Kind::Cloud => "Star cloud",
-                Kind::Asterism => "Asterism",
-            },
-            Target::Meteor(_) => "Meteor",
-            Target::Figure(_) => "Constellation",
-            Target::Hop(_) => "Star-hop",
-            Target::Story(_) => "Tonight's story",
-            Target::MoonWalk => "Moon walk",
-        }
+        self.finds[i].target.kind_word(&self.sky.lists.showpieces)
     }
 
     /// What to look out for, to help find it.
     pub(crate) fn look_for(&self, i: usize) -> &'static str {
-        match self.finds[i].target {
-            Target::Body(Body::Moon) => "You can't miss it.",
-            Target::Body(_) => "Look for a bright, steady light that doesn't twinkle.",
-            Target::Star(_) => "Look for a single bright star.",
-            Target::Showpiece(p) if self.sky.lists.showpieces[p].kind == Kind::Cloud => {
-                "Look for the brightest patch of the Milky Way there."
-            }
-            Target::Showpiece(p) if self.sky.lists.showpieces[p].deep => {
-                "Too faint for the eye alone: turn to it and zoom in close with +, and it will show."
-            }
-            Target::Showpiece(p) => match self.sky.lists.showpieces[p].kind {
-                Kind::Cluster => "Look for a little knot of faint stars.",
-                Kind::Asterism => "Look for a little pattern of stars.",
-                Kind::Galaxy | Kind::Nebula => "Look for a faint smudge of light.",
-                Kind::Double => "It looks like a single star, but close up it's two.",
-                _ => "Look for a single star.",
-            },
-            Target::Meteor(_) => "Watch the sky, and press Space the moment one flies.",
-            Target::Figure(_) => "Look for its shape; put the ring in the middle of it.",
-            Target::Hop(_) => "Start from a star you know, and hop from star to star.",
-            Target::Story(_) => {
-                "Tonight's story starts at the star I'm showing you: hold Space when it's in the ring."
-            }
-            Target::MoonWalk if self.moon_find().is_some_and(|m| !self.caught[m]) => {
-                "Catch the Moon first, then hold Space on it again to go closer."
-            }
-            Target::MoonWalk => "Hold Space on the Moon to go closer.",
-        }
+        let moon_first = self.moon_find().is_some_and(|m| !self.finds[m].caught);
+        self.finds[i]
+            .target
+            .look_for(&self.sky.lists.showpieces, moon_first)
     }
 
     /// How narrow the view goes to show a find close up.
     pub(super) fn zoom_for(&self, i: usize) -> f64 {
         match self.finds[i].target {
             // A hop keeps the view wide enough to see the next step.
-            Target::Hop(_) => self.catch.fov_before.unwrap_or(self.camera.fov),
+            Target::Hop(_) => self
+                .on_tour()
+                .and_then(|t| t.catch.fov_before)
+                .unwrap_or(self.camera.fov),
             Target::MoonWalk => self.moon_walk_fov(),
             ref target => self
                 .framing(i)
@@ -150,7 +157,7 @@ impl Game {
                 .moon_find()
                 .map_or(0.0, |m| self.apparent_radius(m, fov));
         }
-        if self.caught[i] && self.photo_id(i).is_some() {
+        if self.finds[i].caught && self.photo_id(i).is_some() {
             // Keep the card on the screen beside a picture that fills the view.
             return self
                 .photo_half(i, fov)
@@ -203,9 +210,6 @@ impl Game {
         let here = from_alt_az(self.camera.alt, self.camera.az);
         let order = westering_core::route::route(here, &dirs);
         self.finds = order.iter().map(|&i| self.finds[i].clone()).collect();
-        self.caught = order.iter().map(|&i| self.caught[i]).collect();
-        self.viewed = order.iter().map(|&i| self.viewed[i]).collect();
-        self.steps = order.iter().map(|&i| self.steps[i]).collect();
     }
 
     /// The next thing down the list that's still to find and is up, other
@@ -216,7 +220,7 @@ impl Game {
         let prec = precession(now);
         let here = from_alt_az(self.camera.alt, self.camera.az);
         let up: Vec<(usize, f64)> = (0..self.finds.len())
-            .filter(|&i| !self.caught[i])
+            .filter(|&i| !self.finds[i].caught)
             .filter_map(|i| self.find_dir(i, now, &hz, &prec).map(|v| (i, v)))
             .filter(|(_, v)| alt_az(*v).0 > 0.0)
             .map(|(i, v)| (i, angle_between(here, v)))
@@ -229,8 +233,9 @@ impl Game {
         match next {
             Some(i) => self.turn_to(i, real),
             None => {
-                let meteor_left = (0..self.finds.len())
-                    .any(|i| !self.caught[i] && matches!(self.finds[i].target, Target::Meteor(_)));
+                let meteor_left = (0..self.finds.len()).any(|i| {
+                    !self.finds[i].caught && matches!(self.finds[i].target, Target::Meteor(_))
+                });
                 // Nowhere to turn to: say so, so the key isn't met with
                 // silence.
                 if meteor_left {
@@ -253,7 +258,9 @@ impl Game {
 
     /// Turns the view towards find `i`, and says what to look for.
     pub fn turn_to(&mut self, i: usize, real: UnixMs) {
-        self.ring_resting = false;
+        if let Some(t) = self.on_tour_mut() {
+            t.ring_resting = false;
+        }
         if self.by_day() {
             if self.card.is_some() {
                 self.dismiss_card(real);
@@ -261,7 +268,7 @@ impl Game {
             self.day_open(i, real);
             return;
         }
-        if i >= self.finds.len() || !self.hunting() || self.free_look() {
+        if i >= self.finds.len() || !self.touring() {
             return;
         }
         self.input(real);
@@ -269,7 +276,9 @@ impl Game {
             self.dismiss_card(real);
         }
         // Turned to on purpose: the view stays with it.
-        self.move_on = None;
+        if let Some(t) = self.on_tour_mut() {
+            t.move_on = None;
+        }
         if let Target::Meteor(_) = self.finds[i].target {
             self.guide_meteor_left(real);
             return;
@@ -291,7 +300,7 @@ impl Game {
             return;
         }
         let fov = match self.finds[i].target {
-            _ if self.caught[i] && self.photo_id(i).is_some() => self.zoom_for(i),
+            _ if self.finds[i].caught && self.photo_id(i).is_some() => self.zoom_for(i),
             // Too faint for the eye: close enough in for it to show.
             Target::Showpiece(p) if self.sky.lists.showpieces[p].deep => {
                 let limit = limiting_magnitude(see(Body::Sun, self.observer, now).alt);
@@ -311,8 +320,10 @@ impl Game {
             fov,
             rate: 1.6,
         });
-        self.track = Some(i);
-        let line = (!self.caught[i]).then(|| {
+        if let Some(t) = self.on_tour_mut() {
+            t.track = Some(i);
+        }
+        let line = (!self.finds[i].caught).then(|| {
             let hint = match self.hop_stop(i) {
                 Some(stop) => stop.say.clone(),
                 None => self.look_for(i).to_owned(),
@@ -341,10 +352,10 @@ impl Game {
                     },
                 };
                 let whereabouts = match self.finds[i].target {
-                    Target::Hop(h) if self.steps[i] > 0 => format!(
+                    Target::Hop(h) if self.finds[i].steps > 0 => format!(
                         "step {} of {}, {whereabouts}",
-                        self.steps[i] + 1,
-                        self.sky.tours.hops[h].steps.len()
+                        self.finds[i].steps + 1,
+                        self.sky.trails.hops[h].steps.len()
                     ),
                     _ => whereabouts,
                 };
@@ -352,7 +363,7 @@ impl Game {
                     name: self.finds[i].name.clone(),
                     kind: self.kind_word(i),
                     whereabouts,
-                    found: self.caught[i],
+                    found: self.finds[i].caught,
                 }
             })
             .collect()
@@ -368,8 +379,7 @@ impl Game {
         }
         // A card at night needs the room too: the find takes the space
         // beside it. Free look has no list.
-        matches!(self.session.phase(), Phase::Hunt)
-            && !self.free_look()
+        self.touring()
             && self.card.is_none()
             && !self.keeping()
             && !self.finds.is_empty()
@@ -385,7 +395,7 @@ impl Game {
             return self.carry_on(real);
         }
         let done = (0..self.finds.len())
-            .all(|i| self.caught[i] || matches!(self.finds[i].target, Target::Meteor(_)));
+            .all(|i| self.finds[i].caught || matches!(self.finds[i].target, Target::Meteor(_)));
         if done && self.card.is_none() {
             return self.carry_on(real);
         }
@@ -393,7 +403,7 @@ impl Game {
         let hz = horizon(self.observer, now);
         let prec = precession(now);
         let missed = (0..self.finds.len()).find(|&i| {
-            !self.viewed[i]
+            !self.finds[i].viewed
                 && !matches!(self.finds[i].target, Target::Meteor(_))
                 && self.card.as_ref().and_then(|c| c.find) != Some(i)
                 && self
@@ -404,7 +414,7 @@ impl Game {
             return self.carry_on(real);
         };
         self.turn_to(i, real);
-        if self.caught[i] {
+        if self.finds[i].caught {
             self.show_find_card(i, real);
             // Said, so going back doesn't seem to come from nowhere.
             let name = self.finds[i].name.clone();
@@ -430,7 +440,7 @@ impl Game {
         {
             return;
         }
-        let most = if late(now, self.offset_s) {
+        let most = if late(now, self.offset_s(now)) {
             LATE_FINDS
         } else {
             westering_core::finds::MOST
@@ -439,7 +449,7 @@ impl Game {
             &self.sky,
             self.observer,
             now,
-            self.offset_s,
+            self.offset_s(now),
             &|id| self.journal.times_found_before(id, &self.night),
             &|t| self.photos.pictures(&self.sky, t),
         );
@@ -453,13 +463,10 @@ impl Game {
             }
             let caught = self.journal.found_on(&find.id, &self.night);
             added += usize::from(!caught);
-            self.finds.push(find);
-            self.caught.push(caught);
-            self.viewed.push(caught);
-            self.steps.push(0);
+            self.finds.push(TonightFind::new(find, caught));
         }
         if added > 0 {
-            self.session.add_finds(added);
+            self.session.more_to_find();
             self.guide_darker(added, real);
         }
     }
@@ -470,7 +477,7 @@ impl Game {
         let hz = horizon(self.observer, now);
         let prec = precession(now);
         let first = (0..self.finds.len())
-            .filter(|&i| !self.caught[i])
+            .filter(|&i| !self.finds[i].caught)
             .find_map(|i| self.find_dir(i, now, &hz, &prec));
         if let Some(v) = first {
             let (alt, az) = alt_az(v);

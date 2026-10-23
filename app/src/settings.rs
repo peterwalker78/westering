@@ -2,7 +2,7 @@
 //! for, what's kept and why, the logbook, and credits.
 
 use crate::game::Game;
-use crate::talk::{Go, Request};
+use crate::pages::{Go, Request};
 use crate::ui::{clear, confirm, label};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
@@ -226,7 +226,7 @@ impl Settings {
             let mut g = game.borrow_mut();
             let j = g.journal_mut();
             j.settings.quiet = !b.is_active();
-            let _ = j.save_settings();
+            g.save_settings();
         });
         let volume = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 1.0, 0.05);
         volume.set_value(settings.volume.unwrap_or(1.0));
@@ -237,7 +237,7 @@ impl Settings {
             let mut g = game.borrow_mut();
             let j = g.journal_mut();
             j.settings.volume = Some(v.value());
-            let _ = j.save_settings();
+            g.save_settings();
         });
         // The styles of music, as there are.
         let styles = self.game.borrow().styles.clone();
@@ -255,7 +255,7 @@ impl Settings {
             let id = g.styles.get(d.selected() as usize).map(|s| s.0.clone());
             let j = g.journal_mut();
             j.settings.style = id;
-            let _ = j.save_settings();
+            g.save_settings();
         });
         let company = gtk::Button::with_label("Start");
         company.add_css_class("chip");
@@ -263,7 +263,7 @@ impl Settings {
         company.connect_clicked(move |_| {
             if let Some(me) = me.upgrade() {
                 me.request(None);
-                me.game.borrow_mut().toggle_company(crate::wall_clock());
+                me.game.borrow_mut().toggle_company(crate::ui::wall_clock());
             }
         });
         group(
@@ -292,7 +292,7 @@ impl Settings {
             let mut g = game.borrow_mut();
             let j = g.journal_mut();
             j.settings.calm = b.is_active();
-            let _ = j.save_settings();
+            g.save_settings();
         });
         let motion = [row(
             "Calmer",
@@ -316,7 +316,7 @@ impl Settings {
                 1 => Ask::Rarely,
                 _ => Ask::Never,
             };
-            let _ = j.save_settings();
+            g.save_settings();
         });
         group(
             &self.body,
@@ -379,8 +379,11 @@ impl Settings {
                         let j = g.journal_mut();
                         j.settings.lat = Some(a);
                         j.settings.lon = Some(b);
-                        let _ = j.save_settings();
-                        said.set_text("Saved. The sky will use it next time it opens.");
+                        said.set_text(if g.save_settings() {
+                            "Saved. The sky will use it next time it opens."
+                        } else {
+                            "That couldn't be saved."
+                        });
                     }
                     _ => said.set_text("Latitude runs from -90 to 90 and longitude from -180 to 180, north and east positive."),
                 }
@@ -394,7 +397,7 @@ impl Settings {
                 let j = g.journal_mut();
                 j.settings.lat = None;
                 j.settings.lon = None;
-                let _ = j.save_settings();
+                g.save_settings();
                 said.set_visible(true);
                 said.set_text("Back to the time zone, from next time.");
             });
@@ -518,29 +521,36 @@ impl Settings {
         {
             let game = self.game.clone();
             let said = said.clone();
-            backup.connect_clicked(move |_| {
-                let (text, today) = {
-                    let g = game.borrow();
-                    (g.journal().backup(g.night()), g.night().to_owned())
-                };
-                let folder = glib::user_special_dir(glib::UserDirectory::Downloads)
-                    .unwrap_or_else(|| glib::home_dir().join("Downloads"));
-                let _ = std::fs::create_dir_all(&folder);
-                let mut path = folder.join(format!("Westering backup {today}.toml"));
-                let mut n = 2;
-                while path.exists() {
-                    path = folder.join(format!("Westering backup {today} ({n}).toml"));
-                    n += 1;
+            backup.connect_clicked(move |b| {
+                let today = game.borrow().night().to_owned();
+                let mut dialog = gtk::FileDialog::builder()
+                    .title("Save a Westering backup")
+                    .initial_name(format!("Westering backup {today}.toml"));
+                if let Some(downloads) = glib::user_special_dir(glib::UserDirectory::Downloads) {
+                    dialog = dialog.initial_folder(&gio::File::for_path(downloads));
                 }
-                match std::fs::write(&path, text) {
-                    Ok(()) => said.set_text(&format!(
-                        "Saved in your Downloads folder as “{}”.",
-                        path.file_name()
-                            .and_then(|f| f.to_str())
-                            .unwrap_or_default()
-                    )),
-                    Err(e) => said.set_text(&format!("That didn't work: {e}.")),
-                }
+                let window = b.root().and_downcast::<gtk::Window>();
+                let (game, said) = (game.clone(), said.clone());
+                dialog
+                    .build()
+                    .save(window.as_ref(), gio::Cancellable::NONE, move |r| {
+                        let Some(path) = r.ok().and_then(|f| f.path()) else {
+                            return;
+                        };
+                        let text = {
+                            let g = game.borrow();
+                            g.journal().backup(g.night())
+                        };
+                        match std::fs::write(&path, text) {
+                            Ok(()) => said.set_text(&format!(
+                                "Saved as “{}”.",
+                                path.file_name()
+                                    .and_then(|f| f.to_str())
+                                    .unwrap_or_default()
+                            )),
+                            Err(e) => said.set_text(&format!("That didn't work: {e}.")),
+                        }
+                    });
             });
         }
 

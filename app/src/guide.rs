@@ -6,22 +6,20 @@
 //! asks (? or a click on it). It brightens when something is caught and
 //! goes home to sleep when the lights go out.
 
+mod lessons;
+
 use crate::flight::Flight;
 use crate::game::{Game, envelope};
 use crate::idle::{Idle, Kind, Scene};
 use crate::sprite::{FLYING, NOOK, SIZE, render_flying, render_moss};
-use crate::talk::{Flow, LOOK_BEHIND, LOOK_HEAVIER, lower_first};
+use crate::talk::Flow;
 use crate::view::{Bubble, Point, Sprite};
-use westering_core::coords::{angles, apply, observe, unit};
-use westering_core::finale::whereabouts;
-use westering_core::finds::{Target, stable_hash};
-use westering_core::journal::long_date;
-use westering_core::journey::{Lines, Tonight, risen, season, turned, year_round};
-use westering_core::questions::{days_between, key_of};
+use westering_core::coords::{apply, unit};
+use westering_core::ease::smoothstep;
+use westering_core::journey::Lines;
 use westering_core::session::Phase;
 use westering_core::time::UnixMs;
-use westering_core::time::{DAY, civil_date, clock, weekday};
-use westering_core::wisp::{Feel, Gesture, Mode, Trend, Wisp};
+use westering_core::wisp::{Feel, Gesture, Mode, Wisp};
 
 /// A place on the screen, in pixels.
 type Spot = (f64, f64);
@@ -103,8 +101,9 @@ pub struct Guide {
     lines: Lines,
     /// The moss as last drawn: when, at what scale.
     moss: Option<(UnixMs, f64, gtk::gdk::Texture)>,
-    /// The wisp's picture as last drawn: when it's next due, at what scale.
-    wisp_drawn: Option<(UnixMs, f64, gtk::gdk::Texture)>,
+    /// The wisp's picture as last drawn: when it's next due, at what scale,
+    /// and whether still, behind a page.
+    wisp_drawn: Option<(UnixMs, f64, bool, gtk::gdk::Texture)>,
 }
 
 /// What the wisp is holding its tongue for.
@@ -131,9 +130,6 @@ fn of_the_moment(aim: Aim) -> bool {
 /// How often, at the least, the wisp's picture is drawn afresh when it
 /// hasn't said: its breath runs smoothly between, as a scale.
 const WISP_REDRAW_MS: UnixMs = 66;
-/// How long someone can look around without finding anything before the
-/// wisp offers to help.
-const STUCK_MS: UnixMs = 35_000;
 /// How long a line stays up when nothing follows it: long enough to read
 /// it slowly, twice if need be.
 fn read_time(text: &str) -> UnixMs {
@@ -164,7 +160,7 @@ impl Guide {
         let mut wisp = Wisp::new(FLYING.0, FLYING.1);
         wisp.set_breath_outside(true);
         // It wakes as the sky arrives.
-        wisp.update(0.05, Mode::Away, Trend::Steady, false, true, false);
+        wisp.update(Mode::Away);
         Guide {
             wisp,
             line: None,
@@ -215,9 +211,7 @@ impl Game {
     pub(crate) fn mark_seen(&mut self, key: &str) {
         if !self.seen(key) {
             self.journal.settings.seen.push(key.to_owned());
-            if let Err(e) = self.journal.save_settings() {
-                eprintln!("westering: couldn't save settings: {e}");
-            }
+            self.save_settings();
         }
     }
 
@@ -446,389 +440,7 @@ impl Game {
     }
 
     fn to_find(&self) -> usize {
-        self.caught.iter().filter(|c| !**c).count()
-    }
-
-    pub(crate) fn guide_arrival(&mut self, real: UnixMs) {
-        let (_, month, _) = civil_date(self.sky_now(real), self.offset_s);
-        self.guide.wisp.set_season(season(month, self.observer.lat));
-        let n = self.to_find();
-        let things = match n {
-            0 => String::new(),
-            1 => " One thing to find tonight.".into(),
-            n => format!(" {} things to find tonight.", number(n)),
-        };
-        if !self.seen("hello") {
-            self.mark_seen("hello");
-            self.say_at(
-                Aim::Near(0.36, 0.42),
-                "Hello. I'm the wisp. This is the real sky over you tonight, just as it is outside.",
-                real + 1_200,
-                7_000,
-            );
-            self.say_at(
-                Aim::Near(0.4, 0.4),
-                "Come here for a few quiet minutes at the end of the day: to put the day down, come back to what matters to you, and get ready for sleep. The sky is never the same two nights running, so there's always something new to find.",
-                real + 1_200,
-                9_000,
-            );
-            self.say_at(
-                Aim::Evening,
-                "Every evening has the same four parts, shown up here: set down what's on your mind, explore tonight's list, look up on your own, then wind down.",
-                real + 1_200,
-                9_000,
-            );
-            return;
-        }
-        let hello = self.hello(real);
-        let text = if n == 0 && !self.finds.is_empty() {
-            format!("{hello} You've found tonight's sky already; look around as long as you like.")
-        } else if self.finds.is_empty() {
-            format!("{hello} It's still light out, so there's not much to find yet.")
-        } else if crate::game::late(self.sky_now(real), self.offset_s) {
-            format!(
-                "{hello}{things} It's late, so tonight's sky is a short one. W winds down whenever you're ready."
-            )
-        } else {
-            format!("{hello}{things}")
-        };
-        self.say_at(Aim::Near(0.3, 0.5), text, real + 1_200, 6_000);
-        self.one_more_thing(real);
-    }
-
-    /// The evening before this one, and the first, from the logbook.
-    fn earlier_nights(&self) -> (Option<String>, Option<String>) {
-        let earlier: Vec<String> = self
-            .journal
-            .nights()
-            .into_iter()
-            .filter(|k| *k < self.night)
-            .collect();
-        (earlier.first().cloned(), earlier.last().cloned())
-    }
-
-    /// Tonight's hello: one that fits the night, or, after a while away,
-    /// what the sky has done since.
-    fn hello(&self, real: UnixMs) -> String {
-        let now = self.sky_now(real);
-        let (hour, _) = clock(now, self.offset_s);
-        let (_, month, _) = civil_date(now, self.offset_s);
-        let lines = &self.guide.lines;
-        if let (Some(last), _) = self.earlier_nights() {
-            let days = days_between(&last, &self.night);
-            if days >= 10 {
-                if let Some(name) = risen(&self.sky, self.observer, now - days * DAY, now, &[]) {
-                    return format!("Hello. {}", lines.news.risen.replace("{name}", &name));
-                }
-                if (30..=45).contains(&days) {
-                    return format!("Hello. {}", lines.news.moon);
-                }
-            }
-        }
-        lines
-            .greeting(&Tonight {
-                night: &self.night,
-                hour,
-                weekday: weekday(now, self.offset_s),
-                moon: &self.page.moon,
-                month,
-                lat: self.observer.lat,
-            })
-            .to_owned()
-    }
-
-    /// At most one thing more on arriving, when there's something worth
-    /// it: the year come round, the Sun at an equinox or solstice, or the
-    /// star of someone named, now and then.
-    fn one_more_thing(&mut self, real: UnixMs) {
-        let now = self.sky_now(real);
-        let (last, first) = self.earlier_nights();
-        if let Some(first) = &first
-            && let Some(years) = year_round(first, &self.night)
-            && !self.seen(&format!("round-{years}"))
-        {
-            self.mark_seen(&format!("round-{years}"));
-            let lines = &self.guide.lines.round;
-            let mut text = lines.text.replace("{date}", &long_date(first));
-            let person = self
-                .journal
-                .people
-                .iter()
-                .filter(|p| p.mentions.iter().any(|m| m.night == *first))
-                .map(|p| p.name.clone())
-                .next();
-            if let Some(name) = person {
-                text = format!("{text} {}", lines.person.replace("{name}", &name));
-            } else if let Some(find) = self
-                .journal
-                .night(first)
-                .and_then(|p| p.finds.first().cloned())
-            {
-                text = format!(
-                    "{text} {}",
-                    lines.find.replace("{find}", &lower_first(&find))
-                );
-            }
-            self.say_at(Aim::Near(0.4, 0.4), text, real + 1_200, 10_000);
-            return;
-        }
-        if let Some((kind, at)) = turned(now, self.observer.lat)
-            && last.is_none_or(|l| l < key_of(at, self.offset_s))
-        {
-            let text = self.guide.lines.turn(kind, at, now, self.offset_s);
-            self.say_at(Aim::Near(0.4, 0.4), text, real + 1_200, 9_000);
-            return;
-        }
-        // Someone's star, about one evening in three that it's up.
-        if !stable_hash((0, 0, 1), &self.night).is_multiple_of(3) {
-            return;
-        }
-        let star = self.journal.people.iter().find_map(|p| {
-            p.stars.iter().find_map(|&hr| {
-                let star = self.sky.stars.get(hr)?;
-                let (ra, dec) = angles(star.dir);
-                let (alt, az) = observe(self.observer, now, ra, dec);
-                let name = self.sky.lists.star_name(hr)?.name.clone();
-                (alt > 20.0).then(|| (p.name.clone(), name, ra, dec, alt, az))
-            })
-        });
-        if let Some((person, name, ra, dec, alt, az)) = star {
-            let text = self.guide.lines.star(&person, &name, &whereabouts(alt, az));
-            self.say_at(Aim::Sky(ra, dec), text, real + 1_200, 8_000);
-        }
-    }
-
-    pub(crate) fn guide_weights(&mut self, real: UnixMs) {
-        self.say_once(
-            "weights",
-            Aim::Prompt,
-            "Each evening starts here. A worry written down is easier to put down. Yours becomes a star in the west of this sky, and you'll watch it set at the end. Only you will ever see it.",
-            real,
-            30_000,
-        );
-    }
-
-    pub(crate) fn guide_placing(&mut self, real: UnixMs) {
-        // The prompt says what to do; the wisp only says why, the first time.
-        self.say_once(
-            "placing",
-            Aim::Ring,
-            "Stars low in the west are the next to set. At the end of tonight's visit, you'll watch this one go down.",
-            real,
-            12_000,
-        );
-    }
-
-    pub(crate) fn guide_placed(&mut self) {
-        self.hush();
-    }
-
-    pub(crate) fn guide_hunt(&mut self, real: UnixMs) {
-        self.guide.last_progress = real;
-        let n = self.to_find();
-        if n == 0 || self.seen("hunt") {
-            return;
-        }
-        self.mark_seen("hunt");
-        let what = if n == 1 {
-            "One thing to find tonight, listed here with where to look.".to_owned()
-        } else {
-            format!(
-                "{} things to find tonight, listed here in order round the sky. Click one and I'll turn you to it.",
-                number(n)
-            )
-        };
-        self.say_at(Aim::List, what, real + 500, 9_000);
-        self.say_at(
-            Aim::Compass,
-            "This strip shows which way you're facing. The arrows, or a drag, turn you round.",
-            real + 500,
-            7_000,
-        );
-        self.say_at(
-            Aim::Near(0.5, 0.35),
-            "Point at anything in the sky to see what it is, and click it to hear more.",
-            real + 500,
-            8_000,
-        );
-    }
-
-    pub(crate) fn guide_caught(&mut self, real: UnixMs) {
-        self.guide.cheer_until = real + 4_000;
-        self.guide.last_progress = real;
-        // Over to the card, pleased.
-        self.fly(Aim::Card, real, 4_000);
-        if self.say_once(
-            "caught",
-            Aim::Card,
-            "Every find comes with a card. Space or a click puts it away, then I'll turn you to the next.",
-            real + 600,
-            9_000,
-        ) {
-            return;
-        }
-        let caught = self.caught.iter().filter(|c| **c).count();
-        if caught >= 2 {
-            self.say_once(
-                "draw",
-                Aim::Near(0.5, 0.35),
-                "You can join bright stars into a shape of your own, too: press C.",
-                real + 600,
-                9_000,
-            );
-        }
-    }
-
-    /// A story or a walk has begun: the wisp goes along, and keeps its tips
-    /// for later.
-    pub(crate) fn guide_tour_began(&mut self, real: UnixMs) {
-        self.guide.cheer_until = real + 3_000;
-        self.guide.last_progress = real;
-        self.hush();
-    }
-
-    /// The list is done. By night the wisp says one line and hands the sky
-    /// over to free look.
-    pub(crate) fn guide_all_found(&mut self, real: UnixMs) {
-        if self.by_day() {
-            let done = self.guide.lines.day.done.clone();
-            self.say_at(Aim::Near(0.4, 0.4), done, real + 400, 9_000);
-            return;
-        }
-        self.guide.cheer_until = real + 5_000;
-        self.set_looking(crate::game::Looking::Free, real);
-        let line = self.guide.lines.free.handover.clone();
-        self.say_at(Aim::Near(0.5, 0.35), line, real, 9_000);
-    }
-
-    /// More has come out as the sky darkened: news for the list, so not
-    /// in free look.
-    pub(crate) fn guide_darker(&mut self, n: usize, real: UnixMs) {
-        if self.free_look() {
-            return;
-        }
-        let news = &self.guide.lines.news;
-        let text = if n == 1 {
-            news.darker_one.clone()
-        } else {
-            news.darker_many.replace("{n}", &number(n).to_lowercase())
-        };
-        // News, not a matter for the wisp to fly out about.
-        self.status_for(text, real, 6_000);
-    }
-
-    pub(crate) fn guide_meteor_left(&mut self, real: UnixMs) {
-        self.say_at(
-            Aim::Near(0.5, 0.3),
-            "The last one is a meteor. Keep watching, and press Space the moment one flies.",
-            real,
-            8_000,
-        );
-    }
-
-    pub(crate) fn guide_question(&mut self, real: UnixMs) {
-        let (plan, name) = match &self.talk.flow {
-            Some(Flow::Question { chosen, .. }) => (
-                chosen.question.answer == westering_core::questions::AnswerKind::Plan,
-                chosen.question.answer == westering_core::questions::AnswerKind::Name,
-            ),
-            _ => (false, false),
-        };
-        if plan
-            && self.say_once(
-                "plans",
-                Aim::Prompt,
-                "Something to look forward to is worth having. If you make a plan, I'll mention it when its night comes near.",
-                real + 400,
-                11_000,
-            )
-        {
-            return;
-        }
-        if name
-            && self.seen("question")
-            && self.say_once(
-                "names",
-                Aim::Prompt,
-                "Just a first name will do. Only you will ever see it.",
-                real + 400,
-                8_000,
-            )
-        {
-            return;
-        }
-        self.say_once(
-            "question",
-            Aim::Prompt,
-            "Now and then the sky asks something small. There's no right answer, and only you will ever see what you write. Esc lets it pass.",
-            real + 400,
-            12_000,
-        );
-    }
-
-    /// After something's been written down, where it all goes.
-    pub(crate) fn guide_answered(&mut self, real: UnixMs) {
-        self.say_once(
-            "logbook",
-            Aim::Near(0.3, 0.55),
-            "It's kept in your logbook, which L opens. Anything that keeps coming up gathers on a page of its own, so over time you can see what matters.",
-            real + 800,
-            11_000,
-        );
-    }
-
-    pub(crate) fn guide_look_back(&mut self, real: UnixMs) {
-        self.say_once(
-            "look-back",
-            Aim::Prompt,
-            "Now and then I'll bring back a worry you set down a while ago. Worries often change shape once they're written down, and it helps to notice when one has.",
-            real + 400,
-            11_000,
-        );
-    }
-
-    /// Tonight's end chosen: what happens now.
-    pub(crate) fn guide_ending(&mut self, ending: crate::game::Ending, real: UnixMs) {
-        let line = match ending {
-            crate::game::Ending::Outside => {
-                "Then I'll show you what's up out there. Give your eyes twenty minutes in the dark: they keep opening all that time."
-            }
-            crate::game::Ending::Bed => {
-                "Then this is the last of the screen tonight. Watch the day go down with the sky."
-            }
-        };
-        self.say_at(Aim::Near(0.4, 0.4), line, real + 300, 9_000);
-    }
-
-    /// After an old weight has been looked at again. Every answer is met
-    /// the same way, so none of them is the right one: a glow, and a word
-    /// about where it's kept.
-    pub(crate) fn guide_looked_back(&mut self, chip: usize, real: UnixMs) {
-        self.wisp_moved(real);
-        let kept = if chip == LOOK_BEHIND {
-            "Kept in your logbook. It won't be brought back again"
-        } else {
-            "Kept beside it in your logbook"
-        };
-        self.status_for(kept.into(), real, 6_000);
-        if chip == LOOK_HEAVIER {
-            self.say_once(
-                "course-offer",
-                Aim::Near(0.3, 0.55),
-                "If you'd like, the logbook can help you chart a small plan for it: find it there and choose Chart a course. Only if you want to.",
-                real + 500,
-                10_000,
-            );
-        }
-    }
-
-    pub(crate) fn guide_drawing(&mut self, real: UnixMs) {
-        self.say_at(
-            Aim::Ring,
-            "Arrows step between bright stars, Enter joins them, Backspace takes one back. Press C when it's done.",
-            real,
-            600_000,
-        );
+        self.finds.iter().filter(|f| !f.caught).count()
     }
 
     /// Puts the table of keys up, or away again.
@@ -847,102 +459,20 @@ impl Game {
         was
     }
 
-    pub(crate) fn guide_phase(&mut self, phase: Phase, real: UnixMs) {
-        match phase {
-            Phase::Dimming => self.say_at(
-                Aim::Prompt,
-                "Let's wind down. The screen dims a little at a time from here: bright light keeps a mind awake.",
-                real + 600,
-                10_000,
-            ),
-            Phase::Finale => {
-                let first = self
-                    .page
-                    .weights
-                    .first()
-                    .and_then(|w| self.journal.weight(w.weight))
-                    .map(|w| w.text.clone());
-                if let Some(first) = first {
-                    self.say_at(
-                        Aim::Weights,
-                        format!("Watch the west. The turning sky takes \u{201c}{first}\u{201d} down with it."),
-                        real + 800,
-                        9_000,
-                    );
-                } else if self.page.weights.is_empty() {
-                    self.say_at(
-                        Aim::Near(0.4, 0.45),
-                        "Watch the sky turn.",
-                        real + 800,
-                        6_000,
-                    );
-                } else {
-                    self.say_at(
-                        Aim::Weights,
-                        "Watch the west: the turning sky is taking down what you set down tonight.",
-                        real + 800,
-                        9_000,
-                    );
-                }
-            }
-            Phase::LightsOut => self.say_at(Aim::Home, "Goodnight.", real, 5_000),
-            _ => {}
-        }
-    }
-
     /// Nudges someone who seems stuck, now and then, and keeps the face right.
     pub(crate) fn guide_tick(&mut self, real: UnixMs) {
-        let hunting = self.hunting()
+        // Only the tour nudges.
+        let touring = self.touring()
             && self.card.is_none()
             && self.talk.prompt.is_none()
             && self.drawing.is_none();
-        // Only the tour nudges.
-        let touring = hunting && !self.free_look();
-        if touring && self.catch.target.is_some() {
-            self.say_once(
-                "ring",
-                Aim::Ring,
-                "There's one in the ring. Hold Space, or press and hold on the ring, to catch it.",
-                real,
-                8_000,
-            );
-        }
-        // Only on the very first night, once, and only if nothing at all
-        // has happened for a while: otherwise the wisp waits to be asked.
-        let left = self.to_find();
+        self.guide_nudge(touring, real);
+        // A while in: the way to wind down, offered once, in
+        // a pause, at the foot of the screen. Free look stays silent; the
+        // offer waits for the list.
         if touring
-            && left > 0
-            && self.talk.first_night
-            && self.guide.last_nudge == 0
-            && real - self.guide.last_progress.max(self.last_input) > STUCK_MS
-        {
-            self.guide.last_nudge = real;
-            let only_meteor = (0..self.finds.len())
-                .filter(|&i| !self.caught[i])
-                .all(|i| matches!(self.finds[i].target, Target::Meteor(_)));
-            if self.catch.target.is_some() {
-                self.say_at(
-                    Aim::Ring,
-                    "There's one in the ring. Hold Space to catch it.",
-                    real,
-                    8_000,
-                );
-            } else if only_meteor {
-                self.guide_meteor_left(real);
-            } else {
-                self.say_at(
-                    Aim::List,
-                    "Lost? Pick one from the list, or tap Space, and I'll turn you to the next.",
-                    real,
-                    8_000,
-                );
-            }
-        }
-        // A quarter of an hour in: the way to wind down, offered once, in
-        // a pause, at the foot of the screen.
-        if hunting
             && !self.by_day()
-            && self.tour.is_none()
+            && self.trail.is_none()
             && self.session.in_phase(real) > self.session.timings.offer
             && !self.offered_wind_down()
             && !self.wisp_busy(real)
@@ -958,9 +488,7 @@ impl Game {
             _ if self.talk.prompt.is_some() => Mode::Holding,
             _ => Mode::Resting,
         };
-        self.guide
-            .wisp
-            .update(0.05, mode, Trend::Steady, false, true, false);
+        self.guide.wisp.update(mode);
         self.guide.wisp.set_feel(self.wisp_feel(real));
         self.guide
             .wisp
@@ -976,7 +504,8 @@ impl Game {
     fn wisp_feel(&self, real: UnixMs) -> Feel {
         let phase = self.session.phase();
         let writing = self.talk.prompt.as_ref().is_some_and(|p| p.entry);
-        let (hour, _) = westering_core::time::clock(self.sky_now(real), self.offset_s);
+        let now = self.sky_now(real);
+        let (hour, _) = westering_core::time::clock(now, self.offset_s(now));
         Feel {
             listening: writing && real - self.guide.typed_at < 6_000,
             moved: real < self.guide.moved_until,
@@ -1032,7 +561,7 @@ impl Game {
                 let (x, y) = self.camera.project(self.find_dir(i, now, &hz, &prec)?)?;
                 self.camera
                     .on_screen(x, y, 40.0)
-                    .then_some((self.caught[i], (x, y)))
+                    .then_some((self.finds[i].caught, (x, y)))
             })
             .collect();
         spots.sort_by_key(|(caught, _)| *caught);
@@ -1044,7 +573,7 @@ impl Game {
         let (w, h) = (NOOK.0 * SIZE, NOOK.1 * SIZE);
         // Keeping company it drifts to the middle, where it reads in a
         // window of any size.
-        let mix = self.keep.mix * self.keep.mix * (3.0 - 2.0 * self.keep.mix);
+        let mix = smoothstep(self.keep.mix);
         let x = 10.0 + (((self.camera.width - w) / 2.0).max(10.0) - 10.0) * mix;
         (x, self.camera.height - h - 34.0 + 20.0 * mix, w, h)
     }
@@ -1399,8 +928,10 @@ impl Game {
             .guide
             .wisp_drawn
             .as_ref()
-            .is_none_or(|(due, scale, _)| real >= *due || *scale != self.guide.scale);
-        if busy || stale || self.panel_open {
+            .is_none_or(|(due, scale, still, _)| {
+                real >= *due || *scale != self.guide.scale || *still != self.panel_open
+            });
+        if busy || stale {
             self.guide.wisp_drawn = render_flying(
                 &mut self.guide.wisp,
                 real as f64,
@@ -1409,10 +940,10 @@ impl Game {
             )
             .map(|(t, next)| {
                 let wait = next.map_or(WISP_REDRAW_MS, |ms| (ms as UnixMs).min(WISP_REDRAW_MS * 4));
-                (real + wait, self.guide.scale, t)
+                (real + wait, self.guide.scale, self.panel_open, t)
             });
         }
-        if let Some((_, _, texture)) = self.guide.wisp_drawn.clone() {
+        if let Some((_, _, _, texture)) = self.guide.wisp_drawn.clone() {
             let breath = if self.panel_open {
                 1.0
             } else {

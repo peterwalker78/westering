@@ -3,14 +3,14 @@
 //! hands the answers back here.
 
 use crate::game::{Game, Look};
-use std::cell::RefCell;
+use crate::pages::Request;
 use westering_core::care::Care;
 use westering_core::coords::{angles, apply, from_alt_az, horizon};
 use westering_core::events::{Kind as EventKind, SkyEvent, upcoming};
 use westering_core::finds::Target;
 use westering_core::journal::{Answer, Asked, Check, Journal, Mention, NightWeight, Plan};
 use westering_core::questions::{
-    self, AnswerKind, Chosen, Context, Question, course_to_check, days_between, key_of,
+    self, AnswerKind, Chosen, Context, Question, Words, course_to_check, days_between, key_of,
     plan_nearby, plan_to_ask_about, weight_to_look_back,
 };
 use westering_core::time::UnixMs;
@@ -27,19 +27,6 @@ pub struct Prompt {
     pub names: bool,
     /// The key shown on a chip, when it isn't its number.
     pub chip_keys: Vec<String>,
-}
-
-/// How a page asks the window to go somewhere: None is back to the sky.
-pub type Go = RefCell<Option<Box<dyn Fn(Option<Request>)>>>;
-
-/// Something for the window to open.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Request {
-    /// The logbook, at a night's page or a contents page.
-    Book(Option<String>),
-    /// Chart a course for a weight.
-    Course(u32),
-    Settings,
 }
 
 pub(crate) enum Flow {
@@ -97,6 +84,7 @@ pub struct Talk {
     pub(crate) pending: Option<(UnixMs, Pending)>,
     pub(crate) asked_now: Vec<String>,
     pub(crate) bank: Vec<Question>,
+    pub(crate) words: Words,
     pub(crate) events: Vec<SkyEvent>,
     pub(crate) care: Option<Care>,
     pub(crate) caring: bool,
@@ -108,23 +96,15 @@ pub struct Talk {
 
 const MAX_WEIGHTS: usize = 3;
 
-/// How an old weight sits now.
-const LOOKS: [&str; 4] = ["Lighter", "Much the same", "Heavier", "It's behind me"];
+/// Which of the looks an old weight can have mean heavier, and behind me.
 pub(crate) const LOOK_HEAVIER: usize = 2;
 pub(crate) const LOOK_BEHIND: usize = 3;
-
-/// "The Moon" becomes "the Moon"; names stay as they are.
-pub(crate) fn lower_first(name: &str) -> String {
-    match name.strip_prefix("The ") {
-        Some(rest) => format!("the {rest}"),
-        None => name.to_owned(),
-    }
-}
 
 impl Talk {
     pub fn new(journal: &Journal, night: &str, events: Vec<SkyEvent>) -> Talk {
         Talk {
             bank: questions::bundled(),
+            words: Words::bundled(),
             events,
             care: Some(Care::bundled()),
             first_night: journal.nights().iter().all(|n| n == night),
@@ -148,68 +128,6 @@ impl Game {
         self.talk.serial += 1;
         // Whatever the wisp was saying about the last one is over.
         self.guide_prompt_gone(self.last_real);
-    }
-
-    pub fn take_request(&mut self) -> Option<Request> {
-        self.request.take()
-    }
-
-    pub fn journal(&self) -> &Journal {
-        &self.journal
-    }
-
-    pub fn journal_mut(&mut self) -> &mut Journal {
-        &mut self.journal
-    }
-
-    pub fn night(&self) -> &str {
-        &self.night
-    }
-
-    /// Clears the journal and tonight's page with it.
-    pub fn forget_everything(&mut self) -> std::io::Result<()> {
-        self.journal.forget_everything()?;
-        self.refresh();
-        Ok(())
-    }
-
-    /// Picks up the journal again after something in it was deleted or
-    /// restored: tonight's page, and what's been found tonight.
-    pub fn refresh(&mut self) {
-        self.page =
-            self.journal
-                .night(&self.night)
-                .unwrap_or_else(|| westering_core::journal::Night {
-                    key: self.night.clone(),
-                    ..Default::default()
-                });
-        let night = self.night.clone();
-        for (i, f) in self.finds.iter().enumerate() {
-            self.caught[i] = self.journal.found_on(&f.id, &night);
-        }
-    }
-
-    /// Replaces everything kept with a backup.
-    pub fn restore(&mut self, text: &str) -> std::io::Result<usize> {
-        let n = self.journal.restore(text)?;
-        self.refresh();
-        Ok(n)
-    }
-
-    /// A star's everyday name, if it has one.
-    pub fn star_name(&self, hr: u16) -> Option<String> {
-        self.sky.lists.star_name(hr).map(|s| s.name.clone())
-    }
-
-    /// Names already used that begin with what's typed.
-    pub fn names_like(&self, prefix: &str) -> Vec<String> {
-        self.journal
-            .names_like(prefix)
-            .into_iter()
-            .filter(|n| !n.eq_ignore_ascii_case(prefix.trim()))
-            .take(4)
-            .map(str::to_owned)
-            .collect()
     }
 
     pub(crate) fn typing(&self) -> bool {
@@ -272,13 +190,13 @@ impl Game {
             .to_owned(),
         );
         let text = if count == 0 {
-            "Is anything weighing on you tonight? Write it in a few words and it becomes a star low in the west of this sky. At the end of tonight's visit you'll watch it set: a way of putting it down for the night."
+            self.talk.words.weigh.clone()
         } else {
-            "It's waiting low in the west to set. Anything else on your mind, or is that all?"
+            self.talk.words.weigh_again.clone()
         };
         self.talk.flow = Some(Flow::Weight { count, offered });
         self.set_prompt(Some(Prompt {
-            text: text.into(),
+            text,
             placeholder: "One thing, in a few words".into(),
             chips,
             entry: true,
@@ -295,12 +213,8 @@ impl Game {
             .weight(weight)
             .map(|w| w.text.clone())
             .unwrap_or_default();
-        // Said in full every time: what the glowing star is, where it goes,
-        // and why.
         self.set_prompt(Some(Prompt {
-            text: format!(
-                "“{words}” is now the warm star in the ring. Move it low over the western horizon: stars there are the next to set, so at the end of tonight's visit you'll watch it go down."
-            ),
+            text: self.talk.words.placing.replace("{words}", &words),
             placeholder: String::new(),
             chips: vec!["Leave it here".into()],
             entry: false,
@@ -325,7 +239,7 @@ impl Game {
         let now = self.clock.sky(real);
         let hz = horizon(self.observer, now);
         let eq = apply(
-            &crate::game::transpose(&hz),
+            &westering_core::coords::transpose(&hz),
             from_alt_az(self.camera.alt, self.camera.az),
         );
         let (ra, dec) = angles(eq);
@@ -425,7 +339,7 @@ impl Game {
             plans: &self.journal.plans,
             events: &self.talk.events,
             now: self.clock.sky(self.last_real),
-            offset_s: self.offset_s,
+            offset_s: self.offset_s(self.clock.sky(self.last_real)),
         };
         questions::choose(&self.talk.bank, triggers, &ctx)
     }
@@ -446,7 +360,7 @@ impl Game {
             || self.talk.prompt.is_some()
             || self.drawing.is_some()
             || self.card.is_some()
-            || self.tour.is_some()
+            || self.trail.is_some()
             || !self.hunting()
         {
             return;
@@ -500,17 +414,26 @@ impl Game {
                 let found = page
                     .as_ref()
                     .and_then(|p| p.finds.first())
-                    .map(|f| format!(", the night you found {}", lower_first(f)))
+                    .map(|f| {
+                        format!(
+                            ", the night you found {}",
+                            westering_core::journey::lower_first(f)
+                        )
+                    })
                     .unwrap_or_default();
                 self.remember_asked(&format!("look-back:{id}"));
                 self.talk.flow = Some(Flow::LookBack { weight: id });
                 self.set_prompt(Some(Prompt {
-                    text: match westering_core::journey::sky_since(days_between(&when, &self.night)) {
-                        Some(ago) => format!("{ago}, on {date}{found}, you wrote down “{text}” as something on your mind. How does it feel now?"),
-                        None => format!("On {date}{found}, you wrote down “{text}” as something on your mind. How does it feel now?"),
-                    },
+                    text:
+                        match westering_core::journey::sky_since(days_between(&when, &self.night)) {
+                            Some(ago) => self.talk.words.look_back_since.replace("{ago}", ago),
+                            None => self.talk.words.look_back.clone(),
+                        }
+                        .replace("{date}", &date)
+                        .replace("{found}", &found)
+                        .replace("{text}", &text),
                     placeholder: String::new(),
-                    chips: LOOKS.iter().map(|s| (*s).to_owned()).collect(),
+                    chips: self.talk.words.looks.clone(),
                     entry: false,
                     hint: "Esc to let it pass".into(),
                     names: false,
@@ -530,9 +453,7 @@ impl Game {
                 self.remember_asked(&format!("course:{id}"));
                 self.talk.flow = Some(Flow::CourseCheck { course: id });
                 self.set_prompt(Some(Prompt {
-                    text: format!(
-                        "A while ago you charted a course for “{weight}”. How's it going?"
-                    ),
+                    text: self.talk.words.course_check.replace("{weight}", &weight),
                     placeholder: String::new(),
                     chips: vec![
                         "Going well".into(),
@@ -616,7 +537,7 @@ impl Game {
             id,
             what: what.to_owned(),
             who: who.map(str::to_owned),
-            date: key_of(event.at, self.offset_s),
+            date: key_of(event.at, self.offset_s(event.at)),
             event: event.title.clone(),
             made: self.night.clone(),
             outcome: None,
@@ -825,13 +746,15 @@ impl Game {
                 self.done_talking();
             }
             Flow::LookBack { weight } => {
-                let answer = LOOKS.get(chip).copied().unwrap_or(LOOKS[1]);
+                let looks = &self.talk.words.looks;
+                let answer = looks
+                    .get(chip)
+                    .or(looks.get(1))
+                    .cloned()
+                    .unwrap_or_default();
                 let night = self.night.clone();
                 if let Some(w) = self.journal.weights.iter_mut().find(|w| w.id == weight) {
-                    w.looks.push(Check {
-                        night,
-                        answer: answer.into(),
-                    });
+                    w.looks.push(Check { night, answer });
                     if chip == LOOK_BEHIND {
                         w.sorted = true;
                     }
@@ -872,15 +795,18 @@ impl Game {
     pub(crate) fn ask_ending(&mut self) {
         self.talk.flow = Some(Flow::Ending);
         self.set_prompt(Some(Prompt {
-            text: "How does tonight end? If it's clear, a few minutes under the real sky first can be worth it: something that vast tends to put the day in proportion, and the dark is kinder to sleep than a screen.".into(),
-            chips: vec!["A few minutes outside first".into(), "Straight to bed".into()],
+            text: self.talk.words.ending.clone(),
+            chips: vec![
+                "A few minutes outside first".into(),
+                "Straight to bed".into(),
+            ],
             entry: false,
             // The first night, where it's all kept, said here rather than
             // later, once the screen has gone dark.
             hint: if self.talk.first_night {
-                "Either way, the screen goes off. Everything from tonight is kept in your logbook: L opens it, any night".into()
+                self.talk.words.ending_hint_first.clone()
             } else {
-                "Either way, the screen goes off".into()
+                self.talk.words.ending_hint.clone()
             },
             ..Prompt::default()
         }));

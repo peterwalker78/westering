@@ -2,7 +2,7 @@
 //! that gather what keeps coming back. It never counts anything.
 
 use crate::game::Game;
-use crate::talk::{Go, Request};
+use crate::pages::{Go, Request};
 use crate::ui::{clear, confirm, label, trash};
 use gtk::prelude::*;
 use gtk::{gdk, glib};

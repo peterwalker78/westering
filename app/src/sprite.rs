@@ -124,17 +124,16 @@ fn paint(
 ) -> Option<gdk::Texture> {
     let k = SIZE * scale;
     let (w, h) = ((units.0 * k).ceil() as i32, (units.1 * k).ceil() as i32);
-    let mut surface = cairo::ImageSurface::create(cairo::Format::ARgb32, w, h).ok()?;
+    let surface = cairo::ImageSurface::create(cairo::Format::ARgb32, w, h).ok()?;
     {
         let cr = cairo::Context::new(&surface).ok()?;
         cr.scale(k, k);
         let mut canvas = CairoCanvas { cr: &cr };
         draw(&mut canvas);
     }
-    surface.flush();
     let stride = surface.stride() as usize;
-    let data = surface.data().ok()?;
-    let bytes = glib::Bytes::from(&data[..]);
+    // The texture takes the pixels over as they are, without a copy.
+    let bytes = glib::Bytes::from_owned(surface.take_data().ok()?);
     Some(
         gdk::MemoryTexture::new(
             w,
@@ -162,7 +161,7 @@ pub fn render_flying(
 ) -> Option<(gdk::Texture, Option<f64>)> {
     let mut next = None;
     let texture = paint(FLYING, scale, |c| {
-        next = wisp.draw(now, moving, true, c);
+        next = wisp.draw(now, moving, c);
     })?;
     Some((texture, next))
 }

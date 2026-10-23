@@ -18,7 +18,7 @@ impl Game {
 
     pub(super) fn try_meteor(&mut self, real: UnixMs) {
         let Some(i) = (0..self.finds.len())
-            .find(|&i| !self.caught[i] && matches!(self.finds[i].target, Target::Meteor(_)))
+            .find(|&i| !self.finds[i].caught && matches!(self.finds[i].target, Target::Meteor(_)))
         else {
             return;
         };
@@ -27,7 +27,9 @@ impl Game {
             .iter()
             .any(|m| real >= m.start && real <= m.start + m.duration + 400);
         if alive {
-            self.catch.holding = false;
+            if let Some(t) = self.on_tour_mut() {
+                t.catch.holding = false;
+            }
             self.caught_one(i, real);
         }
     }
@@ -55,13 +57,18 @@ impl Game {
     }
 
     pub(crate) fn caught_one(&mut self, i: usize, real: UnixMs) {
-        self.caught[i] = true;
-        self.space_caught = true;
-        if !matches!(self.finds[i].target, Target::Meteor(_)) {
-            self.track = Some(i);
+        self.finds[i].caught = true;
+        let meteor = matches!(self.finds[i].target, Target::Meteor(_));
+        if let Some(t) = self.on_tour_mut() {
+            t.space_caught = true;
+            if !meteor {
+                t.track = Some(i);
+            }
         }
-        self.session.found_one(real);
-        let find = self.finds[i].clone();
+        if self.finds.iter().all(|f| f.caught) {
+            self.session.found_all(real);
+        }
+        let find = self.finds[i].find.clone();
         if let Err(e) = self.journal.mark_found(&find.id, &self.night) {
             eprintln!("westering: couldn't save what was found: {e}");
         }
@@ -70,10 +77,10 @@ impl Game {
         }
         self.note_spot(i, real);
         self.save_page();
-        if self.begin_tour(i, real) {
+        if self.begin_trail(i, real) {
             // A story or a walk is its own showing: nothing to come back to.
-            self.viewed[i] = true;
-            self.guide_tour_began(real);
+            self.finds[i].viewed = true;
+            self.guide_trail_began(real);
             return;
         }
         if let Target::Figure(f) = self.finds[i].target {
@@ -87,7 +94,7 @@ impl Game {
     /// The card for find `i`: what it is, something true about it, and its
     /// photograph if it has one for the card.
     pub(super) fn show_find_card(&mut self, i: usize, real: UnixMs) {
-        let find = self.finds[i].clone();
+        let find = self.finds[i].find.clone();
         let (x, at) = self.card_place(i);
         let kicker = self.kind_word(i).to_owned();
         let mut body = find.fact;
@@ -95,12 +102,10 @@ impl Game {
             && (!self.journal.settings.seen.iter().any(|k| k == "hop-done")
                 || westering_core::finds::stable_hash((0, 0, 0), &self.night).is_multiple_of(3))
         {
-            body = format!("{body}\n\n{}", self.sky.tours.hop_closing);
+            body = format!("{body}\n\n{}", self.sky.trails.hop_closing);
             if !self.journal.settings.seen.iter().any(|k| k == "hop-done") {
                 self.journal.settings.seen.push("hop-done".into());
-                if let Err(e) = self.journal.save_settings() {
-                    eprintln!("westering: couldn't save settings: {e}");
-                }
+                self.save_settings();
             }
         }
         if let Target::Star(hr) = self.finds[i].target
@@ -132,18 +137,19 @@ impl Game {
     pub(crate) fn dismiss_card(&mut self, real: UnixMs) {
         // Up long enough to read counts as seen on the tour; put away
         // sooner, Tab can bring it back.
-        let of_a_find = self.tour.is_some() || self.card.as_ref().is_some_and(|c| c.find.is_some());
+        let of_a_find =
+            self.trail.is_some() || self.card.as_ref().is_some_and(|c| c.find.is_some());
         if let Some((i, shown)) = self.card.as_ref().and_then(|c| Some((c.find?, c.shown)))
             && !self.free_look()
         {
             if real - shown >= VIEWED_MS {
-                self.viewed[i] = true;
+                self.finds[i].viewed = true;
             } else if !self.told_tab {
                 self.told_tab = true;
                 self.status("Tab brings back anything you skipped".into(), real);
             }
         }
-        if self.tour.is_some() && self.turn_page(real) {
+        if self.trail.is_some() && self.turn_page(real) {
             return;
         }
         let framed = self.framed_at().is_some();
@@ -156,7 +162,7 @@ impl Game {
             self.day_card_gone(real);
             return;
         }
-        if let Some(fov) = self.catch.fov_before.take() {
+        if let Some(fov) = self.on_tour_mut().and_then(|t| t.catch.fov_before.take()) {
             self.look = Some(Look {
                 az: self.camera.az,
                 alt: self.camera.alt,
@@ -172,20 +178,22 @@ impl Game {
                 rate: 1.4,
             });
         }
-        self.catch.progress = 0.0;
-        self.catch.target = None;
-        if self.free_look() {
+        let Some(t) = self.on_tour_mut() else {
             // Back out to where the view was, and the wisp home.
             self.end_inspect(real);
             return;
-        }
+        };
+        t.catch.progress = 0.0;
+        t.catch.target = None;
         if of_a_find && self.session.all_found() && self.hunting() {
             // The list is done: the wisp hands the sky over.
             self.guide_all_found(real);
             return;
         }
         // The tour goes on by itself from here.
-        self.move_on = Some(real + MOVE_ON_AFTER_CARD_MS);
+        if let Some(t) = self.on_tour_mut() {
+            t.move_on = Some(real + MOVE_ON_AFTER_CARD_MS);
+        }
     }
 
     pub(super) fn update_catch(
@@ -201,14 +209,18 @@ impl Game {
         }
         // The ring is the tour's, and rests after a story or a walk until
         // the view moves on.
-        if self.free_look() || self.ring_resting {
-            self.catch = Catch::default();
+        let Some(t) = self.on_tour_mut() else {
+            return;
+        };
+        if t.ring_resting {
+            t.catch = Catch::default();
             return;
         }
+        let (track, holding) = (t.track, t.catch.holding);
         let r = self.reticle_radius();
         let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
         let near = (0..self.finds.len())
-            .filter(|&i| !self.caught[i] && self.catchable(i))
+            .filter(|&i| !self.finds[i].caught && self.catchable(i))
             .filter_map(|i| {
                 let v = self.find_dir(i, now, hz, prec)?;
                 if alt_az(v).0 < -0.5 {
@@ -218,29 +230,36 @@ impl Game {
                 let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
                 // What the view turned to wins over anything that shares
                 // its spot, such as a star that's also a hop's stop.
-                (d < r).then_some((i, if self.track == Some(i) { 0.0 } else { d }))
+                (d < r).then_some((i, if track == Some(i) { 0.0 } else { d }))
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(i, _)| i)
             // Nothing's in the ring while the view is still on its way.
-            .filter(|_| self.look.is_none() || self.catch.holding);
-        if self.catch.progress <= 0.0 {
-            self.catch.target = near;
-        }
-        let Some(i) = self.catch.target else {
-            self.catch.progress = 0.0;
+            .filter(|_| self.look.is_none() || holding);
+        let fov_now = self.camera.fov;
+        let Some(t) = self.on_tour_mut() else {
             return;
         };
-        if self.catch.holding {
-            if self.catch.fov_before.is_none() {
-                self.catch.fov_before = Some(self.camera.fov);
+        let c = &mut t.catch;
+        if c.progress <= 0.0 {
+            c.target = near;
+        }
+        let Some(i) = c.target else {
+            c.progress = 0.0;
+            return;
+        };
+        if c.holding {
+            let from = *c.fov_before.get_or_insert(fov_now);
+            c.progress += dt / CATCH_S;
+            let p = smoothstep(c.progress);
+            let done = c.progress >= 1.0;
+            if done {
+                c.progress = 1.0;
+                c.holding = false;
             }
-            self.catch.progress += dt / CATCH_S;
             if let Some(v) = self.find_dir(i, now, hz, prec) {
                 let (alt, az) = alt_az(v);
-                let p = smoothstep(self.catch.progress);
                 let zoom = self.zoom_for(i);
-                let from = self.catch.fov_before.unwrap_or(self.camera.fov);
                 self.look = Some(Look {
                     az,
                     alt,
@@ -248,17 +267,14 @@ impl Game {
                     rate: 3.0,
                 });
             }
-            if self.catch.progress >= 1.0 {
-                self.catch.progress = 1.0;
-                self.catch.holding = false;
-                if !self.hop_step(i, real) {
-                    self.caught_one(i, real);
-                }
+            if done && !self.hop_step(i, real) {
+                self.caught_one(i, real);
             }
-        } else if self.catch.progress > 0.0 {
-            self.catch.progress = (self.catch.progress - dt * 1.8).max(0.0);
-            if self.catch.progress == 0.0 {
-                if let Some(fov) = self.catch.fov_before.take() {
+        } else if c.progress > 0.0 {
+            c.progress = (c.progress - dt * 1.8).max(0.0);
+            if c.progress == 0.0 {
+                c.target = None;
+                if let Some(fov) = c.fov_before.take() {
                     self.look = Some(Look {
                         az: self.camera.az,
                         alt: self.camera.alt,
@@ -266,7 +282,6 @@ impl Game {
                         rate: 1.4,
                     });
                 }
-                self.catch.target = None;
             }
         }
     }
@@ -294,14 +309,12 @@ impl Game {
             self.random() - 0.5,
             self.random() - 0.5,
         ];
-        let along = dot3(seed, radiant);
-        let p = [
+        let along = dot(seed, radiant);
+        let p = normalise([
             seed[0] - along * radiant[0],
             seed[1] - along * radiant[1],
             seed[2] - along * radiant[2],
-        ];
-        let n = dot3(p, p).sqrt().max(1e-9);
-        let p = [p[0] / n, p[1] / n, p[2] / n];
+        ]);
         let a = (12.0 + self.random() * 40.0).to_radians();
         let from = [
             radiant[0] * a.cos() + p[0] * a.sin(),
@@ -346,7 +359,7 @@ impl Game {
         let card = self.card.as_ref().map(|c| crate::view::CardView {
             picture: picture.clone(),
             footnote: c.footnote.clone(),
-            middle: self.inspect.is_some() && !compact,
+            middle: self.inspecting().is_some() && !compact,
             // In a small window it takes the middle.
             x: if compact {
                 (self.camera.width - width) / 2.0
@@ -355,7 +368,7 @@ impl Game {
             },
             width,
             compact,
-            y: if self.inspect.is_some() && !compact {
+            y: if self.inspecting().is_some() && !compact {
                 self.camera.height / 2.0
             } else {
                 (self.camera.height / 2.0 - 70.0).max(70.0)
@@ -363,7 +376,7 @@ impl Game {
             kicker: c.kicker.clone(),
             title: c.title.clone(),
             body: c.body.clone(),
-            keys: match &self.tour {
+            keys: match &self.trail {
                 Some(t) if !t.on_last_page() => vec![
                     ("Space".into(), "go on".into()),
                     ("Esc".into(), "stop here".into()),

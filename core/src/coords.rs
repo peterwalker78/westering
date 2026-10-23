@@ -34,6 +34,32 @@ pub fn apply(m: &Mat3, v: Vec3) -> Vec3 {
     ]
 }
 
+pub fn dot(a: Vec3, b: Vec3) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// `v` scaled to length 1. A zero vector stays zero rather than turning
+/// into NaNs.
+pub fn normalise(v: Vec3) -> Vec3 {
+    let n = dot(v, v).sqrt().max(1e-12);
+    [v[0] / n, v[1] / n, v[2] / n]
+}
+
+/// Rows for columns: for a rotation, the turn back again.
+pub fn transpose(m: &Mat3) -> Mat3 {
+    [
+        [m[0][0], m[1][0], m[2][0]],
+        [m[0][1], m[1][1], m[2][1]],
+        [m[0][2], m[1][2], m[2][2]],
+    ]
+}
+
+/// The shortest signed turn from azimuth `from` to `to`, in degrees: from
+/// -180 up to but not including 180, positive clockwise.
+pub fn turn(from: f64, to: f64) -> f64 {
+    (to - from + 540.0).rem_euclid(360.0) - 180.0
+}
+
 pub fn multiply(a: &Mat3, b: &Mat3) -> Mat3 {
     let mut out = [[0.0; 3]; 3];
     for (i, row) in out.iter_mut().enumerate() {
@@ -149,6 +175,39 @@ pub fn compass(az: f64) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalising_gives_length_one_and_leaves_zero_alone() {
+        let v = normalise([3.0, 0.0, 4.0]);
+        assert!((dot(v, v) - 1.0).abs() < 1e-12);
+        assert!((v[0] - 0.6).abs() < 1e-12 && (v[2] - 0.8).abs() < 1e-12);
+        assert_eq!(normalise([0.0; 3]), [0.0; 3]);
+    }
+
+    #[test]
+    fn the_transpose_of_a_rotation_turns_it_back() {
+        let m = horizon(
+            Observer {
+                lat: 51.5,
+                lon: -0.1,
+            },
+            1_790_000_000_000,
+        );
+        let v = unit(123.0, -40.0);
+        let back = apply(&transpose(&m), apply(&m, v));
+        for k in 0..3 {
+            assert!((back[k] - v[k]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn a_turn_takes_the_short_way_round() {
+        assert_eq!(turn(350.0, 10.0), 20.0);
+        assert_eq!(turn(10.0, 350.0), -20.0);
+        assert_eq!(turn(90.0, 90.0), 0.0);
+        assert_eq!(turn(0.0, 180.0), -180.0);
+        assert_eq!(turn(-30.0, 690.0), 0.0);
+    }
 
     #[test]
     fn the_celestial_pole_stands_at_the_latitude() {

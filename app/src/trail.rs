@@ -3,16 +3,18 @@
 //! at a time; and a walk across the Moon's lit face, with the wisp flying
 //! from place to place.
 
-use crate::game::{Card, Game, Look, dot3};
+use crate::game::{Card, Catch, Game, Look};
 use crate::guide::Aim;
-use westering_core::coords::{Mat3, Vec3, alt_az, angles, apply, from_alt_az, unit};
+use westering_core::coords::{
+    Mat3, Vec3, alt_az, angles, apply, dot, from_alt_az, normalise, unit,
+};
 use westering_core::ephem::Body;
 use westering_core::finds::Target;
 use westering_core::sky::see;
 use westering_core::time::UnixMs;
-use westering_core::tours::Stop;
+use westering_core::trails::Stop;
 
-/// What a card of a tour looks at.
+/// What a card of a trail looks at.
 #[derive(Clone, Debug)]
 pub(crate) enum Focus {
     Nothing,
@@ -28,13 +30,13 @@ pub(crate) struct Page {
     focus: Focus,
 }
 
-pub(crate) struct Tour {
+pub(crate) struct Trail {
     pub(crate) find: usize,
     pages: Vec<Page>,
     pub(crate) at: usize,
 }
 
-impl Tour {
+impl Trail {
     pub(crate) fn focus(&self) -> &Focus {
         &self.pages[self.at].focus
     }
@@ -109,24 +111,19 @@ impl Game {
         // Which way celestial north points on the screen.
         let hz = westering_core::coords::horizon(self.observer, now);
         let pole = apply(&hz, [0.0, 0.0, 1.0]);
-        let along = dot3(pole, v);
-        let t = [
+        let along = dot(pole, v);
+        let t = normalise([
             pole[0] - along * v[0],
             pole[1] - along * v[1],
             pole[2] - along * v[2],
-        ];
-        let n = dot3(t, t).sqrt().max(1e-9);
-        let nudge = [
-            v[0] + t[0] / n * 1e-5,
-            v[1] + t[1] / n * 1e-5,
-            v[2] + t[2] / n * 1e-5,
-        ];
+        ]);
+        let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
         let (nx, ny) = cam
             .project(nudge)
             .map_or((0.0, -1.0), |(a, b)| (a - x, b - y));
         let north = nx.atan2(-ny);
         let radius = seen.position.diameter / 7200.0 * cam.px_per_degree();
-        let (fx, fy) = westering_core::tours::on_disc(&self.sky.tours.moon[feature]);
+        let (fx, fy) = westering_core::trails::on_disc(&self.sky.trails.moon[feature]);
         // On a north-up picture Crisium is to the right; turn with the sky.
         let (px, py) = (fx * radius, -fy * radius);
         let (s, c) = north.sin_cos();
@@ -136,7 +133,7 @@ impl Game {
     /// Whether a find can be caught yet: the Moon walk waits for the Moon.
     pub(crate) fn catchable(&self, i: usize) -> bool {
         match self.finds[i].target {
-            Target::MoonWalk => self.moon_find().is_none_or(|m| self.caught[m]),
+            Target::MoonWalk => self.moon_find().is_none_or(|m| self.finds[m].caught),
             _ => true,
         }
     }
@@ -146,8 +143,8 @@ impl Game {
         let Target::Hop(h) = self.finds[i].target else {
             return None;
         };
-        let steps = &self.sky.tours.hops[h].steps;
-        steps.get(self.steps[i].min(steps.len() - 1))
+        let steps = &self.sky.trails.hops[h].steps;
+        steps.get(self.finds[i].steps.min(steps.len() - 1))
     }
 
     /// A step of a hop found: on to the next, or the hop is done.
@@ -155,28 +152,29 @@ impl Game {
         let Target::Hop(h) = self.finds[i].target else {
             return false;
         };
-        let len = self.sky.tours.hops[h].steps.len();
-        if self.steps[i] + 1 >= len {
+        let len = self.sky.trails.hops[h].steps.len();
+        if self.finds[i].steps + 1 >= len {
             return false;
         }
-        self.steps[i] += 1;
-        self.space_caught = true;
-        self.catch.progress = 0.0;
-        self.catch.target = None;
-        self.catch.holding = false;
-        self.catch.fov_before = None;
+        self.finds[i].steps += 1;
+        if let Some(t) = self.on_tour_mut() {
+            t.space_caught = true;
+            t.catch = Catch::default();
+        }
         self.guide.last_progress = real;
-        let line = self.sky.tours.hops[h].steps[self.steps[i]].say.clone();
-        let step = format!("{} of {}. {line}", self.steps[i] + 1, len);
+        let line = self.sky.trails.hops[h].steps[self.finds[i].steps]
+            .say
+            .clone();
+        let step = format!("{} of {}. {line}", self.finds[i].steps + 1, len);
         self.guide_turned(Some((Aim::Ring, step)), real);
         true
     }
 
     /// Starts a find that's told a page at a time, if it is one.
-    pub(crate) fn begin_tour(&mut self, i: usize, real: UnixMs) -> bool {
+    pub(crate) fn begin_trail(&mut self, i: usize, real: UnixMs) -> bool {
         let pages = match self.finds[i].target {
             Target::Story(s) => {
-                let story = &self.sky.tours.stories[s];
+                let story = &self.sky.trails.stories[s];
                 let mut pages: Vec<Page> = story
                     .lines
                     .iter()
@@ -205,11 +203,11 @@ impl Game {
                 let mut pages = vec![Page {
                     kicker: "A walk on the Moon".into(),
                     title: "The edge of night".into(),
-                    body: self.sky.tours.moon_intro.clone(),
+                    body: self.sky.trails.moon_intro.clone(),
                     focus: Focus::Nothing,
                 }];
                 for (k, &f) in stops.iter().enumerate() {
-                    let feature = &self.sky.tours.moon[f];
+                    let feature = &self.sky.trails.moon[f];
                     pages.push(Page {
                         kicker: format!("On the Moon · {} of {n}", k + 1),
                         title: feature.name.clone(),
@@ -220,7 +218,7 @@ impl Game {
                 pages.push(Page {
                     kicker: "A walk on the Moon".into(),
                     title: "Back home".into(),
-                    body: self.sky.tours.moon_closing.clone(),
+                    body: self.sky.trails.moon_closing.clone(),
                     focus: Focus::Nothing,
                 });
                 pages
@@ -229,9 +227,11 @@ impl Game {
         };
         if matches!(self.finds[i].target, Target::Story(_)) {
             // The story moves the view about; don't hold it on one star.
-            self.track = None;
+            if let Some(t) = self.on_tour_mut() {
+                t.track = None;
+            }
         }
-        self.tour = Some(Tour {
+        self.trail = Some(Trail {
             find: i,
             pages,
             at: 0,
@@ -241,11 +241,11 @@ impl Game {
     }
 
     fn show_page(&mut self, real: UnixMs) {
-        let Some(tour) = &self.tour else {
+        let Some(trail) = &self.trail else {
             return;
         };
-        let i = tour.find;
-        let page = &tour.pages[tour.at];
+        let i = trail.find;
+        let page = &trail.pages[trail.at];
         let (kicker, title, body, focus) = (
             page.kicker.clone(),
             page.title.clone(),
@@ -311,38 +311,40 @@ impl Game {
 
     /// On to the next page, if there is one.
     pub(crate) fn turn_page(&mut self, real: UnixMs) -> bool {
-        let Some(tour) = &mut self.tour else {
+        let Some(trail) = &mut self.trail else {
             return false;
         };
-        if tour.at + 1 < tour.pages.len() {
-            tour.at += 1;
+        if trail.at + 1 < trail.pages.len() {
+            trail.at += 1;
             self.show_page(real);
             return true;
         }
-        self.end_tour(real);
+        self.end_trail(real);
         false
     }
 
-    /// Leaves a tour, where it has got to.
-    pub(crate) fn end_tour(&mut self, real: UnixMs) {
-        if let Some(tour) = self.tour.take() {
+    /// Leaves a trail, where it has got to.
+    pub(crate) fn end_trail(&mut self, real: UnixMs) {
+        if let Some(trail) = self.trail.take() {
             // The story's over: the ring waits until the view moves on,
             // rather than coming back over what it left on screen.
-            self.ring_resting = true;
-            if let Target::Story(s) = self.finds[tour.find].target
-                && tour.on_last_page()
+            if let Some(t) = self.on_tour_mut() {
+                t.ring_resting = true;
+            }
+            if let Target::Story(s) = self.finds[trail.find].target
+                && trail.on_last_page()
             {
                 // Heard to its end: the thought it closed on comes back
                 // at the end of the evening.
                 self.story_heard = Some(s);
             }
-            if let Target::MoonWalk = self.finds[tour.find].target {
-                let visited: Vec<String> = tour
+            if let Target::MoonWalk = self.finds[trail.find].target {
+                let visited: Vec<String> = trail
                     .pages
                     .iter()
-                    .take(tour.at + 1)
+                    .take(trail.at + 1)
                     .filter_map(|p| match p.focus {
-                        Focus::Moon(f) => Some(format!("moon:{}", self.sky.tours.moon[f].name)),
+                        Focus::Moon(f) => Some(format!("moon:{}", self.sky.trails.moon[f].name)),
                         _ => None,
                     })
                     .collect();
@@ -352,30 +354,32 @@ impl Game {
                     }
                 }
                 // Back out to see the Moon in its sky.
-                self.catch.fov_before = Some(30.0);
+                if let Some(t) = self.on_tour_mut() {
+                    t.catch.fov_before = Some(30.0);
+                }
             }
-            self.after_catch(tour.find, real);
+            self.after_catch(trail.find, real);
         }
     }
 
     /// The trail of a hop so far, and a ring round the place on the Moon
     /// being talked about.
-    pub(crate) fn draw_tours(&mut self, real: UnixMs, hz: &Mat3, prec: &Mat3) {
+    pub(crate) fn draw_trails(&mut self, real: UnixMs, hz: &Mat3, prec: &Mat3) {
         let cam = self.camera;
         for i in 0..self.finds.len() {
             let Target::Hop(h) = self.finds[i].target else {
                 continue;
             };
-            let reached = if self.caught[i] {
-                self.sky.tours.hops[h].steps.len()
+            let reached = if self.finds[i].caught {
+                self.sky.trails.hops[h].steps.len()
             } else {
-                self.steps[i] + 1
+                self.finds[i].steps + 1
             };
-            let points: Vec<Option<(f64, f64)>> = self.sky.tours.hops[h].steps[..reached]
+            let points: Vec<Option<(f64, f64)>> = self.sky.trails.hops[h].steps[..reached]
                 .iter()
                 .map(|s| self.stop_dir(s, hz, prec).and_then(|v| cam.project(v)))
                 .collect();
-            let alpha = if self.caught[i] { 0.12 } else { 0.3 };
+            let alpha = if self.finds[i].caught { 0.12 } else { 0.3 };
             for pair in points.windows(2) {
                 if let [Some(a), Some(b)] = pair {
                     // Stop short of the stars themselves.
@@ -394,10 +398,10 @@ impl Game {
                 }
             }
         }
-        if let Some(Focus::Moon(f)) = self.tour.as_ref().map(|t| t.focus().clone())
+        if let Some(Focus::Moon(f)) = self.trail.as_ref().map(|t| t.focus().clone())
             && let Some((x, y, radius)) = self.moon_spot(f)
         {
-            let km = self.sky.tours.moon[f].diameter.unwrap_or(40.0);
+            let km = self.sky.trails.moon[f].diameter.unwrap_or(40.0);
             let r = (km / 3474.8 * radius).clamp(9.0, radius * 0.5) + 6.0;
             let t = real as f64 / 1000.0;
             for k in 0..28 {

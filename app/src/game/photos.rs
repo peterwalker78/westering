@@ -8,7 +8,13 @@ impl Game {
     /// The id of a photograph of find `i` to lay over the sky, if there
     /// is one.
     pub(crate) fn photo_id(&self, i: usize) -> Option<String> {
-        let id = match self.finds[i].target {
+        self.eye_photo(self.finds[i].target)
+    }
+
+    /// The id of a photograph of `target` to lay over the sky, if there is
+    /// one.
+    pub(super) fn eye_photo(&self, target: Target) -> Option<String> {
+        let id = match target {
             Target::Body(b) => b.id().to_owned(),
             Target::Showpiece(p) => self.sky.lists.showpieces[p].id.clone(),
             _ => return None,
@@ -98,27 +104,24 @@ impl Game {
 
     /// Which found thing's photograph to show: the one nearest the middle of
     /// the view, among those close enough to be worth a picture.
-    pub(super) fn eye_target(&self, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<(Eye, f64)> {
+    pub(super) fn eye_target(&self, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<(Target, f64)> {
         if !matches!(self.session.phase(), Phase::Hunt | Phase::Dimming) || self.drawing.is_some() {
             return None;
         }
         // Whatever's being looked at close up comes first.
-        if let Some(eye) = self
-            .inspect
-            .as_ref()
-            .and_then(|i| self.inspect_eye(i.subject))
-            && let Some(v) = self.eye_dir(eye, now, hz, prec)
+        if let Some(eye) = self.inspecting().and_then(|i| self.inspect_eye(i.subject))
+            && let Some(v) = self.target_dir(eye, now, hz, prec)
             && alt_az(v).0 > 0.0
         {
-            let half = self.target_half(&self.eye_of(eye), self.camera.fov);
+            let half = self.target_half(&eye, self.camera.fov);
             return Some((eye, smoothstep((half - 12.0) / 50.0))).filter(|e| e.1 > 0.0);
         }
         let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
         // Tonight's finds once caught, and anything else pictured that the
         // view has closed in on: a telescope would show it too.
         let finds = (0..self.finds.len())
-            .filter(|&i| self.caught[i] && self.photo_id(i).is_some())
-            .map(Eye::Find);
+            .filter(|&i| self.finds[i].caught && self.photo_id(i).is_some())
+            .map(|i| self.finds[i].target);
         let listed = |p: usize| self.finds.iter().any(|f| f.target == Target::Showpiece(p));
         let pieces = (0..self.sky.lists.showpieces.len())
             .filter(|&p| !listed(p))
@@ -127,16 +130,15 @@ impl Game {
                     .credit(&self.sky.lists.showpieces[p].id)
                     .is_some_and(|c| !c.card_only)
             })
-            .map(Eye::Piece);
+            .map(Target::Showpiece);
         finds
             .chain(pieces)
-            .filter_map(|eye| {
-                let v = self.eye_dir(eye, now, hz, prec)?;
+            .filter_map(|target| {
+                let v = self.target_dir(target, now, hz, prec)?;
                 if alt_az(v).0 < 0.0 {
                     return None;
                 }
                 let (x, y) = self.camera.project(v)?;
-                let target = self.eye_of(eye);
                 let half = self.target_half(&target, self.camera.fov);
                 let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
                 // Worth showing once the picture is big enough to hold detail:
@@ -145,45 +147,10 @@ impl Game {
                     Target::Body(_) => smoothstep((half - 15.0) / 60.0),
                     _ => smoothstep((half - 40.0) / 160.0),
                 };
-                (size > 0.0 && d < half + self.camera.width * 0.5).then_some((eye, size, d))
+                (size > 0.0 && d < half + self.camera.width * 0.5).then_some((target, size, d))
             })
             .min_by(|a, b| a.2.total_cmp(&b.2))
             .map(|(eye, size, _)| (eye, size))
-    }
-
-    /// What a photograph is of, as a find's target.
-    pub(super) fn eye_of(&self, eye: Eye) -> Target {
-        match eye {
-            Eye::Find(i) => self.finds[i].target.clone(),
-            Eye::Piece(p) => Target::Showpiece(p),
-            Eye::Body(b) => Target::Body(b),
-        }
-    }
-
-    pub(super) fn eye_dir(&self, eye: Eye, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<Vec3> {
-        match eye {
-            Eye::Find(i) => self.find_dir(i, now, hz, prec),
-            Eye::Piece(p) => {
-                let piece = &self.sky.lists.showpieces[p];
-                Some(apply(hz, apply(prec, unit(piece.ra, piece.dec))))
-            }
-            Eye::Body(b) => {
-                let s = see(b, self.observer, now);
-                Some(from_alt_az(s.alt, s.az))
-            }
-        }
-    }
-
-    pub(super) fn eye_photo(&self, eye: Eye) -> Option<String> {
-        match eye {
-            Eye::Find(i) => self.photo_id(i),
-            Eye::Piece(p) => Some(self.sky.lists.showpieces[p].id.clone()),
-            Eye::Body(b) => self
-                .photos
-                .credit(b.id())
-                .filter(|c| !c.card_only)
-                .map(|_| b.id().to_owned()),
-        }
     }
 
     /// Chooses the photograph for this frame and eases it in and out; the
@@ -216,47 +183,37 @@ impl Game {
         }
         let eye = self.eye?;
         let id = self.eye_photo(eye)?;
-        let v = self.eye_dir(eye, now, hz, prec)?;
+        let v = self.target_dir(eye, now, hz, prec)?;
         let cam = self.camera;
         let (x, y) = cam.project(v)?;
         // Which way celestial north points on the screen, at the object.
         let pole = apply(hz, [0.0, 0.0, 1.0]);
-        let along = dot3(pole, v);
-        let t = [
+        let along = dot(pole, v);
+        let t = normalise([
             pole[0] - along * v[0],
             pole[1] - along * v[1],
             pole[2] - along * v[2],
-        ];
-        let n = dot3(t, t).sqrt().max(1e-9);
-        let nudge = [
-            v[0] + t[0] / n * 1e-5,
-            v[1] + t[1] / n * 1e-5,
-            v[2] + t[2] / n * 1e-5,
-        ];
+        ]);
+        let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
         let (nx, ny) = cam
             .project(nudge)
             .map_or((0.0, -1.0), |(a, b)| (a - x, b - y));
         let north = nx.atan2(-ny).to_degrees();
         let credit = self.photos.credit(&id).cloned()?;
         let rotation = north - credit.north.unwrap_or(0.0);
-        let phase = match self.eye_of(eye) {
+        let phase = match eye {
             // The Moon and the inner planets wear tonight's phase.
             Target::Body(body @ (Body::Moon | Body::Mercury | Body::Venus)) => {
                 let seen = see(body, self.observer, now);
                 let sun = see(Body::Sun, self.observer, now);
                 let sv = from_alt_az(sun.alt, sun.az);
-                let along = dot3(sv, v);
-                let t = [
+                let along = dot(sv, v);
+                let t = normalise([
                     sv[0] - along * v[0],
                     sv[1] - along * v[1],
                     sv[2] - along * v[2],
-                ];
-                let n = dot3(t, t).sqrt().max(1e-9);
-                let nudge = [
-                    v[0] + t[0] / n * 1e-5,
-                    v[1] + t[1] / n * 1e-5,
-                    v[2] + t[2] / n * 1e-5,
-                ];
+                ]);
+                let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
                 let (sx, sy) = cam
                     .project(nudge)
                     .map_or((1.0, 0.0), |(a, b)| (a - x, b - y));
@@ -283,7 +240,7 @@ impl Game {
             _ => None,
         };
         let texture = self.photos.texture(&id, phase)?;
-        let radius = self.target_half(&self.eye_of(eye), cam.fov);
+        let radius = self.target_half(&eye, cam.fov);
         let aspect = texture.height() as f64 / texture.width().max(1) as f64;
         // The picture's middle, from the object, turned as the picture is.
         let [cx, cy] = credit.centre.unwrap_or([0.5, 0.5]);
@@ -302,7 +259,7 @@ impl Game {
             offset,
             rotation,
             // Saturn's rings reach past a disc, so it's laid over the sky instead.
-            disc: matches!(self.eye_of(eye), Target::Body(b) if b != Body::Saturn),
+            disc: matches!(eye, Target::Body(b) if b != Body::Saturn),
             credit: credit.credit.clone(),
             alpha: self.eye_alpha,
         })
@@ -323,18 +280,13 @@ impl Game {
         mottled: bool,
     ) {
         // Which way the Sun is, on the screen.
-        let along = dot3(sun, v);
-        let t = [
+        let along = dot(sun, v);
+        let t = normalise([
             sun[0] - along * v[0],
             sun[1] - along * v[1],
             sun[2] - along * v[2],
-        ];
-        let n = dot3(t, t).sqrt().max(1e-9);
-        let nudge = [
-            v[0] + t[0] / n * 0.01,
-            v[1] + t[1] / n * 0.01,
-            v[2] + t[2] / n * 0.01,
-        ];
+        ]);
+        let nudge = [v[0] + t[0] * 0.01, v[1] + t[1] * 0.01, v[2] + t[2] * 0.01];
         let (ux, uy) = match (self.camera.project(v), self.camera.project(nudge)) {
             (Some(a), Some(b)) => {
                 let (dx, dy) = (b.0 - a.0, b.1 - a.1);

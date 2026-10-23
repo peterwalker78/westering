@@ -4,9 +4,8 @@
 //! secret: the click turns the view to it instead, so it can be caught. In
 //! free look everything with more to tell glows, and a click looks closer.
 
-use crate::game::{Card, Game, Subject, envelope};
+use crate::game::{Card, Game, envelope};
 use crate::view::{Glow, Text};
-use westering_core::catalogues::Kind;
 use westering_core::coords::{Mat3, alt_az, apply, from_alt_az, unit};
 use westering_core::ephem::Body;
 use westering_core::finds::Target;
@@ -37,8 +36,8 @@ pub(crate) struct Hovered {
     more: Option<String>,
     /// One of tonight's finds, which a click turns to instead.
     find: Option<usize>,
-    /// What a click in free look tells about.
-    subject: Subject,
+    /// What a click in free look tells about, if it has anything to tell.
+    subject: Option<Target>,
 }
 
 /// How close the pointer has to be, in pixels, beyond the thing's own size.
@@ -56,19 +55,6 @@ const GLOW_BASE: f64 = 0.3;
 const GLOW_REACH: f64 = 260.0;
 /// A hint fades once the pointer has been still this long.
 const STILL_MS: UnixMs = 4_000;
-
-fn kind_of(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Cluster => "Star cluster",
-        Kind::Galaxy => "Galaxy",
-        Kind::Nebula => "Nebula",
-        Kind::Double => "Double star",
-        Kind::Star => "Star",
-        Kind::Dark => "Dark cloud",
-        Kind::Cloud => "Star cloud",
-        Kind::Asterism => "Asterism",
-    }
-}
 
 impl Game {
     pub fn pointer_moved(&mut self, x: f64, y: f64, real: UnixMs) {
@@ -97,7 +83,7 @@ impl Game {
                 | westering_core::session::Phase::Dimming
         ) && (self.card.is_none() || self.free_look())
             && self.drawing.is_none()
-            && self.tour.is_none()
+            && self.trail.is_none()
             && !self.placing()
     }
 
@@ -138,19 +124,17 @@ impl Game {
     }
 
     /// Whether free look has a closer look to give at something.
-    fn has_closer_look(&self, subject: Subject) -> bool {
+    fn has_closer_look(&self, subject: Option<Target>) -> bool {
         match subject {
-            Subject::Plain => false,
-            Subject::Find(i) => matches!(
-                self.finds[i].target,
-                Target::Body(_) | Target::Showpiece(_) | Target::Star(_) | Target::Figure(_)
-            ),
-            Subject::Body(_) | Subject::Piece(_) => true,
-            // A star glows for its own photograph, or for someone's name.
-            Subject::Star(hr) => {
-                self.photos.pictures(&self.sky, &Target::Star(hr))
+            Some(Target::Body(_) | Target::Showpiece(_) | Target::Figure(_)) => true,
+            // A star glows as one of tonight's finds, for its own photograph,
+            // or for someone's name.
+            Some(t @ Target::Star(hr)) => {
+                self.find_of(t).is_some()
+                    || self.photos.pictures(&self.sky, &t)
                     || self.journal.person_on(hr).is_some()
             }
+            _ => false,
         }
     }
 
@@ -206,7 +190,7 @@ impl Game {
             }
         };
         let up = |v: [f64; 3]| alt_az(v).0 > 0.0;
-        let year = civil_date(now, self.offset_s).0;
+        let year = civil_date(now, self.offset_s(now)).0;
 
         // Tonight's finds first: they're what the hunt is about.
         let mut taken: Vec<String> = Vec::new();
@@ -222,7 +206,7 @@ impl Game {
             };
             let f = &self.finds[i];
             taken.push(f.name.clone());
-            let caught = self.caught[i];
+            let caught = self.finds[i].caught;
             consider(
                 sx,
                 sy,
@@ -235,7 +219,7 @@ impl Game {
                     kind: self.kind_word(i).to_owned(),
                     more: caught.then(|| f.fact.clone()),
                     find: (!caught).then_some(i),
-                    subject: Subject::Find(i),
+                    subject: Some(self.finds[i].target),
                 },
             );
         }
@@ -285,15 +269,12 @@ impl Game {
                                 .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
                                 .unwrap_or_default()
                         },
-                        kind: if body == Body::Moon {
-                            "Our Moon"
-                        } else {
-                            "Planet"
-                        }
-                        .to_owned(),
+                        kind: Target::Body(body)
+                            .kind_word(&self.sky.lists.showpieces)
+                            .to_owned(),
                         more,
                         find: None,
-                        subject: Subject::Body(body),
+                        subject: Some(Target::Body(body)),
                     },
                 );
             }
@@ -353,7 +334,7 @@ impl Game {
                     kind: brightness.to_owned(),
                     more: None,
                     find: None,
-                    subject: Subject::Plain,
+                    subject: None,
                 },
             );
         }
@@ -380,10 +361,12 @@ impl Game {
                         y: 0.0,
                         radius: 0.0,
                         name: s.name.clone(),
-                        kind: "Star".into(),
+                        kind: Target::Star(s.hr)
+                            .kind_word(&self.sky.lists.showpieces)
+                            .to_owned(),
                         more: s.describe(year),
                         find: None,
-                        subject: Subject::Star(s.hr),
+                        subject: Some(Target::Star(s.hr)),
                     },
                 );
             }
@@ -410,10 +393,12 @@ impl Game {
                         y: 0.0,
                         radius: 0.0,
                         name: p.name.clone(),
-                        kind: kind_of(p.kind).to_owned(),
+                        kind: Target::Showpiece(pi)
+                            .kind_word(&self.sky.lists.showpieces)
+                            .to_owned(),
                         more: Some(p.fact.clone()),
                         find: None,
-                        subject: Subject::Piece(pi),
+                        subject: Some(Target::Showpiece(pi)),
                     },
                 );
             }
@@ -439,7 +424,7 @@ impl Game {
                                 .into(),
                         ),
                         find: None,
-                        subject: Subject::Plain,
+                        subject: None,
                     },
                 );
             }
@@ -466,7 +451,7 @@ impl Game {
                             kind: "A star with a name".into(),
                             more: None,
                             find: None,
-                            subject: Subject::Star(hr),
+                            subject: Some(Target::Star(hr)),
                         },
                     );
                 }
@@ -481,7 +466,7 @@ impl Game {
                 continue;
             };
             if let Some((sx, sy)) = cam.project(v) {
-                let caught = self.caught[i];
+                let caught = self.finds[i].caught;
                 consider(
                     sx,
                     sy,
@@ -491,10 +476,10 @@ impl Game {
                         y: 0.0,
                         radius: 0.0,
                         name: self.sky.figures[f].name.clone(),
-                        kind: "Constellation".into(),
+                        kind: self.kind_word(i).to_owned(),
                         more: caught.then(|| self.finds[i].fact.clone()),
                         find: (!caught).then_some(i),
-                        subject: Subject::Find(i),
+                        subject: Some(self.finds[i].target),
                     },
                 );
             }
@@ -514,7 +499,7 @@ impl Game {
             .filter(|_| self.hinting())
             .map(|(x, y, _)| (x, y));
         // Not while looking at something close up: nothing competes with it.
-        if self.free_look() && self.hinting() && self.inspect.is_none() {
+        if self.free_look() && self.hinting() && self.inspecting().is_none() {
             let middle = self.in_the_middle(now, hz, prec).map(|h| h.subject);
             let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
             for (_, h) in self.near(cx, cy, now, hz, prec, f64::INFINITY, false) {
@@ -545,10 +530,10 @@ impl Game {
                 }
             }
         }
-        let looking_at = self.inspect.as_ref().map(|i| i.subject);
+        let looking_at = self.inspecting().map(|i| i.subject);
         self.hovered = pointer
             .and_then(|(px, py)| self.pick(px, py, now, hz, prec))
-            .filter(|h| Some(h.subject) != looking_at || h.subject == Subject::Plain);
+            .filter(|h| h.subject.is_none() || h.subject != looking_at);
     }
 
     /// The glows, the ring round what the pointer is on and the words
@@ -579,7 +564,7 @@ impl Game {
             return (glows, out);
         };
         // What's in the ring already has its own label.
-        if h.find.is_some() && h.find == self.catch.target {
+        if h.find.is_some() && h.find == self.ring_target() {
             return (glows, out);
         }
         let since = self.pointer.map_or(real, |p| p.2);
@@ -673,7 +658,9 @@ impl Game {
             fov: self.camera.fov,
             rate: 1.8,
         });
-        self.track = None;
+        if let Some(t) = self.on_tour_mut() {
+            t.track = None;
+        }
         true
     }
 }

@@ -1,5 +1,5 @@
-# What the wisp says when it isn't guiding: its hellos, and the ways it
-# marks time. Time here is kept the way the sky keeps it (Moons, seasons,
+# What the wisp says: the first evening's lessons, its hellos, and the ways
+# it marks time. Time here is kept the way the sky keeps it (Moons, seasons,
 # the year coming round), never by counting visits, and nothing here may
 # mind how long anyone was away.
 #
@@ -176,3 +176,46 @@ done = "That's today, all of it. W takes you back to your day whenever you're re
 ending = "Go well."
 outside = "If you can, step outside for five minutes: the Sun is {where}, and your shadow is {length}, pointing {toward}."
 dusk = "If you can, step outside for five minutes before the light goes: it'll be dark by about {time}."
+
+# The wisp as a guide: on the first evening it shows the way and says what
+# each part is for, each thing once. A few lines come back on any evening:
+# the count on arriving, the way the evening ends, a nudge if someone's lost.
+[teach]
+hello = "Hello. I'm the wisp. This is the real sky over you tonight, just as it is outside."
+why = "Come here for a few quiet minutes at the end of the day: to put the day down, come back to what matters to you, and get ready for sleep. The sky is never the same two nights running, so there's always something new to find."
+parts = "Every evening has the same four parts, shown up here: set down what's on your mind, explore tonight's list, look up on your own, then wind down."
+# After the hello on later evenings.
+one-thing = "One thing to find tonight."
+things = "{n} things to find tonight."
+found-already = "You've found tonight's sky already; look around as long as you like."
+still-light = "It's still light out, so there's not much to find yet."
+late = "It's late, so tonight's sky is a short one. W winds down whenever you're ready."
+weights = "Each evening starts here. A worry written down is easier to put down. Yours becomes a star in the west of this sky, and you'll watch it set at the end. Only you will ever see it."
+placing = "Stars low in the west are the next to set. At the end of tonight's visit, you'll watch this one go down."
+list-one = "One thing to find tonight, listed here with where to look."
+list = "{n} things to find tonight, listed here in order round the sky. Click one and I'll turn you to it."
+compass = "This strip shows which way you're facing. The arrows, or a drag, turn you round."
+point = "Point at anything in the sky to see what it is, and click it to hear more."
+ring = "There's one in the ring. Hold Space, or press and hold on the ring, to catch it."
+card = "Every find comes with a card. Space or a click puts it away, then I'll turn you to the next."
+draw = "You can join bright stars into a shape of your own, too: press C."
+drawing = "Arrows step between bright stars, Enter joins them, Backspace takes one back. Press C when it's done."
+meteor = "The last one is a meteor. Keep watching, and press Space the moment one flies."
+lost = "Lost? Pick one from the list, or tap Space, and I'll turn you to the next."
+question = "Now and then the sky asks something small. There's no right answer, and only you will ever see what you write. Esc lets it pass."
+plans = "Something to look forward to is worth having. If you make a plan, I'll mention it when its night comes near."
+names = "Just a first name will do. Only you will ever see it."
+logbook = "It's kept in your logbook, which L opens. Anything that keeps coming up gathers on a page of its own, so over time you can see what matters."
+look-back = "Now and then I'll bring back a worry you set down a while ago. Worries often change shape once they're written down, and it helps to notice when one has."
+# At the foot of the screen, once an old worry has been looked at again.
+kept-behind = "Kept in your logbook. It won't be brought back again"
+kept-beside = "Kept beside it in your logbook"
+course = "If you'd like, the logbook can help you chart a small plan for it: find it there and choose Chart a course. Only if you want to."
+outside = "Then I'll show you what's up out there. Give your eyes twenty minutes in the dark: they keep opening all that time."
+bed = "Then this is the last of the screen tonight. Watch the day go down with the sky."
+dimming = "Let's wind down. The screen dims a little at a time from here: bright light keeps a mind awake."
+# As the sky turns at the end: the first worry set down tonight, by name.
+setting-one = "Watch the west. The turning sky takes “{weight}” down with it."
+setting = "Watch the west: the turning sky is taking down what you set down tonight."
+turning = "Watch the sky turn."
+goodnight = "Goodnight."

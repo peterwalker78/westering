@@ -7,6 +7,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use westering_core::time::UnixMs;
 
 pub const CSS: &str = r#"
 window, .page { background: #070913; color: #dfe3ee; }
@@ -354,7 +355,7 @@ pub fn install_css() {
     }
 }
 
-pub fn wall_clock() -> i64 {
+pub fn wall_clock() -> UnixMs {
     glib::real_time() / 1000
 }
 

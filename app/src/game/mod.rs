@@ -12,7 +12,8 @@ mod sky;
 #[cfg(test)]
 mod walk;
 
-pub(crate) use detail::Subject;
+pub(crate) use finds::TonightFind;
+pub(crate) use sky::{envelope, gather, hills};
 
 use crate::camera::Camera;
 use crate::field::{Field, Rgb, noise3};
@@ -21,8 +22,10 @@ use gtk::gdk;
 use gtk::gdk::prelude::TextureExt;
 use westering_core::catalogues::Kind;
 use westering_core::coords::{
-    Mat3, Observer, Vec3, alt_az, apply, from_alt_az, horizon, precession, refraction, unit,
+    Mat3, Observer, Vec3, alt_az, apply, dot, from_alt_az, horizon, normalise, precession,
+    refraction, transpose, turn, unit,
 };
+use westering_core::ease::smoothstep;
 use westering_core::ephem::{Body, moon_age, moon_phase_name};
 use westering_core::finale::{Handoff, handoff};
 use westering_core::finds::{Find, Target, night_key, night_of, tonight};
@@ -78,7 +81,9 @@ impl Clock {
 pub struct Options {
     pub clock: Clock,
     pub observer: Observer,
-    pub offset_s: i32,
+    /// The local offset from UTC at a moment, in seconds. Asked each time,
+    /// so a window left open as the clocks change keeps the right hour.
+    pub zone: fn(UnixMs) -> i32,
     pub timings: Timings,
     pub journal: Journal,
 }
@@ -105,14 +110,45 @@ pub(crate) struct Look {
     pub(crate) rate: f64,
 }
 
-/// The two ways of looking at the sky. Every evening starts on the tour.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The two ways of looking at the sky, each with what only it keeps, so
+/// switching leaves nothing of the other behind. Every evening starts on
+/// the tour.
 pub(crate) enum Looking {
     /// Tonight's list, the ring and the wisp, a step at a time.
-    Tour,
+    Tour(TourState),
     /// No list and no ring, and the wisp quiet: anything with more to
     /// tell glows, and nothing moves or speaks by itself.
-    Free,
+    Free(FreeState),
+}
+
+/// The tour's own: the ring, the drive, and the turn to come.
+#[derive(Default)]
+pub(crate) struct TourState {
+    pub(crate) catch: Catch,
+    /// A find the view keeps centred as the sky turns, like a telescope's drive.
+    pub(crate) track: Option<usize>,
+    /// When the tour next turns to something to find by itself:
+    /// a beat after a card's put away, or a question's answered or let
+    /// pass. Anything the user does in the meantime takes over instead.
+    pub(crate) move_on: Option<UnixMs>,
+    /// Whether it was about to when the user last did something.
+    pub(crate) move_on_was: bool,
+    /// When Space went down, to tell a tap from a hold.
+    pub(crate) space_since: Option<UnixMs>,
+    /// Whether the press of Space now down has caught something.
+    pub(crate) space_caught: bool,
+    /// When a press on the ring began, held with the mouse to catch as
+    /// Space does.
+    pub(crate) mouse_hold: Option<UnixMs>,
+    /// After a story or a walk, the ring rests until the view moves on.
+    pub(crate) ring_resting: bool,
+}
+
+/// Free look's own.
+#[derive(Default)]
+pub(crate) struct FreeState {
+    /// Something clicked, being looked at close up.
+    pub(crate) inspect: Option<detail::Inspect>,
 }
 
 #[derive(Default)]
@@ -138,22 +174,12 @@ pub(crate) struct Card {
     pub(crate) shown: UnixMs,
 }
 
-/// What the photograph over the sky is of: one of tonight's finds, or any
-/// pictured object the view has closed in on.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Eye {
-    Find(usize),
-    Piece(usize),
-    /// A planet or the Moon looked at close up, not one of tonight's finds.
-    Body(Body),
-}
-
 /// A full frame kept for reuse, less the wisp and anything alive.
 struct Cached {
     at: UnixMs,
     size: (f64, f64),
     brightness: f64,
-    frame: Frame,
+    frame: std::rc::Rc<Frame>,
 }
 
 pub(crate) struct Timed {
@@ -198,11 +224,10 @@ pub struct Game {
     pub(crate) prepared: Vec<Prepared>,
     pub(crate) observer: Observer,
     pub(crate) clock: Clock,
-    pub(crate) offset_s: i32,
+    zone: fn(UnixMs) -> i32,
     pub(crate) night: String,
     pub(crate) session: Session,
-    pub(crate) finds: Vec<Find>,
-    pub(crate) caught: Vec<bool>,
+    pub(crate) finds: Vec<TonightFind>,
     pub(crate) journal: Journal,
     pub(crate) page: Night,
     pub(crate) camera: Camera,
@@ -216,7 +241,6 @@ pub struct Game {
     pub(crate) held: Held,
     pub(crate) pan: (f64, f64),
     pub(crate) drag_from: Option<(f64, f64, f64, f64)>,
-    pub(crate) catch: Catch,
     pub(crate) card: Option<Card>,
     pub(crate) caption: Option<Timed>,
     pub(crate) hint: Option<Timed>,
@@ -225,28 +249,10 @@ pub struct Game {
     pub(crate) handoff: Option<Handoff>,
     pub(crate) finale_turned: bool,
     pub(crate) last_input: UnixMs,
-    /// When the tour next turns to something to find by itself:
-    /// a beat after a card's put away, or a question's answered or let
-    /// pass. Anything the user does in the meantime takes over instead.
-    pub(crate) move_on: Option<UnixMs>,
-    /// Whether it was about to when the user last did something.
-    pub(crate) move_on_was: bool,
-    /// When Space went down, to tell a tap from a hold.
-    pub(crate) space_since: Option<UnixMs>,
-    /// Whether the press of Space now down has caught something.
-    pub(crate) space_caught: bool,
     /// Something the user did wants drawing now.
     pub urgent: bool,
-    /// After a story or a walk, the ring rests until the view moves on.
-    pub(crate) ring_resting: bool,
     /// Tonight's list with the wisp, or looking round on your own.
     pub(crate) looking: Looking,
-    /// When a press on the ring began, held with the mouse to catch as
-    /// Space does.
-    pub(crate) mouse_hold: Option<UnixMs>,
-    /// Which of tonight's finds have been seen: caught with the card up
-    /// long enough to read, or a story begun.
-    pub(crate) viewed: Vec<bool>,
     /// Whether it's been said that Tab brings back what was skipped.
     told_tab: bool,
     /// 0-1, eased: how far the keys in the corner are showing.
@@ -265,21 +271,18 @@ pub struct Game {
     pub(crate) drawing: Option<crate::drawing::Drawing>,
     pub(crate) reveal: Option<(usize, UnixMs)>,
     /// Something the window should open: the logbook, a course, settings.
-    pub(crate) request: Option<crate::talk::Request>,
+    pub(crate) request: Option<crate::pages::Request>,
     pub(crate) guide: crate::guide::Guide,
     pub(crate) points: Vec<crate::view::Point>,
     /// Where Jupiter's moons were drawn this frame, to name them.
     moon_labels: Vec<(f64, f64, &'static str, f32)>,
     pub(crate) photos: crate::eyepiece::Photos,
-    /// A find the view keeps centred as the sky turns, like a telescope's drive.
-    pub(crate) track: Option<usize>,
-    /// The find the eyepiece shows, and how far it has faded in.
-    eye: Option<Eye>,
+    /// What the eyepiece shows, a find or anything pictured the view has
+    /// closed in on, and how far it has faded in.
+    eye: Option<Target>,
     eye_alpha: f64,
-    /// How many steps of each hop have been found.
-    pub(crate) steps: Vec<usize>,
     /// A find being told a card at a time.
-    pub(crate) tour: Option<crate::tour::Tour>,
+    pub(crate) trail: Option<crate::trail::Trail>,
     /// Tonight's story, once it's been heard to its last page.
     pub(crate) story_heard: Option<usize>,
     /// Tonight's places on the Moon, by index into the features.
@@ -301,8 +304,6 @@ pub struct Game {
     pub(crate) glowing: Vec<crate::hover::GlowState>,
     /// How far the ring round what the pointer is on has come in.
     pub(crate) ring_level: f64,
-    /// Something clicked in free look, being looked at close up.
-    pub(crate) inspect: Option<detail::Inspect>,
     /// Until when the view is still backing out from a close look.
     pub(crate) backing_out: UnixMs,
     /// How tonight ends, once chosen.
@@ -394,81 +395,9 @@ const LATE_FINDS: usize = 5;
 pub(crate) fn late(now: UnixMs, offset_s: i32) -> bool {
     westering_core::time::clock(now, offset_s).0 < 5
 }
-const RETICLE: Rgb = [0.78, 0.84, 1.0];
-
-pub(crate) fn smoothstep(x: f64) -> f64 {
-    let x = x.clamp(0.0, 1.0);
-    x * x * (3.0 - 2.0 * x)
-}
-
-/// Fades in over `rise`, holds, and fades out over `fall`.
-pub(crate) fn envelope(age: UnixMs, rise: UnixMs, hold: UnixMs, fall: UnixMs) -> f64 {
-    if age < 0 {
-        0.0
-    } else if age < rise {
-        smoothstep(age as f64 / rise as f64)
-    } else if age < rise + hold {
-        1.0
-    } else {
-        1.0 - smoothstep((age - rise - hold) as f64 / fall.max(1) as f64)
-    }
-}
-
-/// The gentle hills along the horizon, in degrees of altitude.
-pub(crate) fn hills(az: f64) -> f64 {
-    let a = az.to_radians();
-    (0.75
-        + 0.45 * (3.0 * a + 0.7).sin()
-        + 0.3 * (7.0 * a + 2.1).sin()
-        + 0.18 * (13.0 * a + 0.3).sin())
-    .max(0.15)
-}
-
-/// How many magnitudes fainter the view reaches when zoomed in to `fov`,
-/// the way a telescope gathers more light than the eye.
-pub(crate) fn gather(fov: f64) -> f64 {
-    (2.5 * (60.0 / fov).max(1.0).log10()).min(westering_core::sky::ZOOM_REACH)
-}
-
-/// Stars brighter than this are drawn as true points; fainter ones on the lattice.
-const BRIGHT: f64 = 3.0;
-
-/// A bright star or planet as a crisp point with a halo, sized by its light.
-fn point(x: f64, y: f64, color: Rgb, amount: f32, halo: f32) -> crate::view::Point {
-    crate::view::Point {
-        x,
-        y,
-        radius: (1.05 + 0.62 * amount).min(4.4),
-        color,
-        alpha: (0.5 + 0.35 * amount).min(1.0),
-        halo: (0.25 + amount / 2.2).min(1.0) * halo,
-    }
-}
-
-/// How much light a star of magnitude `mag` puts on its dot.
-fn light(mag: f64) -> f32 {
-    (1.6 * 10f64.powf(-0.4 * (mag - 1.0)).powf(0.55)) as f32
-}
-
-pub(crate) fn transpose(m: &Mat3) -> Mat3 {
-    [
-        [m[0][0], m[1][0], m[2][0]],
-        [m[0][1], m[1][1], m[2][1]],
-        [m[0][2], m[1][2], m[2][2]],
-    ]
-}
-
-pub(crate) fn dot3(a: Vec3, b: Vec3) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
 
 pub(crate) fn angle_between(a: Vec3, b: Vec3) -> f64 {
-    dot3(a, b).clamp(-1.0, 1.0).acos().to_degrees()
-}
-
-/// Shortest signed turn from one azimuth to another.
-pub(crate) fn turn(from: f64, to: f64) -> f64 {
-    (to - from + 540.0).rem_euclid(360.0) - 180.0
+    dot(a, b).clamp(-1.0, 1.0).acos().to_degrees()
 }
 
 impl Game {
@@ -478,11 +407,12 @@ impl Game {
         let Options {
             clock,
             observer,
-            offset_s,
+            zone,
             timings,
             journal,
         } = options;
         let now = clock.sky(real_now);
+        let offset_s = zone(now);
         let ground = westering_core::ground::Ground::bundled();
         let by_day = crate::day::is_day(observer, now);
         // A day visit belongs to today, and shares its page with tonight.
@@ -508,17 +438,20 @@ impl Game {
         if late(now, offset_s) {
             finds.truncate(LATE_FINDS);
         }
-        let caught: Vec<bool> = finds
-            .iter()
-            .map(|f| journal.found_on(&f.id, &night))
+        let finds: Vec<TonightFind> = finds
+            .into_iter()
+            .map(|f| {
+                let caught = journal.found_on(&f.id, &night);
+                TonightFind::new(f, caught)
+            })
             .collect();
-        let still = match &day {
-            Some(d) => d.finds.len(),
-            None => caught.iter().filter(|c| !**c).count(),
+        let mut session = Session::new(real_now, timings, !by_day);
+        let all_found = match &day {
+            Some(d) => d.finds.is_empty(),
+            None => finds.iter().all(|f| f.caught),
         };
-        let mut session = Session::new(real_now, timings, still, !by_day);
-        if still == 0 {
-            session.found_one(real_now);
+        if all_found {
+            session.found_all(real_now);
         }
         let page = journal.night(&night).unwrap_or_else(|| Night {
             key: night.clone(),
@@ -529,7 +462,7 @@ impl Game {
             &night,
             crate::talk::calendar(&sky.lists.showers, now),
         );
-        let already = !finds.is_empty() && caught.iter().all(|c| *c);
+        let already = !finds.is_empty() && finds.iter().all(|f| f.caught);
         // Tonight's plans, placed where their event happens.
         let around = westering_core::events::upcoming(
             &sky.lists.showers,
@@ -598,15 +531,15 @@ impl Game {
             .map(|(s, &dir)| Prepared {
                 dir,
                 mag: s.mag as f64,
-                light: light(s.mag as f64),
+                light: sky::light(s.mag as f64),
                 tint: westering_core::stars::tint(s.bv),
                 rate: 0.9 + (s.hr % 7) as f64 * 0.23,
                 phase: s.hr as f64,
             })
             .collect();
-        let moon_stops = westering_core::tours::moon_stops(
-            &sky.tours.moon,
-            moon_age(now) * westering_core::tours::SYNODIC_DAYS,
+        let moon_stops = westering_core::trails::moon_stops(
+            &sky.trails.moon,
+            moon_age(now) * westering_core::trails::SYNODIC_DAYS,
             night_of(now, offset_s),
             &|name| journal.found_before(&format!("moon:{name}"), &night),
         );
@@ -616,20 +549,16 @@ impl Game {
             .iter()
             .take(prepared.len())
             .position(|s| s.hr == 936);
-        let steps = vec![0; finds.len()];
-        // Anything caught earlier tonight was seen then.
-        let viewed = caught.clone();
         let wind = crate::wind::Wind::bundled();
         let mut game = Game {
             sky,
             prepared,
             observer,
             clock,
-            offset_s,
+            zone,
             night,
             session,
             finds,
-            caught,
             journal,
             page,
             camera: Camera::new(180.0, 30.0, 95.0),
@@ -641,7 +570,6 @@ impl Game {
             held: Held::default(),
             pan: (0.0, 0.0),
             drag_from: None,
-            catch: Catch::default(),
             card: None,
             caption: None,
             hint: None,
@@ -650,15 +578,8 @@ impl Game {
             handoff: None,
             finale_turned: false,
             last_input: real_now,
-            move_on: None,
-            move_on_was: false,
-            space_since: None,
-            space_caught: false,
             urgent: false,
-            ring_resting: false,
-            looking: Looking::Tour,
-            mouse_hold: None,
-            viewed,
+            looking: Looking::Tour(TourState::default()),
             told_tab: false,
             legend_mix: 0.0,
             help: false,
@@ -671,16 +592,14 @@ impl Game {
             talk,
             drawing: None,
             reveal: None,
-            request: already.then_some(crate::talk::Request::Book(None)),
+            request: already.then_some(crate::pages::Request::Book(None)),
             guide: crate::guide::Guide::new(real_now),
             points: Vec::new(),
             photos,
             moon_labels: Vec::new(),
-            track: None,
             eye: None,
             eye_alpha: 0.0,
-            steps,
-            tour: None,
+            trail: None,
             story_heard: None,
             moon_stops,
             algol,
@@ -693,7 +612,6 @@ impl Game {
             hovered: None,
             glowing: Vec::new(),
             ring_level: 0.0,
-            inspect: None,
             backing_out: 0,
             ending: None,
             offered_wind_down: false,
@@ -736,7 +654,7 @@ impl Game {
             .finds
             .iter()
             .enumerate()
-            .find(|(i, f)| !self.caught[*i] && matches!(f.target, Target::Body(_)))
+            .find(|(_, f)| !f.caught && matches!(f.target, Target::Body(_)))
             .map(|(i, _)| i);
         let (az, alt) = first
             .and_then(|i| self.find_dir(i, now, &horizon(self.observer, now), &precession(now)))
@@ -750,10 +668,10 @@ impl Game {
         self.camera.update();
         self.lay_out(now);
 
-        let (_, month, day) = civil_date(now, self.offset_s);
+        let (_, month, day) = civil_date(now, self.offset_s(now));
         let mut line = format!(
             "{} {} {}",
-            weekday(now, self.offset_s),
+            weekday(now, self.offset_s(now)),
             day,
             MONTHS[month as usize - 1]
         );
@@ -779,7 +697,7 @@ impl Game {
                 planets[n - 1]
             )),
         }
-        if self.caught.iter().all(|c| *c) && !self.finds.is_empty() {
+        if self.finds.iter().all(|f| f.caught) && !self.finds.is_empty() {
             line.push_str(" · you've found tonight's sky");
         }
         if let Some(extra) = self.arrival_extra(now) {
@@ -804,8 +722,22 @@ impl Game {
         self.journal.settings.style.as_deref()
     }
 
+    /// The local offset from UTC at `at`.
+    pub(crate) fn offset_s(&self, at: UnixMs) -> i32 {
+        (self.zone)(at)
+    }
+
     pub(crate) fn hunting(&self) -> bool {
         self.session.phase() == Phase::Hunt
+    }
+
+    /// Saves the settings; says whether that worked.
+    pub(crate) fn save_settings(&self) -> bool {
+        let saved = self.journal.save_settings();
+        if let Err(e) = &saved {
+            eprintln!("westering: couldn't save settings: {e}");
+        }
+        saved.is_ok()
     }
 
     fn save_page(&self) {
@@ -820,9 +752,9 @@ impl Game {
         self.last_real = real;
         self.settle_releases(real);
         self.logic(real);
-        // Unfocused, or keeping company, the sky and ground change slowly:
-        // they're drawn a few times a second, while the wisp and anything
-        // alive keep moving smoothly on top.
+        if !self.by_day() {
+            self.night_motion(real, dt);
+        }
         // The sky and ground change slowly: at rest they're drawn a few
         // times a second (fewer unfocused, fewer still keeping company),
         // while the wisp and anything alive move smoothly on top.
@@ -842,46 +774,61 @@ impl Game {
             && !telling
             && self.wisp_motion() < 2
             && !self.wants_fast_frames(real);
+        // A clock set back shows as a frame from the future: draw afresh.
         if quiet
             && let Some(c) = &self.cached
-            && real - c.at < every
+            && (0..every).contains(&(real - c.at))
             && c.size == (self.camera.width, self.camera.height)
         {
-            let (mut frame, brightness) = (c.frame.clone(), c.brightness);
-            let (sprites, bubble, embers) = self.guide_frame(real, brightness);
+            let mut frame = Frame {
+                under: Some(c.frame.clone()),
+                ..Frame::default()
+            };
+            let (sprites, bubble, embers) = self.guide_frame(real, c.brightness);
             frame.sprites = sprites;
             frame.bubble = bubble;
-            frame.marks.extend(embers);
+            frame.marks = embers;
             if self.by_day() {
                 frame.silhouettes = self.day_life(real);
             }
             self.overlay(&mut frame, real, dt);
             return frame;
         }
+        // Fades in the sky go by the time since it was last drawn, not
+        // since the last tick.
+        let since = self
+            .cached
+            .as_ref()
+            .map_or(dt, |c| ((real - c.at) as f64 / 1000.0).clamp(0.0, 0.25));
         let mut frame = if self.by_day() {
             self.day_frame(real)
         } else {
-            self.night_frame(real, dt)
+            self.night_frame(real, since)
         };
         if self.winding() {
             frame.texts.extend(self.wind_texts(real));
             frame.points.extend(self.wind_ring(real));
         }
+        // What moves every tick goes on top; the rest is kept to draw under
+        // the next few ticks.
+        let mut top = Frame {
+            glows: std::mem::take(&mut frame.glows),
+            sprites: std::mem::take(&mut frame.sprites),
+            bubble: frame.bubble.take(),
+            marks: std::mem::take(&mut frame.marks),
+            silhouettes: std::mem::take(&mut frame.silhouettes),
+            ..Frame::default()
+        };
+        let under = std::rc::Rc::new(frame);
         self.cached = Some(Cached {
             at: real,
             size: (self.camera.width, self.camera.height),
             brightness: self.sprite_brightness,
-            frame: Frame {
-                glows: Vec::new(),
-                sprites: Vec::new(),
-                bubble: None,
-                marks: Vec::new(),
-                silhouettes: Vec::new(),
-                ..frame.clone()
-            },
+            frame: under.clone(),
         });
-        self.overlay(&mut frame, real, dt);
-        frame
+        top.under = Some(under);
+        self.overlay(&mut top, real, dt);
+        top
     }
 
     /// What follows the pointer, drawn fresh every frame over a full or a
@@ -923,7 +870,9 @@ impl Game {
         self.guide_tick(real);
     }
 
-    fn night_frame(&mut self, real: UnixMs, dt: f64) -> Frame {
+    /// What moves at night, every tick, whether the sky is drawn afresh
+    /// or not.
+    fn night_motion(&mut self, real: UnixMs, dt: f64) {
         let tempo = self.session.tempo(real);
         self.steer(dt, tempo);
         let now = self.sky_now(real);
@@ -931,6 +880,13 @@ impl Game {
         let prec = precession(now);
         self.update_catch(dt, real, now, &hz, &prec);
         self.spawn_meteors(real, now, &hz);
+    }
+
+    fn night_frame(&mut self, real: UnixMs, dt: f64) -> Frame {
+        let tempo = self.session.tempo(real);
+        let now = self.sky_now(real);
+        let hz = horizon(self.observer, now);
+        let prec = precession(now);
         self.draw(real, now, &hz, &prec, tempo, dt)
     }
 
@@ -947,11 +903,18 @@ impl Game {
             Phase::Weights => self.begin_weights(real),
             Phase::Hunt => self.guide_hunt(real),
             Phase::Dimming => {
+                // A closer look ends with the card, or it would keep pulling
+                // the view back while the evening widens out.
+                self.end_inspect(real);
                 self.card = None;
-                self.catch = Catch::default();
+                if let Some(t) = self.on_tour_mut() {
+                    t.catch = Catch::default();
+                }
                 self.hint = None;
                 // Back out to the open sky, held on nothing.
-                self.track = None;
+                if let Some(t) = self.on_tour_mut() {
+                    t.track = None;
+                }
                 self.look = Some(Look {
                     az: self.camera.az,
                     alt: self.camera.alt.clamp(15.0, 45.0),
@@ -966,7 +929,7 @@ impl Game {
                 let now = self.clock.sky(real);
                 let mut last = match self.ending {
                     Some(Ending::Bed) => self.goodnight(),
-                    _ => handoff(&self.sky, self.observer, now, self.offset_s),
+                    _ => handoff(&self.sky, self.observer, now, self.offset_s(now)),
                 };
                 // When someone has written something heavy, the last line is a person.
                 let pole = if self.observer.lat >= 0.0 { 424 } else { 4730 };
@@ -980,7 +943,9 @@ impl Game {
                 }
                 self.handoff = Some(last);
                 self.caption = None;
-                self.track = None;
+                if let Some(t) = self.on_tour_mut() {
+                    t.track = None;
+                }
                 // Face the west, where tonight's stars go down.
                 self.look = Some(Look {
                     az: 268.0,
@@ -1012,9 +977,11 @@ impl Game {
         ) {
             return;
         }
-        self.end_tour(real);
+        self.end_trail(real);
         self.card = None;
-        self.catch = Catch::default();
+        if let Some(t) = self.on_tour_mut() {
+            t.catch = Catch::default();
+        }
         if let Some(p) = self.session.finish(real) {
             self.entered(p, real);
         }
@@ -1039,7 +1006,7 @@ impl Game {
                 2,
                 "Click anything that glows, or bring it to the middle and press Space",
             ),
-            Phase::Hunt if self.tour.is_some() => (1, "Space goes on, Esc stops here"),
+            Phase::Hunt if self.trail.is_some() => (1, "Space goes on, Esc stops here"),
             Phase::Hunt if self.card.is_some() => (1, "Space to go on"),
             Phase::Hunt if self.talk.prompt.is_some() => {
                 (1, "Answer if you like, or Esc to let it pass")
@@ -1052,10 +1019,10 @@ impl Game {
                 "That's tonight's sky. Look around, or wind down when you're ready",
             ),
             Phase::Hunt
-                if self.track.is_some_and(|i| {
+                if self.track().is_some_and(|i| {
                     matches!(self.finds[i].target, Target::Hop(_))
-                        && !self.caught[i]
-                        && self.steps[i] > 0
+                        && !self.finds[i].caught
+                        && self.finds[i].steps > 0
                 }) =>
             {
                 (
@@ -1063,7 +1030,7 @@ impl Game {
                     "On the star-hop: hold Space or a click when the next star is in the ring",
                 )
             }
-            Phase::Hunt if self.caught.iter().any(|c| *c) => (
+            Phase::Hunt if self.finds.iter().any(|f| f.caught) => (
                 1,
                 "Tap Space for the next on the list, hold it to catch. Point at anything to see what it is",
             ),
@@ -1186,7 +1153,7 @@ impl Game {
             || self.pan.0.abs() > 1e-3
             || self.pan.1.abs() > 1e-3
             || self.drag_from.is_some()
-            || self.catch.progress > 0.0
+            || self.on_tour().is_some_and(|t| t.catch.progress > 0.0)
             || self.meteors.iter().any(|m| real >= m.start - 50)
             || matches!(
                 self.session.phase(),
