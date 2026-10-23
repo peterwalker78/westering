@@ -5,7 +5,7 @@
 use crate::catalogues::Kind;
 use crate::coords::{Observer, alt_az, apply, horizon, precession, unit};
 use crate::ephem::Body;
-use crate::sky::{Sky, limiting_magnitude, see, sun_altitude};
+use crate::sky::{Sky, ZOOM_REACH, limiting_magnitude, see, sun_altitude};
 use crate::time::{HOUR, UnixMs, civil_date};
 
 /// A moment as a local clock time, like "10:40 pm".
@@ -173,6 +173,11 @@ fn body_fact(
                 format!(" Its rings are tipped {tilt:.0} degrees towards us tonight.")
             }
         }
+        Body::Uranus => " On a really dark night it's just bright enough to see without a telescope, as a faint star.".to_owned(),
+        Body::Neptune => {
+            " Too faint for the eye: it takes binoculars or a telescope to see it."
+                .to_owned()
+        }
         _ => String::new(),
     };
     format!("{light}{tonight}")
@@ -180,13 +185,16 @@ fn body_fact(
 
 /// Tonight's set. `times_found` says how many earlier nights an id was
 /// found on: unfound things are preferred, and things found before come
-/// with something new to say.
+/// with something new to say. `pictured` says whether a star or a
+/// constellation has a real photograph of its own: those without are left
+/// for the sky to show.
 pub fn tonight(
     sky: &Sky,
     observer: Observer,
     at: UnixMs,
     offset_s: i32,
     times_found: &dyn Fn(&str) -> usize,
+    pictured: &dyn Fn(&Target) -> bool,
 ) -> Vec<Find> {
     let night = night_of(at, offset_s);
     let sun_alt = sun_altitude(observer, at);
@@ -233,10 +241,12 @@ pub fn tonight(
     let alt_of = |ra: f64, dec: f64| alt_az(apply(&horizon, apply(&prec, unit(ra, dec)))).0;
     let order = |id: &str| (times_found(id) > 0, stable_hash(night, id));
 
-    // Showpieces the eye can see, and on a dark night one fainter thing
-    // from the longer list, to zoom in on.
+    // Showpieces the eye can see, and on a dark night two fainter things
+    // to zoom in on, within the view's reach: from the longer list, or
+    // Uranus and Neptune.
+    let dark = limit >= 4.5;
     let candidates = |deep: bool| {
-        let mut v: Vec<(usize, String)> = sky
+        let mut v: Vec<(Target, String)> = sky
             .lists
             .showpieces
             .iter()
@@ -244,31 +254,52 @@ pub fn tonight(
             .filter(|(_, p)| p.deep == deep && p.kind != Kind::Dark)
             .filter(|(_, p)| {
                 if deep {
-                    limit >= 4.5 && p.mag <= limit + 3.0 && alt_of(p.ra, p.dec) > 20.0
+                    dark && p.mag <= limit + ZOOM_REACH && alt_of(p.ra, p.dec) > 20.0
                 } else {
                     p.mag <= limit && alt_of(p.ra, p.dec) > 15.0
                 }
             })
-            .map(|(i, p)| (i, format!("showpiece:{}", p.id)))
+            .map(|(i, p)| (Target::Showpiece(i), format!("showpiece:{}", p.id)))
             .collect();
+        if deep {
+            for body in [Body::Uranus, Body::Neptune] {
+                let seen = see(body, observer, at);
+                if dark && seen.alt > 20.0 && seen.position.magnitude <= limit + ZOOM_REACH {
+                    v.push((Target::Body(body), body.id().to_owned()));
+                }
+            }
+        }
         v.sort_by_key(|(_, id)| order(id));
         v
     };
-    let room = if out.len() >= 4 { 2 } else { 3 };
-    let deep = candidates(true).into_iter().next();
-    let mut pieces: Vec<(usize, String)> = candidates(false)
-        .into_iter()
-        .take(room - usize::from(deep.is_some()))
-        .collect();
-    pieces.extend(deep);
-    for (i, id) in pieces {
-        let p = &sky.lists.showpieces[i];
-        let fact = p.fact_for(times_found(&id));
-        out.push(Find {
-            id,
-            target: Target::Showpiece(i),
-            name: p.name.clone(),
-            fact,
+    let room = if out.len() >= 4 { 3 } else { 4 };
+    let mut pieces: Vec<(Target, String)> = candidates(false).into_iter().take(room).collect();
+    pieces.extend(candidates(true).into_iter().take(2));
+    for (target, id) in pieces {
+        out.push(match target {
+            Target::Body(body) => Find {
+                fact: body_line(
+                    sky,
+                    body,
+                    at,
+                    &see(body, observer, at),
+                    "",
+                    times_found(&id),
+                ),
+                id,
+                target,
+                name: body.name().into(),
+            },
+            Target::Showpiece(i) => {
+                let p = &sky.lists.showpieces[i];
+                Find {
+                    fact: p.fact_for(times_found(&id)),
+                    id,
+                    target,
+                    name: p.name.clone(),
+                }
+            }
+            _ => unreachable!("only showpieces and planets are candidates"),
         });
     }
 
@@ -277,6 +308,7 @@ pub fn tonight(
         .stars
         .iter()
         .filter(|s| s.fact.is_some() || s.light_years.is_some())
+        .filter(|s| pictured(&Target::Star(s.hr)))
         .filter_map(|s| {
             let star = sky.stars.get(s.hr)?;
             let (alt, _) = alt_az(apply(&horizon, apply(&prec, star.dir)));
@@ -306,8 +338,8 @@ pub fn tonight(
         });
     }
 
-    // Constellations to find by their shape: well up, whole, and small
-    // enough to take in at a glance.
+    // A constellation to find by its shape: well up, whole, small enough
+    // to take in at a glance, and photographed.
     if limit >= 2.5 {
         let mut shapes: Vec<(usize, String)> = sky
             .notes
@@ -323,12 +355,12 @@ pub fn tonight(
                     .filter_map(|hr| sky.stars.get(*hr))
                     .map(|s| alt_az(apply(&horizon, apply(&prec, s.dir))).0)
                     .fold(90.0, f64::min);
-                (centre_alt > 22.0 && lowest > 3.0 && reach < 30.0)
+                (centre_alt > 22.0 && lowest > 3.0 && reach < 30.0 && pictured(&Target::Figure(i)))
                     .then(|| (i, format!("figure:{}", figure.abbrev)))
             })
             .collect();
         shapes.sort_by_key(|(_, id)| order(id));
-        for (i, id) in shapes.into_iter().take(3) {
+        for (i, id) in shapes.into_iter().take(1) {
             let figure = &sky.figures[i];
             let visits = times_found(&id);
             let fact = sky
@@ -476,14 +508,13 @@ pub fn tonight(
         });
     }
 
+    // Too many: the photographs stay longest.
     while out.len() > MOST {
-        match out
-            .iter()
-            .rposition(|f| matches!(f.target, Target::Showpiece(_)))
-            .or_else(|| {
-                out.iter()
-                    .rposition(|f| matches!(f.target, Target::Figure(_)))
-            }) {
+        let last = |is: fn(&Target) -> bool| out.iter().rposition(|f| is(&f.target));
+        match last(|t| matches!(t, Target::Figure(_)))
+            .or_else(|| last(|t| matches!(t, Target::Star(_))))
+            .or_else(|| last(|t| matches!(t, Target::Showpiece(_))))
+        {
             Some(i) => {
                 out.remove(i);
             }
@@ -510,7 +541,7 @@ mod tests {
         let sky = Sky::bundled();
         let at = midnight_utc(2026, 12, 14) + 21 * HOUR;
         let never = |_: &str| 0;
-        let finds = tonight(&sky, LONDON, at, 0, &never);
+        let finds = tonight(&sky, LONDON, at, 0, &never, &|_| true);
         assert!((8..=MOST).contains(&finds.len()), "{finds:#?}");
         assert!(
             finds.iter().any(|f| matches!(f.target, Target::Figure(_))),
@@ -520,25 +551,54 @@ mod tests {
             finds.iter().any(|f| f.id == "meteor:geminids"),
             "Geminids night: {finds:#?}"
         );
-        let later = tonight(&sky, LONDON, at + 5 * 60_000, 0, &never);
+        let later = tonight(&sky, LONDON, at + 5 * 60_000, 0, &never, &|_| true);
         assert_eq!(
             finds.iter().map(|f| &f.id).collect::<Vec<_>>(),
             later.iter().map(|f| &f.id).collect::<Vec<_>>()
         );
     }
 
+    /// Stars and constellations come up only with a photograph of their
+    /// own, and a dark night has two fainter things to zoom in on.
+    #[test]
+    fn the_list_favours_what_has_a_photograph() {
+        let sky = Sky::bundled();
+        let at = midnight_utc(2026, 12, 14) + 21 * HOUR;
+        let unpictured = |t: &Target| !matches!(t, Target::Star(_) | Target::Figure(_));
+        let finds = tonight(&sky, LONDON, at, 0, &|_| 0, &unpictured);
+        assert!(
+            finds.iter().all(|f| match f.target {
+                Target::Figure(_) => false,
+                Target::Star(hr) => hr == 936 && f.id == "algol-dimming",
+                _ => true,
+            }),
+            "{finds:#?}"
+        );
+        let zoom = finds
+            .iter()
+            .filter(|f| match f.target {
+                Target::Showpiece(p) => sky.lists.showpieces[p].deep,
+                Target::Body(b) => matches!(b, Body::Uranus | Body::Neptune),
+                _ => false,
+            })
+            .count();
+        assert_eq!(zoom, 2, "{finds:#?}");
+    }
+
     #[test]
     fn found_things_give_way_to_new_ones() {
         let sky = Sky::bundled();
         let at = midnight_utc(2026, 12, 14) + 21 * HOUR;
-        let first = tonight(&sky, LONDON, at, 0, &|_| 0);
+        let first = tonight(&sky, LONDON, at, 0, &|_| 0, &|_| true);
         let piece = first
             .iter()
             .find(|f| matches!(f.target, Target::Showpiece(_)))
             .expect("a showpiece")
             .id
             .clone();
-        let again = tonight(&sky, LONDON, at, 0, &|id| usize::from(id == piece));
+        let again = tonight(&sky, LONDON, at, 0, &|id| usize::from(id == piece), &|_| {
+            true
+        });
         assert!(again.iter().all(|f| f.id != piece), "{piece} came back");
     }
 
@@ -546,7 +606,7 @@ mod tests {
     fn midday_has_few_finds() {
         let sky = Sky::bundled();
         let at = midnight_utc(2026, 6, 21) + 12 * HOUR;
-        let finds = tonight(&sky, LONDON, at, 0, &|_| 0);
+        let finds = tonight(&sky, LONDON, at, 0, &|_| 0, &|_| true);
         assert!(finds.len() <= 2, "{finds:#?}");
     }
 
@@ -554,7 +614,7 @@ mod tests {
     fn a_long_night_has_things_that_take_longer() {
         let sky = Sky::bundled();
         let at = midnight_utc(2026, 12, 14) + 21 * HOUR;
-        let finds = tonight(&sky, LONDON, at, 0, &|_| 0);
+        let finds = tonight(&sky, LONDON, at, 0, &|_| 0, &|_| true);
         assert!(
             finds.iter().any(|f| matches!(f.target, Target::Story(_))),
             "{finds:#?}"
@@ -570,7 +630,9 @@ mod tests {
             .unwrap()
             .id
             .clone();
-        let again = tonight(&sky, LONDON, at, 0, &|id| usize::from(id == story));
+        let again = tonight(&sky, LONDON, at, 0, &|id| usize::from(id == story), &|_| {
+            true
+        });
         assert!(again.iter().all(|f| f.id != story));
     }
 
@@ -587,8 +649,8 @@ mod tests {
     fn things_found_again_say_something_new() {
         let sky = Sky::bundled();
         let at = midnight_utc(2026, 12, 14) + 21 * HOUR;
-        let first = tonight(&sky, LONDON, at, 0, &|_| 0);
-        let again = tonight(&sky, LONDON, at, 0, &|_| 1);
+        let first = tonight(&sky, LONDON, at, 0, &|_| 0, &|_| true);
+        let again = tonight(&sky, LONDON, at, 0, &|_| 1, &|_| true);
         let body = |f: &[Find]| {
             f.iter()
                 .find(|f| matches!(f.target, Target::Body(_)))
@@ -617,7 +679,7 @@ mod tests {
         let mut hops = 0;
         for day in 1..=60 {
             let at = midnight_utc(2026, 10, 1) + day * 24 * HOUR - 2 * HOUR;
-            let finds = tonight(&sky, LONDON, at, 0, &never);
+            let finds = tonight(&sky, LONDON, at, 0, &never, &|_| true);
             let Some(h) = finds.iter().find_map(|f| match f.target {
                 Target::Hop(h) => Some(h),
                 _ => None,

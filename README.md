@@ -25,8 +25,9 @@ the stars.
 
 It draws the sky over you right now, in fine dots: the real stars, the
 Moon at its real phase, the planets that are really up, the Milky Way where it
-really runs. Sweep across it and catch the night's finds: planets, clusters, galaxies, named stars and
-constellations to find by their shape, listed at the top right with where to
+really runs. Sweep across it and catch the night's finds: planets, clusters,
+nebulae and galaxies, a constellation to find by its shape, and now and then a
+star with a photograph of its own, listed at the top right with where to
 look for each as the sky turns. Hold Space on one and the view closes in; a
 card says something true about it, and something new each time you find it
 again. Put the card away and the evening carries on by itself: after a
@@ -290,10 +291,12 @@ Zooming in on a planet, the Moon, a cluster, a nebula or a galaxy lets a real
 photograph take over from the dots, at its true size on the sky and turned as
 it sits there tonight, with the view following it as the sky turns; the Moon
 and Mercury wear tonight's real phase. Every object in the deep-sky list has
-one. Every constellation has a photograph in its card instead, and so does
+one. Zoomed right in, the view reaches about as far as a large telescope, which
+brings in favourites of the Hubble and Webb space telescopes far too faint for
+the eye: the Southern Ring, Stephan's Quintet, the Cartwheel and more. Every constellation has a photograph in its card instead, and so does
 every named star: a close-up of its own for a few (Betelgeuse's surface,
 Sirius and its companion, Fomalhaut's dust rings), and for the rest the
-photograph of its constellation, which the card says. There are over 270
+photograph of its constellation, which the card says. There are over 300
 pictures, from NASA (public domain), ESA/Hubble, ESA/Webb, ESO and
 NOIRLab/NSF/AURA (CC BY 4.0), and Wikimedia Commons (CC0, public domain,
 CC BY and CC BY-SA), among them Till Credner's wide-field constellation

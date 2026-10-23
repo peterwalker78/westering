@@ -1479,3 +1479,263 @@ mag = 2.8
 size = 50.0
 fact = "Two open clusters on the same line of sight: one about 600 light years away, the other about 1,200."
 more = ["That it was really two clusters was suggested in 1994 and confirmed in 1996.", "Probably first seen by Giovanni Battista Hodierna, before 1654."]
+
+# Favourites of the Hubble and Webb space telescopes, most of them too faint for a small
+# telescope: the view reaches them zoomed right in. Positions (J2000) from SIMBAD (the
+# Antennae and NGC 2207 at their larger galaxy, Arp 273 at UGC 1810). Magnitudes from
+# Wikipedia, else SIMBAD's V (Cassiopeia A); NGC 602's is photographic, and the variable
+# stars' is their brightest. Sizes from Wikipedia; where it gives none, most of the
+# photograph's frame. Facts from Wikipedia and the ESA/Hubble and ESA/Webb release texts.
+
+[[showpiece]]
+id = "ngc3132"
+name = "Southern Ring Nebula (NGC 3132)"
+kind = "nebula"
+ra = 151.757
+dec = -40.436
+mag = 9.2
+size = 1.03
+fact = "A planetary nebula about 2,000 light years away, glowing around the white dwarf at its heart."
+more = ["The white dwarf is very hot, around 140,000 kelvin, and its ultraviolet light makes the nebula glow.", "In July 2022 it was one of the five objects in the James Webb Space Telescope's first official science images."]
+
+[[showpiece]]
+id = "stephans-quintet"
+name = "Stephan's Quintet"
+kind = "galaxy"
+ra = 338.99
+dec = 33.96
+mag = 13.2
+size = 5.1
+fact = "Five galaxies close together in the sky: four are a real group about 290 million light years away, while NGC 7320 sits far in front, at 40 million."
+more = ["Édouard Stephan discovered it in 1877 at the Marseille Observatory.", "It was one of the five objects in Webb's first official images, and the picture was Webb's largest at the time, built from almost 1,000 separate image files."]
+
+[[showpiece]]
+id = "cartwheel"
+name = "Cartwheel Galaxy"
+kind = "galaxy"
+ra = 9.421
+dec = -33.716
+mag = 15.18
+size = 1.1
+fact = "A ring galaxy about 500 million light years away and some 188,200 light years across."
+more = ["It was once a normal spiral galaxy, until a smaller galaxy struck it almost head-on about 400 million years ago; its two rings are still expanding.", "Fritz Zwicky discovered it in 1941."]
+
+[[showpiece]]
+id = "ngc6302"
+name = "Butterfly Nebula (NGC 6302)"
+kind = "nebula"
+ra = 258.435
+dec = -37.103
+mag = 7.1
+size = 3.0
+fact = "A planetary nebula about 3,800 light years away in Scorpius, shaped by a dying star that was once about five times the mass of the Sun."
+more = ["Its central star, hotter than 220,000 degrees Celsius, is hidden inside a doughnut-shaped ring of dust.", "Its gas is racing outward at more than 950,000 kilometres an hour."]
+
+[[showpiece]]
+id = "westerlund2"
+name = "Westerlund 2"
+kind = "cluster"
+ra = 155.992
+dec = -57.764
+mag = 10.5
+size = 6.0
+fact = "A young cluster of stars about 20,000 light years away in Carina, only about one or two million years old."
+more = ["It holds at least a dozen early O-type stars, and sits inside a glowing cloud of gas called RCW 49.", "Hubble's portrait of it was released to mark the telescope's 25th year in orbit."]
+
+[[showpiece]]
+id = "cas-a"
+name = "Cassiopeia A"
+kind = "nebula"
+ra = 350.858
+dec = 58.811
+mag = 14.3
+size = 5.9
+fact = "What is left of a star that exploded about 11,000 light years away, now some 10 light years across."
+more = ["Light from the explosion first reached Earth around the 1660s, give or take 30 years, but no record of it is known for certain.", "Its shell is expanding at 4,000 to 6,000 kilometres a second."]
+
+[[showpiece]]
+id = "horsehead"
+name = "Horsehead Nebula (Barnard 33)"
+kind = "nebula"
+ra = 85.246
+dec = -2.458
+mag = 6.8
+size = 8.0
+fact = "A small dark cloud of dust about 1,375 light years away, on the edge of the glowing gas of IC 434."
+more = ["It is part of the much larger Orion molecular cloud complex.", "Scottish astronomer Williamina Fleming discovered it in 1888."]
+
+[[showpiece]]
+id = "ngc1300"
+name = "NGC 1300"
+kind = "galaxy"
+ra = 49.921
+dec = -19.411
+mag = 11.4
+size = 6.2
+fact = "A barred spiral about 60 million light years away, the model of its kind, with arms that start from the ends of a straight bar of stars."
+more = ["At its heart is a second, smaller spiral about 3,300 light years long.", "British astronomer John Herschel discovered it on 11 December 1835."]
+
+[[showpiece]]
+id = "antennae"
+name = "Antennae Galaxies (NGC 4038/4039)"
+kind = "galaxy"
+ra = 180.471
+dec = -18.868
+mag = 11.08
+size = 5.2
+fact = "Two galaxies about 70 million light years away, caught in the act of merging."
+more = ["They began to approach one another 900 million years ago, and their centres are joining to become one giant galaxy.", "William Herschel discovered them in 1785."]
+
+[[showpiece]]
+id = "red-rectangle"
+name = "Red Rectangle (HD 44179)"
+kind = "nebula"
+ra = 94.993
+dec = -10.637
+mag = 9.02
+size = 0.4
+fact = "A protoplanetary nebula about 2,300 light years away, named for its red colour and rectangular shape."
+more = ["It was discovered in 1973 during a rocket flight for an infrared survey of the sky.", "The double star at its centre is completely hidden, and sends us no direct light."]
+
+[[showpiece]]
+id = "v838-mon"
+name = "V838 Monocerotis"
+kind = "star"
+ra = 106.02
+dec = -3.847
+mag = 15.6
+size = 0.0
+fact = "A star about 20,000 light years away that suddenly flared in 2002, brightening to about a million times the Sun's brightness."
+more = ["Light from the flash bounced off the dust around it and reached us later, as an expanding light echo.", "The cause is still uncertain, but is thought to have been a merger of two stars in a triple system."]
+
+[[showpiece]]
+id = "wr124"
+name = "WR 124"
+kind = "star"
+ra = 287.879
+dec = 16.861
+mag = 11.17
+size = 0.0
+fact = "A hot, bright Wolf-Rayet star about 15,000 light years away, wrapped in a cloud of gas and dust it has thrown off, some 10 light years across."
+more = ["It is one of the fastest runaway stars in the Milky Way, moving at around 200 kilometres a second.", "It is one of the fastest runaway stars in the Milky Way."]
+
+[[showpiece]]
+id = "rs-pup"
+name = "RS Puppis"
+kind = "star"
+ra = 123.268
+dec = -34.579
+mag = 6.5
+size = 0.0
+fact = "A pulsing Cepheid star about 6,500 light years away, one of the biggest and brightest known Cepheids in the Milky Way."
+more = ["Its brightness swings by almost a factor of five over about 41.5 days.", "Its light echoes off the dust around it, which let astronomers measure its distance by geometry alone."]
+
+[[showpiece]]
+id = "mycn18"
+name = "Hourglass Nebula (MyCn 18)"
+kind = "nebula"
+ra = 204.896
+dec = -67.381
+mag = 13.0
+size = 0.3
+fact = "A young planetary nebula about 8,000 light years away, shaped like an hourglass."
+more = ["Annie Jump Cannon and Margaret Mayall discovered it while extending the Henry Draper Catalogue.", "Its shape may come from a fast wind from the star blowing inside a slower cloud that is densest around its waist."]
+
+[[showpiece]]
+id = "ngc2440"
+name = "NGC 2440"
+kind = "nebula"
+ra = 115.481
+dec = -18.208
+mag = 9.4
+size = 1.23
+fact = "A planetary nebula about 4,000 light years away: the cast-off gas of a Sun-like star near the end of its life."
+more = ["Its central white dwarf is possibly the hottest known, at about 200,000 kelvin.", "William Herschel discovered it on 4 March 1790."]
+
+[[showpiece]]
+id = "ngc602"
+name = "NGC 602"
+kind = "cluster"
+ra = 22.384
+dec = -73.561
+mag = 15.44
+size = 2.7
+fact = "A young star cluster about 200,000 light years away in the Small Magellanic Cloud, around 5 million years old."
+more = ["It sits inside a cloud of gas and dust called N90.", "In 2024 Webb found candidate young brown dwarfs in it, the first found outside the Milky Way."]
+
+[[showpiece]]
+id = "hoags-object"
+name = "Hoag's Object"
+kind = "galaxy"
+ra = 229.31
+dec = 21.586
+mag = 15.1
+size = 0.34
+fact = "A ring galaxy whose yellow core is circled by a ring of hot blue stars, about 120,000 light years across."
+more = ["Arthur Hoag discovered it in 1950, and took it for either a planetary nebula or a peculiar galaxy.", "Through the gap between its core and ring, another, more distant ring galaxy can be seen."]
+
+[[showpiece]]
+id = "arp273"
+name = "Arp 273"
+kind = "galaxy"
+ra = 35.37
+dec = 39.376
+mag = 13.7
+size = 2.1
+fact = "A pair of interacting galaxies about 300 million light years away, pulled into the shape of a rose."
+more = ["The smaller galaxy is thought to have passed right through the larger one.", "Hubble's picture of it was released to mark the 21st anniversary of the telescope's launch."]
+
+[[showpiece]]
+id = "ngc2207"
+name = "NGC 2207 and IC 2163"
+kind = "galaxy"
+ra = 94.092
+dec = -21.373
+mag = 11.6
+size = 4.3
+fact = "Two spiral galaxies about 120 million light years away, the smaller, IC 2163, slipping behind the larger, NGC 2207."
+more = ["Together they form about two dozen Sun-sized stars a year; the Milky Way manages two or three.", "In about a billion years they are expected to merge."]
+
+[[showpiece]]
+id = "mice"
+name = "The Mice (NGC 4676)"
+kind = "galaxy"
+ra = 191.542
+dec = 30.732
+mag = 14.1
+size = 2.9
+fact = "Two colliding galaxies about 300 million light years away, named the Mice for their long tails."
+more = ["The tails were drawn out by tides, the difference in gravity's pull across each galaxy.", "They will go on colliding until they become one galaxy."]
+
+[[showpiece]]
+id = "southern-crab"
+name = "Southern Crab Nebula (Hen 2-104)"
+kind = "nebula"
+ra = 212.967
+dec = -51.44
+mag = 14.2
+size = 1.1
+fact = "A nebula about 7,000 light years away in Centaurus, shaped by a red giant and a white dwarf paired at its centre."
+more = ["It was first written about in 1967, but was taken for an ordinary star until 1989.", "Hubble's portrait of it celebrated the telescope's 29th birthday, in 2019."]
+
+[[showpiece]]
+id = "ngc5189"
+name = "NGC 5189"
+kind = "nebula"
+ra = 203.387
+dec = -65.974
+mag = 8.2
+size = 1.5
+fact = "A planetary nebula in Musca, with an S shape like a barred spiral galaxy."
+more = ["Its central star is a rare low-mass Wolf-Rayet star, with a white dwarf circling it every 4.04 days.", "James Dunlop discovered it on 1 July 1826."]
+
+[[showpiece]]
+id = "ngc7027"
+name = "Jewel Bug Nebula (NGC 7027)"
+kind = "nebula"
+ra = 316.757
+dec = 42.236
+mag = 10.0
+size = 0.27
+fact = "A young planetary nebula about 3,000 light years away, only about 600 years old."
+more = ["It is unusually small, only 0.2 by 0.1 light years, where a typical planetary nebula is about a light year across.", "In 2019 helium hydride, thought to be the first molecule formed in the universe, was found in space for the first time here."]

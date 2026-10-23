@@ -435,9 +435,14 @@ impl Game {
         } else {
             westering_core::finds::MOST
         };
-        let fresh = tonight(&self.sky, self.observer, now, self.offset_s, &|id| {
-            self.journal.times_found_before(id, &self.night)
-        });
+        let fresh = tonight(
+            &self.sky,
+            self.observer,
+            now,
+            self.offset_s,
+            &|id| self.journal.times_found_before(id, &self.night),
+            &|t| self.photos.pictures(&self.sky, t),
+        );
         let mut added = 0;
         for find in fresh {
             if self.finds.len() >= most {

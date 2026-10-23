@@ -427,7 +427,7 @@ pub(crate) fn hills(az: f64) -> f64 {
 /// How many magnitudes fainter the view reaches when zoomed in to `fov`,
 /// the way a telescope gathers more light than the eye.
 pub(crate) fn gather(fov: f64) -> f64 {
-    2.5 * (60.0 / fov).clamp(1.0, 100.0).log10()
+    (2.5 * (60.0 / fov).max(1.0).log10()).min(westering_core::sky::ZOOM_REACH)
 }
 
 /// Stars brighter than this are drawn as true points; fainter ones on the lattice.
@@ -474,6 +474,7 @@ pub(crate) fn turn(from: f64, to: f64) -> f64 {
 impl Game {
     pub fn new(options: Options, real_now: UnixMs) -> Game {
         let sky = Sky::bundled();
+        let photos = crate::eyepiece::Photos::load();
         let Options {
             clock,
             observer,
@@ -494,9 +495,14 @@ impl Game {
         let mut finds = if by_day {
             Vec::new()
         } else {
-            tonight(&sky, observer, now, offset_s, &|id| {
-                journal.times_found_before(id, &night)
-            })
+            tonight(
+                &sky,
+                observer,
+                now,
+                offset_s,
+                &|id| journal.times_found_before(id, &night),
+                &|t| photos.pictures(&sky, t),
+            )
         };
         // In the small hours, a shorter evening.
         if late(now, offset_s) {
@@ -668,7 +674,7 @@ impl Game {
             request: already.then_some(crate::talk::Request::Book(None)),
             guide: crate::guide::Guide::new(real_now),
             points: Vec::new(),
-            photos: crate::eyepiece::Photos::load(),
+            photos,
             moon_labels: Vec::new(),
             track: None,
             eye: None,

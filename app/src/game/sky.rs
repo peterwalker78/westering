@@ -343,6 +343,8 @@ impl Game {
             Body::Mars,
             Body::Jupiter,
             Body::Saturn,
+            Body::Uranus,
+            Body::Neptune,
         ] {
             let s = if body == Body::Sun {
                 sun_seen
@@ -350,6 +352,11 @@ impl Game {
                 see(body, self.observer, now)
             };
             if s.alt < hills(s.az) - 0.3 {
+                continue;
+            }
+            // Uranus and Neptune show as the view gathers light, as stars do.
+            let faint = matches!(body, Body::Uranus | Body::Neptune);
+            if faint && s.position.magnitude > limit + gather + 0.5 {
                 continue;
             }
             let v = from_alt_az(s.alt, s.az);
@@ -386,6 +393,8 @@ impl Game {
                         Body::Mars => [1.0, 0.66, 0.5],
                         Body::Jupiter => [1.0, 0.95, 0.86],
                         Body::Saturn => [1.0, 0.9, 0.72],
+                        Body::Uranus => [0.78, 0.93, 0.95],
+                        Body::Neptune => [0.62, 0.76, 1.0],
                         _ => [1.0, 0.97, 0.92],
                     };
                     if radius > pitch as f64 * 1.2 {
@@ -399,7 +408,8 @@ impl Game {
                         self.lit_disc(x, y, radius, v, sun, phase_angle, color, 1.5 * fade, false);
                     } else {
                         let low = 0.4 + 0.6 * smoothstep(s.alt / 12.0);
-                        let amount = light(s.position.magnitude) * 1.08 * low as f32;
+                        let mag = s.position.magnitude - if faint { gather } else { 0.0 };
+                        let amount = light(mag) * 1.08 * low as f32;
                         let mut p = point(x, y, color, amount, 1.3);
                         p.alpha *= fade;
                         p.halo *= fade;

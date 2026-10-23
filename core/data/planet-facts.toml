@@ -1,4 +1,4 @@
-# Three lines about each of the Moon and the naked-eye planets, for second and
+# Three lines about each of the Moon and the planets, for second and
 # third visits. Checked against the Wikipedia article on each.
 
 [[body]]
@@ -24,3 +24,11 @@ facts = ["It holds about two and a half times as much mass as all the other plan
 [[body]]
 id = "saturn"
 facts = ["The only planet less dense than water.", "Its rings are made mostly of ice, and at least 293 moons circle it.", "Its largest moon, Titan, is bigger than Mercury and the only moon with a thick atmosphere."]
+
+[[body]]
+id = "uranus"
+facts = ["It spins tipped on its side, so each pole gets around 42 years of sunlight, then 42 years of darkness.", "William Herschel found it from his garden in Bath on 13 March 1781: the first planet found with a telescope.", "It goes round the Sun once every 84 years."]
+
+[[body]]
+id = "neptune"
+facts = ["Its place was worked out by mathematics, from the way Uranus strayed in its orbit, before anyone saw it in 1846.", "Its winds reach as high as 2,100 km an hour.", "It takes 164.8 years to go round the Sun once."]

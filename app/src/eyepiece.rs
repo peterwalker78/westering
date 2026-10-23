@@ -157,6 +157,24 @@ impl Photos {
             .iter()
             .find(|c| c.constellation.as_deref() == Some(abbrev))
     }
+
+    /// Whether a star or a constellation has a real photograph of its own.
+    /// Everything else on tonight's list is pictured anyway.
+    pub fn pictures(
+        &self,
+        sky: &westering_core::sky::Sky,
+        target: &westering_core::finds::Target,
+    ) -> bool {
+        use westering_core::finds::Target;
+        match *target {
+            Target::Star(hr) => sky
+                .lists
+                .star_name(hr)
+                .is_some_and(|s| self.credit(&s.name.to_lowercase()).is_some()),
+            Target::Figure(f) => self.of_constellation(&sky.figures[f].abbrev).is_some(),
+            _ => true,
+        }
+    }
 }
 
 /// Darkens the part of a disc turned away from the Sun, leaving a trace of

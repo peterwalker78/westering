@@ -60,6 +60,10 @@ pub fn sun_altitude(observer: Observer, at: UnixMs) -> f64 {
     see(Body::Sun, observer, at).alt
 }
 
+/// How many magnitudes fainter than the eye the view reaches, zoomed all
+/// the way in: about what a large telescope shows.
+pub const ZOOM_REACH: f64 = 9.4;
+
 /// The faintest magnitude an eye can pick out for the Sun's altitude,
 /// assuming a suburban sky once it is fully dark.
 pub fn limiting_magnitude(sun_alt: f64) -> f64 {

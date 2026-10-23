@@ -145,7 +145,12 @@ impl Game {
                 self.finds[i].target,
                 Target::Body(_) | Target::Showpiece(_) | Target::Star(_) | Target::Figure(_)
             ),
-            Subject::Body(_) | Subject::Piece(_) | Subject::Star(_) => true,
+            Subject::Body(_) | Subject::Piece(_) => true,
+            // A star glows for its own photograph, or for someone's name.
+            Subject::Star(hr) => {
+                self.photos.pictures(&self.sky, &Target::Star(hr))
+                    || self.journal.person_on(hr).is_some()
+            }
         }
     }
 
@@ -235,6 +240,7 @@ impl Game {
             );
         }
 
+        let limit = westering_core::sky::limiting_magnitude(see(Body::Sun, self.observer, now).alt);
         // The Moon and the planets.
         for body in [
             Body::Moon,
@@ -243,12 +249,15 @@ impl Game {
             Body::Mars,
             Body::Jupiter,
             Body::Saturn,
+            Body::Uranus,
+            Body::Neptune,
         ] {
             if self.finds.iter().any(|f| f.target == Target::Body(body)) {
                 continue;
             }
             let s = see(body, self.observer, now);
-            if s.alt < 0.0 {
+            // Uranus and Neptune only once the view gathers enough light.
+            if s.alt < 0.0 || s.position.magnitude > limit + crate::game::gather(cam.fov) + 0.5 {
                 continue;
             }
             if let Some((sx, sy)) = cam.project(from_alt_az(s.alt, s.az)) {
@@ -381,7 +390,6 @@ impl Game {
         }
 
         // Clusters, galaxies and nebulae bright enough to show at this zoom.
-        let limit = westering_core::sky::limiting_magnitude(see(Body::Sun, self.observer, now).alt);
         let reach = limit + crate::game::gather(cam.fov) + 0.5;
         for (pi, p) in self.sky.lists.showpieces.iter().enumerate() {
             if p.mag > reach || taken.iter().any(|n| n == &p.name) {

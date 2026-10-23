@@ -816,15 +816,14 @@ checked = "2026-09-29"
 
 [[image]]
 id = "m60"
-title = "M60"
-caption = "A long exposure. Through a small telescope it's a faint oval glow; the detail only shows in photographs."
-credit = "NOIRLab/NSF/AURA"
+title = "M60 and the spiral NGC 4647"
+caption = "From the Hubble Space Telescope. A telescope shows a round glow with a fainter smudge beside it: the spiral NGC 4647."
+credit = "NASA, ESA"
 licence = "CC BY 4.0"
-source = "https://noirlab.edu/public/images/noao-m60/"
-north = -0.8
-degrees = 0.208
-centre = [0.428, 0.588]
-checked = "2026-09-29"
+source = "https://esahubble.org/images/heic1213a/"
+north = -0.3
+degrees = 0.1023
+checked = "2026-10-23"
 
 [[image]]
 id = "m61"
@@ -996,14 +995,13 @@ checked = "2026-09-29"
 [[image]]
 id = "m76"
 title = "The Little Dumbbell Nebula (M76)"
-caption = "A long exposure. Through a small telescope it's a faint grey patch; the colours are too faint for the eye."
-credit = "KPNO/NOIRLab/NSF/AURA/Adam Block"
+caption = "From the Hubble Space Telescope: nitrogen glows red and oxygen blue. Through a small telescope it's a faint little smudge."
+credit = "NASA, ESA, STScI, A. Pagan (STScI)"
 licence = "CC BY 4.0"
-source = "https://noirlab.edu/public/images/noao-m76block/"
-north = 4.8
-degrees = 0.205
-centre = [0.471, 0.468]
-checked = "2026-09-29"
+source = "https://esahubble.org/images/heic2408a/"
+north = 19.1
+degrees = 0.0835
+checked = "2026-10-23"
 
 [[image]]
 id = "m77"
@@ -1396,13 +1394,13 @@ checked = "2026-09-29"
 [[image]]
 id = "ngc7293"
 title = "The Helix Nebula (NGC 7293)"
-caption = "A long exposure. Through a telescope it's a large, very faint grey ring; the colours only show in photographs."
-credit = "ESO"
+caption = "From the Hubble Space Telescope, blended with a wider view from Kitt Peak; each colour is one gas. To the eye it's a large, very faint patch."
+credit = "NASA, NOAO, ESA, the Hubble Helix Nebula Team, M. Meixner (STScI), and T.A. Rector (NRAO)"
 licence = "CC BY 4.0"
-source = "https://www.eso.org/public/images/eso0907a/"
-north = -0.1
-degrees = 0.467
-checked = "2026-09-29"
+source = "https://esahubble.org/images/heic0307a/"
+north = -0.4
+degrees = 0.444
+checked = "2026-10-23"
 
 [[image]]
 id = "ngc6826"
@@ -2903,3 +2901,289 @@ licence = "CC BY-SA 4.0"
 source = "https://commons.wikimedia.org/wiki/File:NGC_2451_Jesus_Pi%C3%B1eiro_V.jpg"
 card_only = true
 checked = "2026-10-07"
+
+[[image]]
+id = "uranus"
+title = "Uranus from Hubble, 2022"
+caption = "From the Hubble Space Telescope, November 2022, with the bright haze over its north pole. A telescope shows a tiny blue-green disc."
+credit = "NASA, ESA, STScI, A. Simon (NASA-GSFC), M. H. Wong (UC Berkeley), J. DePasquale (STScI)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic2303i/"
+checked = "2026-10-23"
+
+[[image]]
+id = "neptune"
+title = "Neptune from Voyager 2"
+caption = "From Voyager 2 in 1989, the only spacecraft to visit it. The colours were heightened: Neptune is a paler blue than this."
+credit = "NASA/JPL"
+licence = "Public domain (NASA)"
+source = "https://science.nasa.gov/photojournal/neptune-full-disk-view"
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc3132"
+title = "Southern Ring Nebula (NGC 3132)"
+caption = "From the James Webb Space Telescope, in near-infrared light. A telescope shows a small pale oval."
+credit = "NASA, ESA, CSA, STScI, and the Webb ERO Production Team"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2207b/"
+north = 112.0
+degrees = 0.0403
+checked = "2026-10-23"
+
+[[image]]
+id = "stephans-quintet"
+title = "Stephan's Quintet"
+caption = "From the James Webb Space Telescope, in infrared light. Even a large telescope shows only faint smudges."
+credit = "NASA, ESA, CSA, and STScI"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2208a/"
+north = 62.0
+degrees = 0.1057
+centre = [0.544, 0.552]
+checked = "2026-10-23"
+
+[[image]]
+id = "cartwheel"
+title = "Cartwheel Galaxy"
+caption = "From the James Webb Space Telescope, in infrared light. Far too faint for a small telescope."
+credit = "NASA, ESA, CSA, STScI"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2211a/"
+north = -28.0
+degrees = 0.039
+centre = [0.577, 0.548]
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc6302"
+title = "Butterfly Nebula (NGC 6302)"
+caption = "From the Hubble Space Telescope; each colour is one gas. Through a telescope it's a faint bar of light."
+credit = "NASA, ESA and the Hubble SM4 ERO Team"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic0910h/"
+north = 128.4
+degrees = 0.0392
+centre = [0.543, 0.47]
+checked = "2026-10-23"
+
+[[image]]
+id = "westerlund2"
+title = "Westerlund 2"
+caption = "From the Hubble Space Telescope, in visible and near-infrared light. A telescope shows a faint knot of stars."
+credit = "NASA, ESA, the Hubble Heritage Team (STScI/AURA), A. Nota (ESA/STScI), and the Westerlund 2 Science Team"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic1509a/"
+north = -8.8
+degrees = 0.124
+centre = [0.65, 0.475]
+checked = "2026-10-23"
+
+[[image]]
+id = "cas-a"
+title = "Cassiopeia A"
+caption = "From the James Webb Space Telescope, in mid-infrared light, which shows warm dust. To a telescope it's all but invisible."
+credit = "NASA, ESA, CSA, D. Milisavljevic (Purdue University), T. Temim (Princeton University), I. De Looze (UGent), J. DePasquale (STScI)"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2311a/"
+north = -0.5
+degrees = 0.1235
+centre = [0.501, 0.558]
+checked = "2026-10-23"
+
+[[image]]
+id = "horsehead"
+title = "Horsehead Nebula (Barnard 33)"
+caption = "From the Hubble Space Telescope, in infrared light, which passes through the dust. A telescope shows a dark notch against a faint glow."
+credit = "NASA, ESA, and the Hubble Heritage Team (AURA/STScI)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic1307a/"
+north = -103.0
+degrees = 0.0963
+centre = [0.528, 0.411]
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc1300"
+title = "NGC 1300"
+caption = "From the Hubble Space Telescope. Through a telescope it's a faint bar of light."
+credit = "NASA, ESA, and The Hubble Heritage Team (STScI/AURA)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/opo0501a/"
+north = 29.9
+degrees = 0.0923
+centre = [0.49, 0.467]
+checked = "2026-10-23"
+
+[[image]]
+id = "antennae"
+title = "Antennae Galaxies (NGC 4038/4039)"
+caption = "From the Hubble Space Telescope. The pink clouds are where new stars are forming; a telescope shows an odd-shaped glow."
+credit = "NASA, ESA, and the Hubble Heritage Team (STScI/AURA)-ESA/Hubble Collaboration. Acknowledgement: B. Whitmore (Space Telescope Science Institute) and James Long (ESA/Hubble)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic0615a/"
+north = 30.6
+degrees = 0.0545
+centre = [0.607, 0.296]
+checked = "2026-10-23"
+
+[[image]]
+id = "red-rectangle"
+title = "Red Rectangle (HD 44179)"
+caption = "From the Hubble Space Telescope. Through a telescope it looks like a single star."
+credit = "NASA/ESA, Hans Van Winckel (Catholic University of Leuven, Belgium) and Martin Cohen (University of California, USA)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic0408a/"
+north = 120.0
+degrees = 0.0087
+centre = [0.556, 0.485]
+checked = "2026-10-23"
+
+[[image]]
+id = "v838-mon"
+title = "V838 Monocerotis"
+caption = "From the Hubble Space Telescope in February 2004: the flash of 2002 lighting up the dust around the star."
+credit = "NASA, the Hubble Heritage Team (AURA/STScI) and ESA"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic0405a/"
+north = -48.7
+degrees = 0.04
+centre = [0.535, 0.485]
+checked = "2026-10-23"
+
+[[image]]
+id = "wr124"
+title = "WR 124"
+caption = "From the James Webb Space Telescope, in infrared light, which shows the dust it has thrown off. A telescope shows a faint star."
+credit = "NASA, ESA, CSA, STScI, Webb ERO Production Team"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2307a/"
+north = 40.6
+degrees = 0.0368
+checked = "2026-10-23"
+
+[[image]]
+id = "rs-pup"
+title = "RS Puppis"
+caption = "From the Hubble Space Telescope. Through binoculars it's an ordinary star; around it is dust, lit by its light."
+credit = "NASA, ESA, and the Hubble Heritage Team (STScI/AURA)-Hubble/Europe Collaboration. Acknowledgment: H. Bond (STScI and Penn State University)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic1323a/"
+north = 91.0
+degrees = 0.0553
+checked = "2026-10-23"
+
+[[image]]
+id = "mycn18"
+title = "Hourglass Nebula (MyCn 18)"
+caption = "From the Hubble Space Telescope; each colour is one gas. Through a telescope it's a tiny dot."
+credit = "Raghvendra Sahai and John Trauger (JPL), the WFPC2 science team, and NASA/ESA"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/opo9607a/"
+north = 155.4
+degrees = 0.0068
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc2440"
+title = "NGC 2440"
+caption = "From the Hubble Space Telescope. Through a telescope it's a small bluish blur."
+credit = "NASA, ESA, and K. Noll (STScI)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic0703a/"
+north = -8.9
+degrees = 0.0207
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc602"
+title = "NGC 602"
+caption = "From the James Webb Space Telescope, in infrared light. Too faint for most telescopes."
+credit = "ESA/Webb, NASA & CSA, P. Zeidler, E. Sabbi, A. Nota, M. Zamani (ESA/Webb)"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2425a/"
+north = 8.7
+degrees = 0.0738
+centre = [0.365, 0.469]
+checked = "2026-10-23"
+
+[[image]]
+id = "hoags-object"
+title = "Hoag's Object"
+caption = "From the Hubble Space Telescope. Far too faint for a small telescope."
+credit = "NASA/ESA and The Hubble Heritage Team (STScI/AURA)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/opo0221a/"
+north = -19.3
+degrees = 0.021
+checked = "2026-10-23"
+
+[[image]]
+id = "arp273"
+title = "Arp 273"
+caption = "From the Hubble Space Telescope, in ultraviolet and visible light. A large telescope shows two faint smudges."
+credit = "NASA, ESA and the Hubble Heritage Team (STScI/AURA)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic1107a/"
+north = -33.8
+degrees = 0.0438
+centre = [0.449, 0.22]
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc2207"
+title = "NGC 2207 and IC 2163"
+caption = "Webb's infrared view laid over Hubble's visible light: the red is dust. A telescope shows a faint double glow."
+credit = "NASA, ESA, CSA, STScI"
+licence = "CC BY 4.0"
+source = "https://esawebb.org/images/weic2426a/"
+north = 11.9
+degrees = 0.0802
+centre = [0.655, 0.521]
+checked = "2026-10-23"
+
+[[image]]
+id = "mice"
+title = "The Mice (NGC 4676)"
+caption = "From the Hubble Space Telescope. Through a large telescope they're two faint streaks."
+credit = "NASA, H. Ford (JHU), G. Illingworth (UCSC/LO), M.Clampin (STScI), G. Hartig (STScI), the ACS Science Team, and ESA"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic0206h/"
+north = 63.0
+degrees = 0.0613
+centre = [0.565, 0.524]
+checked = "2026-10-23"
+
+[[image]]
+id = "southern-crab"
+title = "Southern Crab Nebula (Hen 2-104)"
+caption = "From the Hubble Space Telescope; each colour is one gas. Through a telescope it's just a faint star."
+credit = "NASA, ESA, and STScI"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic1907a/"
+north = -16.3
+degrees = 0.0232
+centre = [0.499, 0.448]
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc5189"
+title = "NGC 5189"
+caption = "From the Hubble Space Telescope. Through a telescope it's a faint glow."
+credit = "NASA, ESA and the Hubble Heritage Team (STScI/AURA)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic1220a/"
+north = -43.7
+degrees = 0.0437
+checked = "2026-10-23"
+
+[[image]]
+id = "ngc7027"
+title = "Jewel Bug Nebula (NGC 7027)"
+caption = "From the Hubble Space Telescope, from ultraviolet to near-infrared light. Through a telescope it's a tiny bright blob."
+credit = "NASA, ESA, and J. Kastner (RIT)"
+licence = "CC BY 4.0"
+source = "https://esahubble.org/images/heic2011c/"
+north = 2.9
+degrees = 0.0193
+checked = "2026-10-23"
