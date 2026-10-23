@@ -43,6 +43,29 @@ pub fn bundled() -> Vec<Question> {
         .question
 }
 
+/// What the conversation says around the questions.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Words {
+    pub weigh: String,
+    pub weigh_again: String,
+    pub placing: String,
+    pub look_back: String,
+    pub look_back_since: String,
+    /// How an old weight sits now.
+    pub looks: Vec<String>,
+    pub course_check: String,
+    pub ending: String,
+    pub ending_hint: String,
+    pub ending_hint_first: String,
+}
+
+impl Words {
+    pub fn bundled() -> Words {
+        toml::from_str(include_str!("../data/talk.toml")).expect("talk.toml")
+    }
+}
+
 /// Words no question, card or page may use: the app never names the
 /// feeling it hopes for.
 pub const UNSAID: [&str; 6] = [
@@ -440,6 +463,10 @@ mod tests {
             for word in UNSAID {
                 assert!(!lower.contains(word), "{} says {word}", q.id);
             }
+        }
+        let words = include_str!("../data/talk.toml").to_lowercase();
+        for word in UNSAID {
+            assert!(!words.contains(word), "talk.toml says {word}");
         }
     }
 
