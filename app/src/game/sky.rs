@@ -536,7 +536,7 @@ impl Game {
         let (sprites, bubble, embers) = self.guide_frame(real, brightness);
         // Looking at something close up, its card tells all this instead.
         if let Some(eye) = self.eye
-            && self.inspect.is_none()
+            && self.inspecting().is_none()
             && real > self.backing_out
             && self.eye_alpha > 0.05
             && let Some(c) = self
@@ -738,11 +738,12 @@ impl Game {
             }
             return;
         }
-        if self.ring_resting {
+        let Some(t) = self.on_tour().filter(|t| !t.ring_resting) else {
             return;
-        }
+        };
+        let progress = t.catch.progress;
         let r = self.reticle_radius();
-        let has = self.catch.target.is_some() || self.placing();
+        let has = self.ring_target().is_some() || self.placing();
         let breathe = 0.5 + 0.5 * ((real as f64 / 1000.0) * 1.1 * tempo).sin();
         let points = 28;
         for k in 0..points {
@@ -754,7 +755,7 @@ impl Game {
             }
             let a = f * std::f64::consts::TAU - std::f64::consts::FRAC_PI_2;
             let (x, y) = (cx + r * a.cos(), cy + r * a.sin());
-            let filled = f < self.catch.progress;
+            let filled = f < progress;
             let (color, amount) = if filled {
                 (WARM, 0.7)
             } else if has {
@@ -821,7 +822,7 @@ impl Game {
             }
         }
         if self.hunting() && self.card.is_none() {
-            if let Some(i) = self.catch.target
+            if let Some(i) = self.ring_target()
                 && let Some(v) = self.find_dir(i, now, hz, prec)
                 && let Some((x, y)) = cam.project(v)
             {
@@ -846,7 +847,7 @@ impl Game {
             // Caught things keep a quiet name when the view passes them,
             // unless the ring is already labelling something there.
             for (i, f) in self.finds.iter().enumerate() {
-                if !self.caught[i] || self.catch.target.is_some() {
+                if !f.caught || self.ring_target().is_some() {
                     continue;
                 }
                 if let Some(v) = self.find_dir(i, now, hz, prec)

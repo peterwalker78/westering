@@ -75,12 +75,12 @@ impl Walker {
             line,
             g.card.as_ref().map(|c| (&c.title, c.body.len())),
             g.tour.as_ref().map(|t| t.at),
-            g.caught.iter().filter(|c| **c).count(),
-            g.viewed.iter().filter(|c| **c).count(),
-            g.steps,
+            g.finds.iter().filter(|f| f.caught).count(),
+            g.finds.iter().filter(|f| f.viewed).count(),
+            g.finds.iter().map(|f| f.steps).collect::<Vec<_>>(),
             g.talk.prompt.as_ref().map(|p| &p.text),
-            g.catch.target.map(|i| &g.finds[i].name),
-            g.ring_resting,
+            g.ring_target().map(|i| &g.finds[i].name),
+            g.on_tour().is_some_and(|t| t.ring_resting),
             g.winding(),
             g.by_day(),
             g.look
@@ -115,14 +115,14 @@ impl Walker {
             && g.card.is_none()
             && g.tour.is_none()
             && !g.more_now()
-            && !g.ring_resting
-            && g.catch.target.is_some()
+            && !g.on_tour().is_some_and(|t| t.ring_resting)
+            && g.ring_target().is_some()
         {
             // Something's in the ring: hold Space, as the ring says.
             self.game.key_pressed(gdk::Key::space, self.real);
             for _ in 0..80 {
                 self.wait(FRAME);
-                if self.game.card.is_some() || self.game.catch.target.is_none() {
+                if self.game.card.is_some() || self.game.ring_target().is_none() {
                     break;
                 }
             }
@@ -149,7 +149,7 @@ impl Walker {
             }
             // Everything's found, or only a meteor is left to wait for.
             let left = (0..self.game.finds.len())
-                .filter(|&i| !self.game.caught[i])
+                .filter(|&i| !self.game.finds[i].caught)
                 .all(|i| matches!(self.game.finds[i].target, Target::Meteor(_)));
             if left
                 && !self.game.more_now()
@@ -352,7 +352,10 @@ fn the_guided_evening_carries_itself_on() {
         w.tap(gdk::Key::space);
     }
     assert!(w.game.card.is_none());
-    assert!(w.game.move_on.is_some(), "nothing set to carry on");
+    assert!(
+        w.game.on_tour().is_some_and(|t| t.move_on.is_some()),
+        "nothing set to carry on"
+    );
     let before = facing(&w);
     // Whatever's asked is let pass, and the wisp has its say; no more taps.
     for _ in 0..60 {
@@ -363,12 +366,16 @@ fn the_guided_evening_carries_itself_on() {
             // Hearing the wisp out doesn't take the evening over.
             w.tap(gdk::Key::space);
         }
-        if w.game.move_on.is_none() {
+        if w.game.on_tour().is_none_or(|t| t.move_on.is_none()) {
             break;
         }
     }
-    assert!(w.game.move_on.is_none(), "still waiting: {}", w.seen());
-    let turned = facing(&w) != before || w.game.catch.target.is_some();
+    assert!(
+        w.game.on_tour().is_none_or(|t| t.move_on.is_none()),
+        "still waiting: {}",
+        w.seen()
+    );
+    let turned = facing(&w) != before || w.game.ring_target().is_some();
     assert!(turned, "the view stayed where it was: {}", w.seen());
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -406,24 +413,24 @@ fn answering_a_question_carries_the_tour_on() {
     w.game.show_question(chosen, None);
     w.wait(300);
     let facing = |w: &Walker| w.game.look.as_ref().map(|l| (l.az as i64, l.alt as i64));
-    let before = (facing(&w), w.game.track);
+    let before = (facing(&w), w.game.track());
     w.game.key_pressed(gdk::Key::Return, w.real);
     w.game.answer_text("Louise", w.real);
     w.wait(w.press);
     w.game.key_released(gdk::Key::Return, w.real);
     w.wait(FRAME);
     assert!(
-        w.game.move_on.is_some(),
+        w.game.on_tour().is_some_and(|t| t.move_on.is_some()),
         "nothing set to carry on: {}",
         w.seen()
     );
     for _ in 0..40 {
         w.wait(1_000);
-        if (facing(&w), w.game.track) != before || w.game.catch.target.is_some() {
+        if (facing(&w), w.game.track()) != before || w.game.ring_target().is_some() {
             break;
         }
     }
-    let turned = (facing(&w), w.game.track) != before || w.game.catch.target.is_some();
+    let turned = (facing(&w), w.game.track()) != before || w.game.ring_target().is_some();
     assert!(turned, "the tour stopped after the answer: {}", w.seen());
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -441,14 +448,12 @@ fn tab_with_everything_found_says_so() {
         w.act();
     }
     assert!(w.game.hunting(), "{}", w.seen());
-    for i in 0..w.game.finds.len() {
-        if !w.game.caught[i] {
-            w.game.caught[i] = true;
-            w.game.session.found_one(w.real);
-        }
+    for f in &mut w.game.finds {
+        f.caught = true;
     }
+    w.game.session.found_all(w.real);
     // None of the cards was up long enough to count as read.
-    assert!(w.game.viewed.iter().any(|v| !v));
+    assert!(w.game.finds.iter().any(|f| !f.viewed));
     let mut told = false;
     for _ in 0..40 {
         w.tap(gdk::Key::Tab);
@@ -530,8 +535,8 @@ fn the_wisp_never_holds_the_evening_up() {
             && let Some(i) =
                 (0..g.finds.len()).find(|&i| line.starts_with(&format!("{}. ", g.finds[i].name)))
         {
-            assert!(!g.caught[i], "still on about {line:?}");
-            assert_eq!(g.track, Some(i), "{line:?} while turned elsewhere");
+            assert!(!g.finds[i].caught, "still on about {line:?}");
+            assert_eq!(g.track(), Some(i), "{line:?} while turned elsewhere");
         }
         if g.card.is_some() {
             w.wait(4_000);
@@ -541,7 +546,10 @@ fn the_wisp_never_holds_the_evening_up() {
         } else if !g.hunting() {
             w.wait(4_000);
             w.tap(gdk::Key::space);
-        } else if g.catch.target.is_some() && !g.ring_resting && !g.more_now() {
+        } else if g.ring_target().is_some()
+            && !g.on_tour().is_some_and(|t| t.ring_resting)
+            && !g.more_now()
+        {
             w.act();
             if w.game.card.is_some() {
                 caught += 1;
@@ -565,7 +573,10 @@ fn to_first_catch(w: &mut Walker) {
         } else if !g.hunting() {
             w.wait(4_000);
             w.tap(gdk::Key::space);
-        } else if g.catch.target.is_some() && !g.ring_resting && !g.more_now() {
+        } else if g.ring_target().is_some()
+            && !g.on_tour().is_some_and(|t| t.ring_resting)
+            && !g.more_now()
+        {
             w.act();
         } else {
             w.wait(FRAME);
@@ -587,17 +598,19 @@ fn free_look_never_turns_or_speaks_by_itself() {
     w.tap(gdk::Key::f);
     assert!(w.game.free_look() && !w.game.show_tonight(), "{}", w.seen());
     assert_eq!(step(&w), Some(2), "not looking up: {}", w.seen());
-    let (caught, viewed) = (w.game.caught.clone(), w.game.viewed.clone());
+    let marks = |g: &Game| {
+        g.finds
+            .iter()
+            .map(|f| (f.caught, f.viewed))
+            .collect::<Vec<_>>()
+    };
+    let before = marks(&w.game);
     let quiet = |w: &Walker| {
         let g = &w.game;
         assert!(g.guide.said().0.is_none(), "the wisp spoke: {}", w.seen());
-        assert!(
-            g.talk.prompt.is_none() && g.move_on.is_none(),
-            "{}",
-            w.seen()
-        );
-        assert!(g.track.is_none() && g.free_look(), "{}", w.seen());
-        assert_eq!((&g.caught, &g.viewed), (&caught, &viewed));
+        assert!(g.talk.prompt.is_none(), "{}", w.seen());
+        assert!(g.free_look(), "{}", w.seen());
+        assert_eq!(marks(g), before);
     };
     // A couple of minutes of Space, Enter and Tab, wherever the view is.
     for n in 0..24 {
@@ -631,7 +644,7 @@ fn free_look_never_turns_or_speaks_by_itself() {
     w.game.camera.update();
     w.wait(200);
     w.tap(gdk::Key::space);
-    assert!(w.game.inspect.is_some(), "{}", w.seen());
+    assert!(w.game.inspecting().is_some(), "{}", w.seen());
     w.wait(4_000);
     quiet(&w);
     w.tap(gdk::Key::Escape);
@@ -652,13 +665,17 @@ fn switching_clears_the_wisp_queue() {
         for k in 0..3 {
             w.game.say(format!("Line {k}"), w.real, 5_000);
         }
-        w.game.move_on = Some(w.real + 1_000);
+        if let Some(t) = w.game.on_tour_mut() {
+            t.move_on = Some(w.real + 1_000);
+        }
         assert!(w.game.guide.said().1 > 0);
         w.game.key_pressed(gdk::Key::f, w.real);
         assert_eq!(w.game.free_look(), to_free);
         assert_eq!(w.game.guide.said(), (None, 0), "{}", w.seen());
-        assert!(w.game.move_on.is_none() && w.game.talk.pending.is_none());
-        assert!(w.game.card.is_none() && w.game.catch.target.is_none());
+        assert!(
+            w.game.on_tour().is_none_or(|t| t.move_on.is_none()) && w.game.talk.pending.is_none()
+        );
+        assert!(w.game.card.is_none() && w.game.ring_target().is_none());
         w.game.key_released(gdk::Key::f, w.real);
         w.wait(300);
     }

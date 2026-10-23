@@ -15,19 +15,59 @@ impl Game {
     pub(crate) fn input(&mut self, real: UnixMs) {
         self.last_input = real;
         // The user's steering now: nothing moves on by itself.
-        self.move_on_was = self.move_on.take().is_some();
+        if let Some(t) = self.on_tour_mut() {
+            t.move_on_was = t.move_on.take().is_some();
+        }
         // Whatever the user does shows at once, not at the next paced frame.
         self.urgent = true;
     }
 
     /// Looking round on your own. Never by day, where there's no ring.
     pub(crate) fn free_look(&self) -> bool {
-        self.looking == Looking::Free && !self.by_day()
+        matches!(self.looking, Looking::Free(_)) && !self.by_day()
+    }
+
+    /// On the tour through tonight's list, during the hunt.
+    pub(crate) fn touring(&self) -> bool {
+        self.hunting() && !self.free_look()
+    }
+
+    /// What the tour keeps, unless looking round on your own.
+    pub(crate) fn on_tour(&self) -> Option<&TourState> {
+        match &self.looking {
+            Looking::Tour(t) => Some(t),
+            Looking::Free(_) => None,
+        }
+    }
+
+    pub(crate) fn on_tour_mut(&mut self) -> Option<&mut TourState> {
+        match &mut self.looking {
+            Looking::Tour(t) => Some(t),
+            Looking::Free(_) => None,
+        }
+    }
+
+    /// What's in the ring.
+    pub(crate) fn ring_target(&self) -> Option<usize> {
+        self.on_tour()?.catch.target
+    }
+
+    /// The find the view is following round.
+    pub(crate) fn track(&self) -> Option<usize> {
+        self.on_tour()?.track
+    }
+
+    /// What free look is looking at close up.
+    pub(crate) fn inspecting(&self) -> Option<&super::detail::Inspect> {
+        match &self.looking {
+            Looking::Free(f) => f.inspect.as_ref(),
+            Looking::Tour(_) => None,
+        }
     }
 
     /// Free look opens once something has been found tonight.
     pub(crate) fn free_look_open(&self) -> bool {
-        self.caught.iter().any(|c| *c)
+        self.finds.iter().any(|f| f.caught)
     }
 
     /// F: between tonight's list and looking round on your own.
@@ -36,10 +76,10 @@ impl Game {
             return;
         }
         if self.free_look() {
-            self.set_looking(Looking::Tour, real);
+            self.set_looking(Looking::Tour(TourState::default()), real);
             self.status_for("Back to tonight's list".into(), real, 3_000);
         } else if self.free_look_open() {
-            self.set_looking(Looking::Free, real);
+            self.set_looking(Looking::Free(FreeState::default()), real);
             self.status_for(
                 "Look up: anything that glows has more to tell".into(),
                 real,
@@ -52,8 +92,8 @@ impl Game {
     }
 
     /// Switches between the two ways of looking. Nothing carries over:
-    /// whatever was up is put away, and the wisp's queue, the turn to come
-    /// and the ring are cleared.
+    /// whatever was up is put away, the wisp's queue is cleared, and the
+    /// mode left goes whole, the ring and the turn to come with it.
     pub(crate) fn set_looking(&mut self, to: Looking, real: UnixMs) {
         self.end_tour(real);
         if self.card.is_some() {
@@ -62,12 +102,6 @@ impl Game {
         self.looking = to;
         self.hush();
         self.talk.pending = None;
-        self.move_on = None;
-        self.track = None;
-        self.catch = Catch::default();
-        self.mouse_hold = None;
-        self.space_since = None;
-        self.ring_resting = false;
     }
 
     /// Space in free look: a closer look at what's in the middle, or back
@@ -247,8 +281,8 @@ impl Game {
             self.end_tour(real);
             self.dismiss_card(real);
         }
-        if arrow {
-            self.ring_resting = false;
+        if arrow && let Some(t) = self.on_tour_mut() {
+            t.ring_resting = false;
         }
         match key {
             gdk::Key::Left => self.held.left = true,
@@ -265,11 +299,7 @@ impl Game {
             }
             gdk::Key::Tab if self.free_look() => {}
             gdk::Key::c | gdk::Key::C => {
-                if self.hunting()
-                    && !self.free_look()
-                    && self.card.is_none()
-                    && self.talk.prompt.is_none()
-                {
+                if self.touring() && self.card.is_none() && self.talk.prompt.is_none() {
                     self.start_drawing(real);
                 }
             }
@@ -284,12 +314,15 @@ impl Game {
             // Space held on what's in the ring catches it; otherwise, like
             // Enter, it takes the next step when it's let go.
             gdk::Key::space => {
-                self.space_since = Some(real);
-                self.space_caught = false;
-                if self.card.is_none() && self.talk.prompt.is_none() && self.hunting() {
-                    self.catch.holding = true;
-                    if self.catch.target.is_none() {
-                        self.try_meteor(real);
+                let ready = self.card.is_none() && self.talk.prompt.is_none() && self.hunting();
+                if let Some(t) = self.on_tour_mut() {
+                    t.space_since = Some(real);
+                    t.space_caught = false;
+                    if ready {
+                        t.catch.holding = true;
+                        if t.catch.target.is_none() {
+                            self.try_meteor(real);
+                        }
                     }
                 }
             }
@@ -365,28 +398,35 @@ impl Game {
                     | crate::talk::Flow::LookBack { .. }
             )
         );
-        if std::mem::replace(&mut self.talk.asking, asking) && !asking {
-            self.move_on = Some(real + MOVE_ON_MS);
-        }
-        let Some(at) = self.move_on else {
+        let answered = std::mem::replace(&mut self.talk.asking, asking) && !asking;
+        let guided = self.touring() && !self.by_day() && !self.keeping();
+        let busy = self.card.is_some() || self.tour.is_some() || self.drawing.is_some();
+        // Something's being asked, or about to be, or said: after that.
+        let later =
+            self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_reading(real);
+        let Some(t) = self.on_tour_mut() else {
             return;
         };
-        let guided = self.hunting() && !self.free_look() && !self.by_day() && !self.keeping();
-        if !guided || self.card.is_some() || self.tour.is_some() || self.drawing.is_some() {
-            self.move_on = None;
+        if answered {
+            t.move_on = Some(real + MOVE_ON_MS);
+        }
+        let Some(at) = t.move_on else {
+            return;
+        };
+        if !guided || busy {
+            t.move_on = None;
             return;
         }
-        // Something's being asked, or about to be, or said: after that.
-        if self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_reading(real) {
-            self.move_on = Some(at.max(real + MOVE_ON_MS));
+        if later {
+            t.move_on = Some(at.max(real + MOVE_ON_MS));
             return;
         }
         if real < at {
             return;
         }
-        self.move_on = None;
+        t.move_on = None;
         // Nothing left to turn to, or something's already in the ring.
-        let in_ring = self.catch.target.is_some() && !self.ring_resting;
+        let in_ring = t.catch.target.is_some() && !t.ring_resting;
         if !self.session.all_found() && !in_ring {
             self.turn_to_next(real);
         }
@@ -399,8 +439,10 @@ impl Game {
         if self.more_now() {
             // Only hearing the wisp out: the evening still carries on
             // by itself once it's done, if it was about to.
-            if self.move_on_was {
-                self.move_on = Some(real + MOVE_ON_MS);
+            if let Some(t) = self.on_tour_mut()
+                && t.move_on_was
+            {
+                t.move_on = Some(real + MOVE_ON_MS);
             }
             return self.guide_next(real);
         }
@@ -413,7 +455,10 @@ impl Game {
         }
         self.guide_next(real);
         // Something is already in the ring: don't swing away from it.
-        if self.catch.target.is_some() && !self.ring_resting {
+        if self
+            .on_tour()
+            .is_some_and(|t| t.catch.target.is_some() && !t.ring_resting)
+        {
             self.status(
                 "Hold Space, or press and hold on the ring, to catch it".into(),
                 real,
@@ -435,15 +480,14 @@ impl Game {
             gdk::Key::Shift_L | gdk::Key::Shift_R => self.held.fast = false,
             gdk::Key::space => {
                 self.held.space = false;
-                self.catch.holding = false;
                 // Letting go takes the next step, however long the key was
                 // down, unless the press caught something: that has made a
                 // card, which mustn't be put away at once.
-                if self.space_since.take().is_some()
-                    && !std::mem::take(&mut self.space_caught)
-                    && !self.by_day()
-                    && !self.winding()
-                {
+                let tap = self.on_tour_mut().is_some_and(|t| {
+                    t.catch.holding = false;
+                    t.space_since.take().is_some() && !std::mem::take(&mut t.space_caught)
+                });
+                if tap && !self.by_day() && !self.winding() {
                     self.carry_on(at);
                 }
             }
@@ -456,23 +500,23 @@ impl Game {
         // On the tour, a press held on the ring catches, as Space does.
         let (cx, cy) = (self.camera.width / 2.0, self.camera.height / 2.0);
         let on_ring = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt() < self.reticle_radius() + 12.0;
-        if on_ring
+        let ready = on_ring
             && self.hunting()
-            && !self.free_look()
-            && !self.ring_resting
             && self.card.is_none()
             && self.talk.prompt.is_none()
             && self.drawing.is_none()
-            && self.tour.is_none()
-        {
-            self.mouse_hold = Some(real);
-            self.catch.holding = true;
-            if self.catch.target.is_none() {
-                self.try_meteor(real);
+            && self.tour.is_none();
+        if let Some(t) = self.on_tour_mut() {
+            if ready && !t.ring_resting {
+                t.mouse_hold = Some(real);
+                t.catch.holding = true;
+                if t.catch.target.is_none() {
+                    self.try_meteor(real);
+                }
+                return;
             }
-            return;
+            t.ring_resting = false;
         }
-        self.ring_resting = false;
         self.look = None;
         self.drag_from = Some((self.camera.az, self.camera.alt, 0.0, 0.0));
     }
@@ -480,10 +524,13 @@ impl Game {
     pub fn drag_update(&mut self, dx: f64, dy: f64, real: UnixMs) {
         self.input(real);
         // Moving off while holding the ring lets go, and looks around instead.
-        if self.mouse_hold.is_some() && dx.abs() + dy.abs() > 8.0 {
-            self.mouse_hold = None;
-            self.catch.holding = false;
-            self.ring_resting = false;
+        if let Some(t) = self.on_tour_mut()
+            && t.mouse_hold.is_some()
+            && dx.abs() + dy.abs() > 8.0
+        {
+            t.mouse_hold = None;
+            t.catch.holding = false;
+            t.ring_resting = false;
             self.look = None;
             self.drag_from = Some((self.camera.az, self.camera.alt, 0.0, 0.0));
         }
@@ -500,10 +547,13 @@ impl Game {
     /// than a click.
     pub fn drag_end(&mut self) -> bool {
         self.drag_from = None;
-        let Some(since) = self.mouse_hold.take() else {
+        let Some(t) = self.on_tour_mut() else {
             return false;
         };
-        self.catch.holding = false;
+        let Some(since) = t.mouse_hold.take() else {
+            return false;
+        };
+        t.catch.holding = false;
         self.last_real - since > CLICK_MS
     }
 
@@ -598,7 +648,8 @@ impl Game {
             Phase::Arrival | Phase::Weights | Phase::Hunt | Phase::Dimming
         );
         let speed = self.camera.fov * 0.5 * if self.held.fast { 2.6 } else { 1.0 } * tempo.sqrt();
-        let want = if free && self.catch.progress < 0.02 {
+        let catching = self.on_tour().is_some_and(|t| t.catch.progress >= 0.02);
+        let want = if free && !catching {
             (
                 (self.held.right as i32 - self.held.left as i32) as f64 * speed,
                 (self.held.up as i32 - self.held.down as i32) as f64 * speed,
@@ -622,7 +673,7 @@ impl Game {
             }
         }
         // Following something: keep it where it is in the view as the sky turns.
-        if let Some(i) = self.track {
+        if let Some(i) = self.track() {
             let now = self.sky_now(self.last_real);
             let hz = horizon(self.observer, now);
             let prec = precession(now);
@@ -644,7 +695,11 @@ impl Game {
                         }
                     }
                 }
-                _ => self.track = None,
+                _ => {
+                    if let Some(t) = self.on_tour_mut() {
+                        t.track = None;
+                    }
+                }
             }
         }
         self.inspect_steer();

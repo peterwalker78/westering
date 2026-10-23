@@ -88,8 +88,8 @@ pub struct Session {
     phase: Phase,
     phase_since: UnixMs,
     ask_weights: bool,
-    finds: usize,
-    found: usize,
+    /// Whether everything on tonight's list has been found, as it stands.
+    all_found: bool,
     all_found_at: Option<UnixMs>,
     /// Held still since then: the evening waits while the wisp keeps
     /// someone company in the background.
@@ -105,15 +105,14 @@ fn smoothstep(x: f64) -> f64 {
 }
 
 impl Session {
-    pub fn new(now: UnixMs, timings: Timings, finds: usize, ask_weights: bool) -> Session {
+    pub fn new(now: UnixMs, timings: Timings, ask_weights: bool) -> Session {
         Session {
             timings,
             started: now,
             phase: Phase::Arrival,
             phase_since: now,
             ask_weights,
-            finds,
-            found: 0,
+            all_found: false,
             all_found_at: None,
             held: None,
             dim_from: now,
@@ -212,22 +211,22 @@ impl Session {
     }
 
     /// More to find than there was: the sky has darkened and more is out.
-    pub fn add_finds(&mut self, n: usize) {
-        self.finds += n;
-        if self.found < self.finds {
-            self.all_found_at = None;
-        }
+    pub fn more_to_find(&mut self) {
+        self.all_found = false;
+        self.all_found_at = None;
     }
 
-    pub fn found_one(&mut self, now: UnixMs) {
-        self.found += 1;
-        if self.found >= self.finds && self.all_found_at.is_none() {
+    /// Everything on tonight's list has been found: the hunt lingers a
+    /// while, then ends.
+    pub fn found_all(&mut self, now: UnixMs) {
+        self.all_found = true;
+        if self.all_found_at.is_none() {
             self.all_found_at = Some(now);
         }
     }
 
     pub fn all_found(&self) -> bool {
-        self.found >= self.finds
+        self.all_found
     }
 
     /// The user has had enough of the hunt.
@@ -320,13 +319,12 @@ mod tests {
     #[test]
     fn a_whole_visit_runs_its_arc_and_ends() {
         let t = Timings::STANDARD;
-        let mut s = Session::new(0, t, 2, true);
+        let mut s = Session::new(0, t, true);
         assert_eq!(s.brightness(0), 0.0);
         run_until(&mut s, 0, 10_000);
         assert_eq!(s.phase(), Phase::Weights, "waits for the weights");
         s.weights_done(10_000);
-        s.found_one(20_000);
-        s.found_one(30_000);
+        s.found_all(30_000);
         let changes = run_until(&mut s, 30_000, 30 * MINUTE);
         let phases: Vec<Phase> = changes.iter().map(|c| c.1).collect();
         assert_eq!(
@@ -339,7 +337,7 @@ mod tests {
 
     #[test]
     fn the_hunt_winds_down_by_itself() {
-        let mut s = Session::new(0, Timings::STANDARD, 5, false);
+        let mut s = Session::new(0, Timings::STANDARD, false);
         run_until(&mut s, 0, 10_000);
         assert_eq!(s.phase(), Phase::Hunt);
         let changes = run_until(&mut s, 10_000, 30 * MINUTE);
@@ -349,11 +347,11 @@ mod tests {
 
     #[test]
     fn the_sky_slows_and_dims_but_never_jumps() {
-        let mut s = Session::new(0, Timings::quick(10), 1, false);
+        let mut s = Session::new(0, Timings::quick(10), false);
         let mut last_b = 0.0;
         let mut last_tempo = 1.0;
         let mut t = 0;
-        s.found_one(5_000);
+        s.found_all(5_000);
         while s.phase() != Phase::Over {
             s.tick(t);
             let b = s.brightness(t);
@@ -375,7 +373,7 @@ mod tests {
     #[test]
     fn the_screen_dims_through_the_breaths_and_goes_on_once_chosen() {
         let t = Timings::STANDARD;
-        let mut s = Session::new(0, t, 5, false);
+        let mut s = Session::new(0, t, false);
         run_until(&mut s, 0, 10_000);
         s.finish(10_000);
         // Held for the breaths and a line to think over: still dimming.
@@ -399,7 +397,7 @@ mod tests {
 
     #[test]
     fn a_held_evening_waits_and_carries_on_where_it_was() {
-        let mut s = Session::new(0, Timings::STANDARD, 5, false);
+        let mut s = Session::new(0, Timings::STANDARD, false);
         run_until(&mut s, 0, 10_000);
         assert_eq!(s.phase(), Phase::Hunt);
         s.hold(20 * MINUTE);
@@ -414,11 +412,11 @@ mod tests {
 
     #[test]
     fn more_to_find_keeps_the_evening_going() {
-        let mut s = Session::new(0, Timings::STANDARD, 1, false);
+        let mut s = Session::new(0, Timings::STANDARD, false);
         run_until(&mut s, 0, 10_000);
-        s.found_one(20_000);
+        s.found_all(20_000);
         assert!(s.all_found());
-        s.add_finds(2);
+        s.more_to_find();
         assert!(!s.all_found());
         let changes = run_until(&mut s, 20_000, 20 * MINUTE);
         assert!(changes.is_empty(), "{changes:?}");
@@ -434,7 +432,7 @@ mod tests {
 
     #[test]
     fn leaving_early_still_goes_through_the_ending() {
-        let mut s = Session::new(0, Timings::STANDARD, 4, false);
+        let mut s = Session::new(0, Timings::STANDARD, false);
         run_until(&mut s, 0, 10_000);
         assert_eq!(s.finish(10_000), Some(Phase::Dimming));
         assert_eq!(s.finish(11_000), None, "no skipping the ending");

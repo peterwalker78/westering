@@ -103,10 +103,7 @@ impl Game {
             return None;
         }
         // Whatever's being looked at close up comes first.
-        if let Some(eye) = self
-            .inspect
-            .as_ref()
-            .and_then(|i| self.inspect_eye(i.subject))
+        if let Some(eye) = self.inspecting().and_then(|i| self.inspect_eye(i.subject))
             && let Some(v) = self.eye_dir(eye, now, hz, prec)
             && alt_az(v).0 > 0.0
         {
@@ -117,7 +114,7 @@ impl Game {
         // Tonight's finds once caught, and anything else pictured that the
         // view has closed in on: a telescope would show it too.
         let finds = (0..self.finds.len())
-            .filter(|&i| self.caught[i] && self.photo_id(i).is_some())
+            .filter(|&i| self.finds[i].caught && self.photo_id(i).is_some())
             .map(Eye::Find);
         let listed = |p: usize| self.finds.iter().any(|f| f.target == Target::Showpiece(p));
         let pieces = (0..self.sky.lists.showpieces.len())

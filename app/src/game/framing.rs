@@ -39,21 +39,21 @@ impl Game {
     /// The figure being looked at: a constellation caught, the one a
     /// caught star is in, or the one a star-hop is on.
     pub(crate) fn subject_figure(&self) -> Option<usize> {
-        let i = self.track?;
+        let i = self.track()?;
         match self.finds[i].target {
-            Target::Figure(f) if self.caught[i] => Some(f),
-            Target::Star(hr) if self.caught[i] => self.figure_of(hr),
-            Target::Hop(_) if !self.caught[i] => self.figure_of(self.subject_star()?),
+            Target::Figure(f) if self.finds[i].caught => Some(f),
+            Target::Star(hr) if self.finds[i].caught => self.figure_of(hr),
+            Target::Hop(_) if !self.finds[i].caught => self.figure_of(self.subject_star()?),
             _ => None,
         }
     }
 
     /// The star being looked at: a star caught, or a star-hop's next stop.
     fn subject_star(&self) -> Option<u16> {
-        let i = self.track?;
+        let i = self.track()?;
         match self.finds[i].target {
-            Target::Star(hr) if self.caught[i] => Some(hr),
-            Target::Hop(_) if !self.caught[i] => self.hop_stop(i)?.hr,
+            Target::Star(hr) if self.finds[i].caught => Some(hr),
+            Target::Hop(_) if !self.finds[i].caught => self.hop_stop(i)?.hr,
             _ => None,
         }
     }
@@ -68,7 +68,7 @@ impl Game {
         };
         let subject = self.subject_star();
         // The ring names what's in it already.
-        let ringed = self.card.is_none() && self.catch.target.is_some();
+        let ringed = self.card.is_none() && self.ring_target().is_some();
         let mut hrs: Vec<u16> = edges.iter().flat_map(|&(p, q)| [p, q]).collect();
         hrs.sort_unstable();
         hrs.dedup();
@@ -206,11 +206,11 @@ impl Game {
     /// Where the find whose card is up is held on the screen, if it's
     /// held anywhere but the middle.
     pub(crate) fn framed_at(&self) -> Option<(f64, f64)> {
-        if self.inspect.is_some() || self.tour.is_some() {
+        if self.inspecting().is_some() || self.tour.is_some() {
             return None;
         }
         let i = self.card.as_ref()?.find?;
-        if self.track != Some(i) || !self.caught[i] {
+        if self.track() != Some(i) || !self.finds[i].caught {
             return None;
         }
         self.card_place(i).1

@@ -479,7 +479,9 @@ impl Game {
             if let Some(day) = &mut self.day {
                 day.found[i] = true;
             }
-            self.session.found_one(real);
+            if self.day_ref().found.iter().all(|f| *f) {
+                self.session.found_all(real);
+            }
             if let Err(e) = self.journal.mark_found(&id, &self.night) {
                 eprintln!("westering: couldn't keep today's find: {e}");
             }
