@@ -305,7 +305,7 @@ impl Game {
             }
             gdk::Key::l | gdk::Key::L => {
                 if !matches!(phase, Phase::Finale | Phase::LightsOut | Phase::Over) {
-                    self.request = Some(crate::talk::Request::Book(Some(self.night.clone())));
+                    self.request = Some(crate::pages::Request::Book(Some(self.night.clone())));
                 }
             }
             gdk::Key::plus | gdk::Key::equal | gdk::Key::KP_Add => self.held.zoom_in = true,

@@ -279,7 +279,7 @@ pub struct Game {
     pub(crate) drawing: Option<crate::drawing::Drawing>,
     pub(crate) reveal: Option<(usize, UnixMs)>,
     /// Something the window should open: the logbook, a course, settings.
-    pub(crate) request: Option<crate::talk::Request>,
+    pub(crate) request: Option<crate::pages::Request>,
     pub(crate) guide: crate::guide::Guide,
     pub(crate) points: Vec<crate::view::Point>,
     /// Where Jupiter's moons were drawn this frame, to name them.
@@ -665,7 +665,7 @@ impl Game {
             talk,
             drawing: None,
             reveal: None,
-            request: already.then_some(crate::talk::Request::Book(None)),
+            request: already.then_some(crate::pages::Request::Book(None)),
             guide: crate::guide::Guide::new(real_now),
             points: Vec::new(),
             photos: crate::eyepiece::Photos::load(),

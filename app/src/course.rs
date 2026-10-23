@@ -4,7 +4,7 @@
 //! lights a star; the course ends as a little constellation of its own.
 
 use crate::game::Game;
-use crate::talk::{Go, Request};
+use crate::pages::{Go, Request};
 use crate::ui::{clear, detach, label};
 use gtk::prelude::*;
 use gtk::{gdk, glib};

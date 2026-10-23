@@ -616,7 +616,7 @@ impl Game {
             gdk::Key::k | gdk::Key::K => self.toggle_company(real),
             gdk::Key::m | gdk::Key::M => self.toggle_music(real),
             gdk::Key::l | gdk::Key::L => {
-                self.request = Some(crate::talk::Request::Book(Some(self.night.clone())));
+                self.request = Some(crate::pages::Request::Book(Some(self.night.clone())));
             }
             _ => return false,
         }

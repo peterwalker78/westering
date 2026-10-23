@@ -3,7 +3,7 @@
 //! hands the answers back here.
 
 use crate::game::{Game, Look};
-use std::cell::RefCell;
+use crate::pages::Request;
 use westering_core::care::Care;
 use westering_core::coords::{angles, apply, from_alt_az, horizon};
 use westering_core::events::{Kind as EventKind, SkyEvent, upcoming};
@@ -27,19 +27,6 @@ pub struct Prompt {
     pub names: bool,
     /// The key shown on a chip, when it isn't its number.
     pub chip_keys: Vec<String>,
-}
-
-/// How a page asks the window to go somewhere: None is back to the sky.
-pub type Go = RefCell<Option<Box<dyn Fn(Option<Request>)>>>;
-
-/// Something for the window to open.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Request {
-    /// The logbook, at a night's page or a contents page.
-    Book(Option<String>),
-    /// Chart a course for a weight.
-    Course(u32),
-    Settings,
 }
 
 pub(crate) enum Flow {
@@ -148,68 +135,6 @@ impl Game {
         self.talk.serial += 1;
         // Whatever the wisp was saying about the last one is over.
         self.guide_prompt_gone(self.last_real);
-    }
-
-    pub fn take_request(&mut self) -> Option<Request> {
-        self.request.take()
-    }
-
-    pub fn journal(&self) -> &Journal {
-        &self.journal
-    }
-
-    pub fn journal_mut(&mut self) -> &mut Journal {
-        &mut self.journal
-    }
-
-    pub fn night(&self) -> &str {
-        &self.night
-    }
-
-    /// Clears the journal and tonight's page with it.
-    pub fn forget_everything(&mut self) -> std::io::Result<()> {
-        self.journal.forget_everything()?;
-        self.refresh();
-        Ok(())
-    }
-
-    /// Picks up the journal again after something in it was deleted or
-    /// restored: tonight's page, and what's been found tonight.
-    pub fn refresh(&mut self) {
-        self.page =
-            self.journal
-                .night(&self.night)
-                .unwrap_or_else(|| westering_core::journal::Night {
-                    key: self.night.clone(),
-                    ..Default::default()
-                });
-        let night = self.night.clone();
-        for f in &mut self.finds {
-            f.caught = self.journal.found_on(&f.id, &night);
-        }
-    }
-
-    /// Replaces everything kept with a backup.
-    pub fn restore(&mut self, text: &str) -> std::io::Result<usize> {
-        let n = self.journal.restore(text)?;
-        self.refresh();
-        Ok(n)
-    }
-
-    /// A star's everyday name, if it has one.
-    pub fn star_name(&self, hr: u16) -> Option<String> {
-        self.sky.lists.star_name(hr).map(|s| s.name.clone())
-    }
-
-    /// Names already used that begin with what's typed.
-    pub fn names_like(&self, prefix: &str) -> Vec<String> {
-        self.journal
-            .names_like(prefix)
-            .into_iter()
-            .filter(|n| !n.eq_ignore_ascii_case(prefix.trim()))
-            .take(4)
-            .map(str::to_owned)
-            .collect()
     }
 
     pub(crate) fn typing(&self) -> bool {

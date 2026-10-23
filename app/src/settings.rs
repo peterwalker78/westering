@@ -2,7 +2,7 @@
 //! for, what's kept and why, the logbook, and credits.
 
 use crate::game::Game;
-use crate::talk::{Go, Request};
+use crate::pages::{Go, Request};
 use crate::ui::{clear, confirm, label};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
@@ -263,7 +263,7 @@ impl Settings {
         company.connect_clicked(move |_| {
             if let Some(me) = me.upgrade() {
                 me.request(None);
-                me.game.borrow_mut().toggle_company(crate::wall_clock());
+                me.game.borrow_mut().toggle_company(crate::ui::wall_clock());
             }
         });
         group(
