@@ -38,8 +38,8 @@ impl Game {
                     let mut m = 0.0;
                     if milky > 0.0 {
                         let eq = apply(&to_eq, v);
-                        let b = dot3(eq, ngp).clamp(-1.0, 1.0).asin().to_degrees();
-                        let l = dot3(eq, gy).atan2(dot3(eq, gc));
+                        let b = dot(eq, ngp).clamp(-1.0, 1.0).asin().to_degrees();
+                        let l = dot(eq, gy).atan2(dot(eq, gc));
                         let core = ((1.0 + l.cos()) / 2.0).powi(3);
                         let width = 6.5 + 7.0 * core;
                         let band = (-(b / width).powi(2)).exp();
@@ -64,7 +64,7 @@ impl Game {
                     milky_here = m;
                     let lattice = 0.024f32;
                     let air = (0.03 * (-(alt / 9.0)).exp()) as f32;
-                    let sunward = ((dot3(v, sun) + 1.0) / 2.0).powi(3) as f32;
+                    let sunward = ((dot(v, sun) + 1.0) / 2.0).powi(3) as f32;
                     let dusk = twilight * (0.18 + 0.5 * sunward);
                     [
                         lattice * 0.8 + air * 0.7 + dusk * (0.45 + 0.5 * sunward) + m * 0.82,
@@ -182,7 +182,7 @@ impl Game {
             if star.mag > shown {
                 break;
             }
-            if dot3(star.dir, ahead) < cos_reach {
+            if dot(star.dir, ahead) < cos_reach {
                 continue;
             }
             let (mag, star_light) = match algol {
@@ -416,18 +416,13 @@ impl Game {
             let v = from_alt_az(jup.alt, jup.az);
             if let Some((jx, jy)) = cam.project(v) {
                 let toward = |w: Vec3| {
-                    let along = dot3(w, v);
-                    let t = [
+                    let along = dot(w, v);
+                    let t = normalise([
                         w[0] - along * v[0],
                         w[1] - along * v[1],
                         w[2] - along * v[2],
-                    ];
-                    let n = dot3(t, t).sqrt().max(1e-12);
-                    let nudge = [
-                        v[0] + t[0] / n * 1e-5,
-                        v[1] + t[1] / n * 1e-5,
-                        v[2] + t[2] / n * 1e-5,
-                    ];
+                    ]);
+                    let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
                     cam.project(nudge).map(|(a, b)| {
                         let (dx, dy) = (a - jx, b - jy);
                         let l = (dx * dx + dy * dy).sqrt().max(1e-12);

@@ -3,9 +3,11 @@
 //! at a time; and a walk across the Moon's lit face, with the wisp flying
 //! from place to place.
 
-use crate::game::{Card, Catch, Game, Look, dot3};
+use crate::game::{Card, Catch, Game, Look};
 use crate::guide::Aim;
-use westering_core::coords::{Mat3, Vec3, alt_az, angles, apply, from_alt_az, unit};
+use westering_core::coords::{
+    Mat3, Vec3, alt_az, angles, apply, dot, from_alt_az, normalise, unit,
+};
 use westering_core::ephem::Body;
 use westering_core::finds::Target;
 use westering_core::sky::see;
@@ -109,18 +111,13 @@ impl Game {
         // Which way celestial north points on the screen.
         let hz = westering_core::coords::horizon(self.observer, now);
         let pole = apply(&hz, [0.0, 0.0, 1.0]);
-        let along = dot3(pole, v);
-        let t = [
+        let along = dot(pole, v);
+        let t = normalise([
             pole[0] - along * v[0],
             pole[1] - along * v[1],
             pole[2] - along * v[2],
-        ];
-        let n = dot3(t, t).sqrt().max(1e-9);
-        let nudge = [
-            v[0] + t[0] / n * 1e-5,
-            v[1] + t[1] / n * 1e-5,
-            v[2] + t[2] / n * 1e-5,
-        ];
+        ]);
+        let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
         let (nx, ny) = cam
             .project(nudge)
             .map_or((0.0, -1.0), |(a, b)| (a - x, b - y));

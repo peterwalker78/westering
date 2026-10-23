@@ -22,8 +22,10 @@ use gtk::gdk;
 use gtk::gdk::prelude::TextureExt;
 use westering_core::catalogues::Kind;
 use westering_core::coords::{
-    Mat3, Observer, Vec3, alt_az, apply, from_alt_az, horizon, precession, refraction, unit,
+    Mat3, Observer, Vec3, alt_az, apply, dot, from_alt_az, horizon, normalise, precession,
+    refraction, transpose, turn, unit,
 };
+use westering_core::ease::smoothstep;
 use westering_core::ephem::{Body, moon_age, moon_phase_name};
 use westering_core::finale::{Handoff, handoff};
 use westering_core::finds::{Find, Target, night_key, night_of, tonight};
@@ -404,11 +406,6 @@ pub(crate) fn late(now: UnixMs, offset_s: i32) -> bool {
 }
 const RETICLE: Rgb = [0.78, 0.84, 1.0];
 
-pub(crate) fn smoothstep(x: f64) -> f64 {
-    let x = x.clamp(0.0, 1.0);
-    x * x * (3.0 - 2.0 * x)
-}
-
 /// Fades in over `rise`, holds, and fades out over `fall`.
 pub(crate) fn envelope(age: UnixMs, rise: UnixMs, hold: UnixMs, fall: UnixMs) -> f64 {
     if age < 0 {
@@ -458,25 +455,8 @@ fn light(mag: f64) -> f32 {
     (1.6 * 10f64.powf(-0.4 * (mag - 1.0)).powf(0.55)) as f32
 }
 
-pub(crate) fn transpose(m: &Mat3) -> Mat3 {
-    [
-        [m[0][0], m[1][0], m[2][0]],
-        [m[0][1], m[1][1], m[2][1]],
-        [m[0][2], m[1][2], m[2][2]],
-    ]
-}
-
-pub(crate) fn dot3(a: Vec3, b: Vec3) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
 pub(crate) fn angle_between(a: Vec3, b: Vec3) -> f64 {
-    dot3(a, b).clamp(-1.0, 1.0).acos().to_degrees()
-}
-
-/// Shortest signed turn from one azimuth to another.
-pub(crate) fn turn(from: f64, to: f64) -> f64 {
-    (to - from + 540.0).rem_euclid(360.0) - 180.0
+    dot(a, b).clamp(-1.0, 1.0).acos().to_degrees()
 }
 
 impl Game {

@@ -218,18 +218,13 @@ impl Game {
         let (x, y) = cam.project(v)?;
         // Which way celestial north points on the screen, at the object.
         let pole = apply(hz, [0.0, 0.0, 1.0]);
-        let along = dot3(pole, v);
-        let t = [
+        let along = dot(pole, v);
+        let t = normalise([
             pole[0] - along * v[0],
             pole[1] - along * v[1],
             pole[2] - along * v[2],
-        ];
-        let n = dot3(t, t).sqrt().max(1e-9);
-        let nudge = [
-            v[0] + t[0] / n * 1e-5,
-            v[1] + t[1] / n * 1e-5,
-            v[2] + t[2] / n * 1e-5,
-        ];
+        ]);
+        let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
         let (nx, ny) = cam
             .project(nudge)
             .map_or((0.0, -1.0), |(a, b)| (a - x, b - y));
@@ -242,18 +237,13 @@ impl Game {
                 let seen = see(body, self.observer, now);
                 let sun = see(Body::Sun, self.observer, now);
                 let sv = from_alt_az(sun.alt, sun.az);
-                let along = dot3(sv, v);
-                let t = [
+                let along = dot(sv, v);
+                let t = normalise([
                     sv[0] - along * v[0],
                     sv[1] - along * v[1],
                     sv[2] - along * v[2],
-                ];
-                let n = dot3(t, t).sqrt().max(1e-9);
-                let nudge = [
-                    v[0] + t[0] / n * 1e-5,
-                    v[1] + t[1] / n * 1e-5,
-                    v[2] + t[2] / n * 1e-5,
-                ];
+                ]);
+                let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
                 let (sx, sy) = cam
                     .project(nudge)
                     .map_or((1.0, 0.0), |(a, b)| (a - x, b - y));
@@ -320,18 +310,13 @@ impl Game {
         mottled: bool,
     ) {
         // Which way the Sun is, on the screen.
-        let along = dot3(sun, v);
-        let t = [
+        let along = dot(sun, v);
+        let t = normalise([
             sun[0] - along * v[0],
             sun[1] - along * v[1],
             sun[2] - along * v[2],
-        ];
-        let n = dot3(t, t).sqrt().max(1e-9);
-        let nudge = [
-            v[0] + t[0] / n * 0.01,
-            v[1] + t[1] / n * 0.01,
-            v[2] + t[2] / n * 0.01,
-        ];
+        ]);
+        let nudge = [v[0] + t[0] * 0.01, v[1] + t[1] * 0.01, v[2] + t[2] * 0.01];
         let (ux, uy) = match (self.camera.project(v), self.camera.project(nudge)) {
             (Some(a), Some(b)) => {
                 let (dx, dy) = (b.0 - a.0, b.1 - a.1);
