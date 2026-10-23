@@ -282,7 +282,7 @@ pub struct Game {
     eye: Option<Target>,
     eye_alpha: f64,
     /// A find being told a card at a time.
-    pub(crate) tour: Option<crate::tour::Tour>,
+    pub(crate) trail: Option<crate::trail::Trail>,
     /// Tonight's story, once it's been heard to its last page.
     pub(crate) story_heard: Option<usize>,
     /// Tonight's places on the Moon, by index into the features.
@@ -531,9 +531,9 @@ impl Game {
                 phase: s.hr as f64,
             })
             .collect();
-        let moon_stops = westering_core::tours::moon_stops(
-            &sky.tours.moon,
-            moon_age(now) * westering_core::tours::SYNODIC_DAYS,
+        let moon_stops = westering_core::trails::moon_stops(
+            &sky.trails.moon,
+            moon_age(now) * westering_core::trails::SYNODIC_DAYS,
             night_of(now, offset_s),
             &|name| journal.found_before(&format!("moon:{name}"), &night),
         );
@@ -593,7 +593,7 @@ impl Game {
             moon_labels: Vec::new(),
             eye: None,
             eye_alpha: 0.0,
-            tour: None,
+            trail: None,
             story_heard: None,
             moon_stops,
             algol,
@@ -971,7 +971,7 @@ impl Game {
         ) {
             return;
         }
-        self.end_tour(real);
+        self.end_trail(real);
         self.card = None;
         if let Some(t) = self.on_tour_mut() {
             t.catch = Catch::default();
@@ -1000,7 +1000,7 @@ impl Game {
                 2,
                 "Click anything that glows, or bring it to the middle and press Space",
             ),
-            Phase::Hunt if self.tour.is_some() => (1, "Space goes on, Esc stops here"),
+            Phase::Hunt if self.trail.is_some() => (1, "Space goes on, Esc stops here"),
             Phase::Hunt if self.card.is_some() => (1, "Space to go on"),
             Phase::Hunt if self.talk.prompt.is_some() => {
                 (1, "Answer if you like, or Esc to let it pass")

@@ -156,7 +156,7 @@ impl Game {
         let low_sin = 14f64.to_radians().sin();
         let algol = self
             .algol
-            .map(|k| (k, westering_core::tours::algol_magnitude(now)));
+            .map(|k| (k, westering_core::trails::algol_magnitude(now)));
         // Stars well outside the view are passed over with one dot product
         // in their own frame, before the turn into the horizon's.
         let half_diag =
@@ -500,7 +500,7 @@ impl Game {
 
         self.draw_marks(real, hz);
         self.marks.clear();
-        self.draw_tours(real, hz, prec);
+        self.draw_trails(real, hz, prec);
         let lines = self.pattern_lines(real, hz, dt);
         self.draw_reticle(real, tempo);
 
@@ -610,7 +610,7 @@ impl Game {
             && self.card.is_none()
             && self.talk.prompt.is_none()
             && self.drawing.is_none()
-            && self.tour.is_none()
+            && self.trail.is_none()
             && self.eye_alpha < 0.05
             && !compact(self.camera.width, self.camera.height);
         let target = if wanted { 1.0 } else { 0.0 };

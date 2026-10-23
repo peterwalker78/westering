@@ -206,7 +206,7 @@ impl Game {
     /// Where the find whose card is up is held on the screen, if it's
     /// held anywhere but the middle.
     pub(crate) fn framed_at(&self) -> Option<(f64, f64)> {
-        if self.inspecting().is_some() || self.tour.is_some() {
+        if self.inspecting().is_some() || self.trail.is_some() {
             return None;
         }
         let i = self.card.as_ref()?.find?;

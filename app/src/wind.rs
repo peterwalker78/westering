@@ -76,7 +76,7 @@ impl Game {
     fn wind_line(&self) -> (String, String) {
         let words = &self.wind.words;
         if let Some(story) = self.story_heard {
-            let mirror = self.sky.tours.stories[story].mirror.clone();
+            let mirror = self.sky.trails.stories[story].mirror.clone();
             return (mirror, words.story_kicker.clone());
         }
         let mut covered = Vec::new();

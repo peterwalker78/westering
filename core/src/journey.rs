@@ -322,7 +322,7 @@ impl Lines {
 }
 
 /// A name as it reads mid-sentence: "the Pleiades", not "The Pleiades".
-fn lower_first(name: &str) -> String {
+pub fn lower_first(name: &str) -> String {
     match name.strip_prefix("The ") {
         Some(rest) => format!("the {rest}"),
         None => name.to_owned(),

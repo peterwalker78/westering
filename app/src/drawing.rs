@@ -371,10 +371,10 @@ impl Game {
         if let Some((f, _)) = self.reveal {
             return Some(self.sky.figures[f].edges.clone());
         }
-        if let Some(tour) = &self.tour
-            && let Target::Story(s) = self.finds[tour.find].target
+        if let Some(trail) = &self.trail
+            && let Target::Story(s) = self.finds[trail.find].target
         {
-            let story = &self.sky.tours.stories[s];
+            let story = &self.sky.trails.stories[s];
             if !story.pattern {
                 return None;
             }

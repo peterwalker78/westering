@@ -74,7 +74,7 @@ impl Walker {
             g.session.phase(),
             line,
             g.card.as_ref().map(|c| (&c.title, c.body.len())),
-            g.tour.as_ref().map(|t| t.at),
+            g.trail.as_ref().map(|t| t.at),
             g.finds.iter().filter(|f| f.caught).count(),
             g.finds.iter().filter(|f| f.viewed).count(),
             g.finds.iter().map(|f| f.steps).collect::<Vec<_>>(),
@@ -113,7 +113,7 @@ impl Walker {
         let g = &self.game;
         if g.hunting()
             && g.card.is_none()
-            && g.tour.is_none()
+            && g.trail.is_none()
             && !g.more_now()
             && !g.on_tour().is_some_and(|t| t.ring_resting)
             && g.ring_target().is_some()
@@ -281,7 +281,7 @@ fn a_story_heard_to_its_end_comes_back_as_the_last_thought() {
         w.game.wind_next(w.real);
         texts.into_iter().map(|t| t.text).collect()
     };
-    let mirror = w.game.sky.tours.stories[0].mirror.clone();
+    let mirror = w.game.sky.trails.stories[0].mirror.clone();
     let plain = shown(&mut w);
     assert!(plain.iter().any(|t| t.contains("Nothing to write down")));
     assert!(!plain.contains(&mirror));
@@ -335,7 +335,7 @@ fn the_guided_evening_carries_itself_on() {
     // Through the first evening's hello and the weights, to a first catch.
     let mut caught = false;
     for _ in 0..400 {
-        if w.game.card.is_some() && w.game.tour.is_none() {
+        if w.game.card.is_some() && w.game.trail.is_none() {
             caught = true;
             break;
         }
@@ -565,10 +565,10 @@ fn the_wisp_never_holds_the_evening_up() {
 /// Through the first evening to its first catch, with the card up.
 fn to_first_catch(w: &mut Walker) {
     let start = w.real;
-    while w.game.card.is_none() || w.game.tour.is_some() {
+    while w.game.card.is_none() || w.game.trail.is_some() {
         assert!(w.real - start < 300_000, "nothing was caught: {}", w.seen());
         let g = &w.game;
-        if g.talk.prompt.is_some() || g.placing() || g.tour.is_some() {
+        if g.talk.prompt.is_some() || g.placing() || g.trail.is_some() {
             w.act();
         } else if !g.hunting() {
             w.wait(4_000);

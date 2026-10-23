@@ -83,7 +83,7 @@ impl Game {
                 | westering_core::session::Phase::Dimming
         ) && (self.card.is_none() || self.free_look())
             && self.drawing.is_none()
-            && self.tour.is_none()
+            && self.trail.is_none()
             && !self.placing()
     }
 

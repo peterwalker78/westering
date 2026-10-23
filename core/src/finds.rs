@@ -479,7 +479,7 @@ pub fn tonight(
             .get(hr)
             .map(|s| (alt_az(apply(&horizon, apply(&prec, s.dir))).0, s.mag as f64))
     };
-    let alt_of_stop = |stop: &crate::tours::Stop| match (stop.hr, &stop.showpiece) {
+    let alt_of_stop = |stop: &crate::trails::Stop| match (stop.hr, &stop.showpiece) {
         (Some(hr), _) => alt_of_star(hr),
         (None, Some(id)) => sky
             .lists
@@ -493,7 +493,7 @@ pub fn tonight(
     // Tonight's story, told from a star that's well up.
     if limit >= 2.5 {
         let mut stories: Vec<(usize, String)> = sky
-            .tours
+            .trails
             .stories
             .iter()
             .enumerate()
@@ -505,8 +505,8 @@ pub fn tonight(
             out.push(Find {
                 id,
                 target: Target::Story(i),
-                name: sky.tours.stories[i].title.clone(),
-                fact: sky.tours.stories[i].mirror.clone(),
+                name: sky.trails.stories[i].title.clone(),
+                fact: sky.trails.stories[i].mirror.clone(),
             });
         }
     }
@@ -516,7 +516,7 @@ pub fn tonight(
         let north = observer.lat >= -10.0;
         let south = observer.lat <= 10.0;
         let mut hops: Vec<(usize, String)> = sky
-            .tours
+            .trails
             .hops
             .iter()
             .enumerate()
@@ -534,7 +534,7 @@ pub fn tonight(
             .collect();
         hops.sort_by_key(|(_, id)| order(id));
         if let Some((i, id)) = hops.into_iter().next() {
-            let hop = &sky.tours.hops[i];
+            let hop = &sky.trails.hops[i];
             // A star or showpiece the hop stops at is found on the way,
             // not on its own as well.
             out.retain(|f| {
@@ -556,18 +556,18 @@ pub fn tonight(
     }
 
     // A walk on the Moon, when there's enough of it lit to walk on.
-    let age = crate::ephem::moon_age(at) * crate::tours::SYNODIC_DAYS;
+    let age = crate::ephem::moon_age(at) * crate::trails::SYNODIC_DAYS;
     if moon.alt > 10.0 && (2.5..27.0).contains(&age) {
         out.push(Find {
             id: "moon-walk".into(),
             target: Target::MoonWalk,
             name: "A walk on the Moon".into(),
-            fact: sky.tours.moon_intro.clone(),
+            fact: sky.trails.moon_intro.clone(),
         });
     }
 
     // Algol, the Demon Star, in the middle of an eclipse.
-    if let Some(middle) = crate::tours::algol_eclipse(at)
+    if let Some(middle) = crate::trails::algol_eclipse(at)
         && alt_of_star(936).is_some_and(|(alt, _)| alt > 15.0)
         && limit >= 3.5
     {
@@ -779,7 +779,7 @@ mod tests {
                 continue;
             };
             hops += 1;
-            for stop in &sky.tours.hops[h].steps {
+            for stop in &sky.trails.hops[h].steps {
                 assert!(
                     !finds
                         .iter()

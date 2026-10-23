@@ -95,7 +95,7 @@ impl Game {
     /// whatever was up is put away, the wisp's queue is cleared, and the
     /// mode left goes whole, the ring and the turn to come with it.
     pub(crate) fn set_looking(&mut self, to: Looking, real: UnixMs) {
-        self.end_tour(real);
+        self.end_trail(real);
         if self.card.is_some() {
             self.dismiss_card(real);
         }
@@ -278,7 +278,7 @@ impl Game {
         );
         if arrow && self.card.is_some() {
             // Looking away from a card puts it down.
-            self.end_tour(real);
+            self.end_trail(real);
             self.dismiss_card(real);
         }
         if arrow && let Some(t) = self.on_tour_mut() {
@@ -338,7 +338,7 @@ impl Game {
                 // A step back out each time: the card, then free look,
                 // then, asked twice, the evening.
                 if self.card.is_some() {
-                    self.end_tour(real);
+                    self.end_trail(real);
                     self.dismiss_card(real);
                 } else if self.free_look() {
                     self.toggle_look(real);
@@ -400,7 +400,7 @@ impl Game {
         );
         let answered = std::mem::replace(&mut self.talk.asking, asking) && !asking;
         let guided = self.touring() && !self.by_day() && !self.keeping();
-        let busy = self.card.is_some() || self.tour.is_some() || self.drawing.is_some();
+        let busy = self.card.is_some() || self.trail.is_some() || self.drawing.is_some();
         // Something's being asked, or about to be, or said: after that.
         let later =
             self.talk.prompt.is_some() || self.talk.pending.is_some() || self.wisp_reading(real);
@@ -505,7 +505,7 @@ impl Game {
             && self.card.is_none()
             && self.talk.prompt.is_none()
             && self.drawing.is_none()
-            && self.tour.is_none();
+            && self.trail.is_none();
         if let Some(t) = self.on_tour_mut() {
             if ready && !t.ring_resting {
                 t.mouse_hold = Some(real);

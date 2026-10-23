@@ -74,7 +74,7 @@ impl Game {
                 .map(|(c, _)| apply(hz, apply(prec, c))),
             Target::Hop(_) => self.stop_dir(self.hop_stop(self.find_of(target)?)?, hz, prec),
             Target::Story(s) => {
-                let anchor = self.sky.tours.stories[s].anchor;
+                let anchor = self.sky.trails.stories[s].anchor;
                 self.sky
                     .stars
                     .index_of(anchor)
@@ -355,7 +355,7 @@ impl Game {
                     Target::Hop(h) if self.finds[i].steps > 0 => format!(
                         "step {} of {}, {whereabouts}",
                         self.finds[i].steps + 1,
-                        self.sky.tours.hops[h].steps.len()
+                        self.sky.trails.hops[h].steps.len()
                     ),
                     _ => whereabouts,
                 };

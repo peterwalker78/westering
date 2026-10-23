@@ -164,7 +164,7 @@ impl Game {
 
     /// A story or a walk has begun: the wisp goes along, and keeps its tips
     /// for later.
-    pub(crate) fn guide_tour_began(&mut self, real: UnixMs) {
+    pub(crate) fn guide_trail_began(&mut self, real: UnixMs) {
         self.guide.cheer_until = real + 3_000;
         self.guide.last_progress = real;
         self.hush();

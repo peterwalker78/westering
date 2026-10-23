@@ -100,14 +100,6 @@ const MAX_WEIGHTS: usize = 3;
 pub(crate) const LOOK_HEAVIER: usize = 2;
 pub(crate) const LOOK_BEHIND: usize = 3;
 
-/// "The Moon" becomes "the Moon"; names stay as they are.
-pub(crate) fn lower_first(name: &str) -> String {
-    match name.strip_prefix("The ") {
-        Some(rest) => format!("the {rest}"),
-        None => name.to_owned(),
-    }
-}
-
 impl Talk {
     pub fn new(journal: &Journal, night: &str, events: Vec<SkyEvent>) -> Talk {
         Talk {
@@ -368,7 +360,7 @@ impl Game {
             || self.talk.prompt.is_some()
             || self.drawing.is_some()
             || self.card.is_some()
-            || self.tour.is_some()
+            || self.trail.is_some()
             || !self.hunting()
         {
             return;
@@ -422,7 +414,12 @@ impl Game {
                 let found = page
                     .as_ref()
                     .and_then(|p| p.finds.first())
-                    .map(|f| format!(", the night you found {}", lower_first(f)))
+                    .map(|f| {
+                        format!(
+                            ", the night you found {}",
+                            westering_core::journey::lower_first(f)
+                        )
+                    })
                     .unwrap_or_default();
                 self.remember_asked(&format!("look-back:{id}"));
                 self.talk.flow = Some(Flow::LookBack { weight: id });

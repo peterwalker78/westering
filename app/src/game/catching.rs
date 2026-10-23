@@ -77,10 +77,10 @@ impl Game {
         }
         self.note_spot(i, real);
         self.save_page();
-        if self.begin_tour(i, real) {
+        if self.begin_trail(i, real) {
             // A story or a walk is its own showing: nothing to come back to.
             self.finds[i].viewed = true;
-            self.guide_tour_began(real);
+            self.guide_trail_began(real);
             return;
         }
         if let Target::Figure(f) = self.finds[i].target {
@@ -102,7 +102,7 @@ impl Game {
             && (!self.journal.settings.seen.iter().any(|k| k == "hop-done")
                 || westering_core::finds::stable_hash((0, 0, 0), &self.night).is_multiple_of(3))
         {
-            body = format!("{body}\n\n{}", self.sky.tours.hop_closing);
+            body = format!("{body}\n\n{}", self.sky.trails.hop_closing);
             if !self.journal.settings.seen.iter().any(|k| k == "hop-done") {
                 self.journal.settings.seen.push("hop-done".into());
                 self.save_settings();
@@ -137,7 +137,8 @@ impl Game {
     pub(crate) fn dismiss_card(&mut self, real: UnixMs) {
         // Up long enough to read counts as seen on the tour; put away
         // sooner, Tab can bring it back.
-        let of_a_find = self.tour.is_some() || self.card.as_ref().is_some_and(|c| c.find.is_some());
+        let of_a_find =
+            self.trail.is_some() || self.card.as_ref().is_some_and(|c| c.find.is_some());
         if let Some((i, shown)) = self.card.as_ref().and_then(|c| Some((c.find?, c.shown)))
             && !self.free_look()
         {
@@ -148,7 +149,7 @@ impl Game {
                 self.status("Tab brings back anything you skipped".into(), real);
             }
         }
-        if self.tour.is_some() && self.turn_page(real) {
+        if self.trail.is_some() && self.turn_page(real) {
             return;
         }
         let framed = self.framed_at().is_some();
@@ -375,7 +376,7 @@ impl Game {
             kicker: c.kicker.clone(),
             title: c.title.clone(),
             body: c.body.clone(),
-            keys: match &self.tour {
+            keys: match &self.trail {
                 Some(t) if !t.on_last_page() => vec![
                     ("Space".into(), "go on".into()),
                     ("Esc".into(), "stop here".into()),

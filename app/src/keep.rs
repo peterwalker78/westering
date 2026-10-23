@@ -107,7 +107,7 @@ impl Game {
             self.say(text, real, 6_000);
             return;
         }
-        self.end_tour(real);
+        self.end_trail(real);
         self.card = None;
         self.caption = None;
         self.hint = None;

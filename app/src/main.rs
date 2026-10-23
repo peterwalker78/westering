@@ -22,7 +22,7 @@ mod pages;
 mod settings;
 mod sprite;
 mod talk;
-mod tour;
+mod trail;
 mod ui;
 mod view;
 mod wind;

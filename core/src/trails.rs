@@ -57,7 +57,7 @@ pub struct MoonFeature {
     pub fact: String,
 }
 
-pub struct Tours {
+pub struct Trails {
     pub hops: Vec<Hop>,
     /// Said when a hop is done.
     pub hop_closing: String,
@@ -86,13 +86,13 @@ struct MoonFile {
     feature: Vec<MoonFeature>,
 }
 
-impl Tours {
-    pub fn bundled() -> Tours {
+impl Trails {
+    pub fn bundled() -> Trails {
         let hops = toml::from_str::<HopFile>(include_str!("../data/hops.toml"))
             .expect("core/data/hops.toml is valid");
         let moon = toml::from_str::<MoonFile>(include_str!("../data/moon-features.toml"))
             .expect("core/data/moon-features.toml is valid");
-        Tours {
+        Trails {
             hops: hops.hop,
             hop_closing: hops.closing,
             stories: toml::from_str::<StoryFile>(include_str!("../data/stories.toml"))
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn the_data_files_load_and_point_at_real_things() {
-        let t = Tours::bundled();
+        let t = Trails::bundled();
         let sky = crate::sky::Sky::bundled();
         assert!(t.hops.len() >= 12 && t.stories.len() >= 20 && t.moon.len() >= 40);
         let real = |s: &Stop| match (&s.hr, &s.showpiece) {
@@ -269,7 +269,7 @@ mod tests {
     fn a_story_ending_names_who_it_is_about() {
         // The last card is read on its own, so it can't lean on "he" or
         // "the two" from the cards before.
-        for story in Tours::bundled().stories {
+        for story in Trails::bundled().stories {
             let first = story.mirror.split_whitespace().next().unwrap_or("");
             assert!(
                 !["He", "She", "They", "It", "It's", "Its", "This", "That"].contains(&first),
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn stories_never_name_the_feeling_either() {
-        let t = Tours::bundled();
+        let t = Trails::bundled();
         for story in &t.stories {
             let all = std::iter::once(&story.mirror)
                 .chain([&t.hop_closing, &t.moon_intro, &t.moon_closing])
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn the_sun_rises_over_crisium_first() {
-        let t = Tours::bundled();
+        let t = Trails::bundled();
         let crisium = t.moon.iter().find(|f| f.name == "Mare Crisium").unwrap();
         let procellarum = t
             .moon
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn a_moon_walk_is_lit_and_changes() {
-        let t = Tours::bundled();
+        let t = Trails::bundled();
         let night = (2026, 10, 20);
         let stops = moon_stops(&t.moon, 8.0, night, &|_| false);
         assert!((3..=4).contains(&stops.len()), "{stops:?}");

@@ -472,7 +472,7 @@ impl Game {
         // offer waits for the list.
         if touring
             && !self.by_day()
-            && self.tour.is_none()
+            && self.trail.is_none()
             && self.session.in_phase(real) > self.session.timings.offer
             && !self.offered_wind_down()
             && !self.wisp_busy(real)
