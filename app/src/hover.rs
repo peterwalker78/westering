@@ -2,7 +2,9 @@
 //! it's near, in a small line beside the pointer; a click on it tells more,
 //! on a card. On the tour, one of tonight's finds not yet caught keeps its
 //! secret: the click turns the view to it instead, so it can be caught. In
-//! free look everything with more to tell glows, and a click looks closer.
+//! free look everything with a card glows wherever it is above the
+//! horizon, however faint and however wide the view, and a click looks
+//! closer.
 
 use crate::game::{Card, Game, envelope};
 use crate::view::{Glow, Text};
@@ -126,12 +128,20 @@ impl Game {
     /// Whether free look has a closer look to give at something.
     fn has_closer_look(&self, subject: Option<Target>) -> bool {
         match subject {
-            Some(Target::Body(_) | Target::Showpiece(_) | Target::Figure(_)) => true,
+            Some(Target::Body(_) | Target::Showpiece(_)) => true,
+            Some(t @ Target::Figure(_)) => {
+                self.find_of(t).is_some() || self.photos.pictures(&self.sky, &t)
+            }
             // A star glows as one of tonight's finds, for its own photograph,
-            // or for someone's name.
+            // for something to tell about it, or for someone's name.
             Some(t @ Target::Star(hr)) => {
                 self.find_of(t).is_some()
                     || self.photos.pictures(&self.sky, &t)
+                    || self
+                        .sky
+                        .lists
+                        .star_name(hr)
+                        .is_some_and(|s| s.fact.is_some() || !s.more.is_empty())
                     || self.journal.person_on(hr).is_some()
             }
             _ => false,
@@ -190,6 +200,9 @@ impl Game {
             }
         };
         let up = |v: [f64; 3]| alt_az(v).0 > 0.0;
+        // Free look shows everything with a card, not only what the eye
+        // could pick out at this zoom.
+        let every = self.free_look();
         let year = civil_date(now, self.offset_s(now)).0;
 
         // Tonight's finds first: they're what the hunt is about.
@@ -241,7 +254,9 @@ impl Game {
             }
             let s = see(body, self.observer, now);
             // Uranus and Neptune only once the view gathers enough light.
-            if s.alt < 0.0 || s.position.magnitude > limit + crate::game::gather(cam.fov) + 0.5 {
+            if s.alt < 0.0
+                || (!every && s.position.magnitude > limit + crate::game::gather(cam.fov) + 0.5)
+            {
                 continue;
             }
             if let Some((sx, sy)) = cam.project(from_alt_az(s.alt, s.az)) {
@@ -375,7 +390,7 @@ impl Game {
         // Clusters, galaxies and nebulae bright enough to show at this zoom.
         let reach = limit + crate::game::gather(cam.fov) + 0.5;
         for (pi, p) in self.sky.lists.showpieces.iter().enumerate() {
-            if p.mag > reach || taken.iter().any(|n| n == &p.name) {
+            if (!every && p.mag > reach) || taken.iter().any(|n| n == &p.name) {
                 continue;
             }
             let v = apply(hz, apply(prec, unit(p.ra, p.dec)));
@@ -452,6 +467,35 @@ impl Game {
                             more: None,
                             find: None,
                             subject: Some(Target::Star(hr)),
+                        },
+                    );
+                }
+            }
+        }
+        // Every constellation at its middle, in free look.
+        if every {
+            for (f, figure) in self.sky.figures.iter().enumerate() {
+                let target = Target::Figure(f);
+                if self.find_of(target).is_some() {
+                    continue;
+                }
+                let Some(v) = self.target_dir(target, now, hz, prec).filter(|v| up(*v)) else {
+                    continue;
+                };
+                if let Some((sx, sy)) = cam.project(v) {
+                    consider(
+                        sx,
+                        sy,
+                        8.0,
+                        Hovered {
+                            x: 0.0,
+                            y: 0.0,
+                            radius: 0.0,
+                            name: figure.name.clone(),
+                            kind: target.kind_word(&self.sky.lists.showpieces).to_owned(),
+                            more: None,
+                            find: None,
+                            subject: Some(target),
                         },
                     );
                 }

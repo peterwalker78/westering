@@ -149,6 +149,8 @@ pub(crate) struct TourState {
 pub(crate) struct FreeState {
     /// Something clicked, being looked at close up.
     pub(crate) inspect: Option<detail::Inspect>,
+    /// The view going back out after one.
+    pub(crate) back: Option<detail::Glide>,
 }
 
 #[derive(Default)]

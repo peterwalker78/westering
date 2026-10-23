@@ -130,7 +130,8 @@ impl Game {
     pub(crate) fn guide_hunt(&mut self, real: UnixMs) {
         self.guide.last_progress = real;
         let n = self.to_find();
-        if n == 0 || self.seen("hunt") {
+        // The list's lesson waits for the list.
+        if n == 0 || self.free_look() || self.seen("hunt") {
             return;
         }
         self.mark_seen("hunt");
