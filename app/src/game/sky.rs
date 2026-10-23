@@ -598,6 +598,7 @@ impl Game {
             background: [0.012, 0.014, 0.024],
             texts,
             veil: 0.0,
+            under: None,
         }
     }
 

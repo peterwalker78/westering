@@ -7,6 +7,7 @@ use gtk::subclass::prelude::*;
 use gtk::{gdk, graphene, gsk, pango};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Align {
@@ -222,6 +223,19 @@ pub struct Frame {
     pub texts: Vec<Text>,
     /// Over everything: 0 is none, 1 is black.
     pub veil: f32,
+    /// A frame drawn a moment ago, reused under this one: its lists are
+    /// drawn first, and everything that isn't a list comes from it.
+    pub under: Option<Rc<Frame>>,
+}
+
+impl Frame {
+    fn base(&self) -> &Frame {
+        self.under.as_deref().unwrap_or(self)
+    }
+
+    fn layers(&self) -> impl Iterator<Item = &Frame> {
+        self.under.as_deref().into_iter().chain([self])
+    }
 }
 
 /// What a layout's shape depends on besides its words.
@@ -888,7 +902,8 @@ mod imp {
         fn draw(&self, snapshot: &gtk::Snapshot) {
             let widget = self.obj();
             let (w, h) = (widget.width() as f32, widget.height() as f32);
-            let frame = self.frame.borrow();
+            let top = self.frame.borrow();
+            let frame = top.base();
             let bg = frame.background;
             snapshot.append_color(
                 &gdk::RGBA::new(bg[0], bg[1], bg[2], 1.0),
@@ -923,25 +938,25 @@ mod imp {
                 snapshot.append_scaled_texture(texture, gsk::ScalingFilter::Nearest, &bounds);
                 snapshot.pop();
                 // Living things are drawn in the same dots as everything else.
-                if !frame.silhouettes.is_empty() {
+                if top.layers().any(|f| !f.silhouettes.is_empty()) {
                     snapshot.push_mask(gsk::MaskMode::Alpha);
                     snapshot.push_repeat(&bounds, Some(&cell));
                     snapshot.append_texture(&tile, &cell);
                     snapshot.pop();
                     snapshot.pop();
-                    for s in &frame.silhouettes {
+                    for s in top.layers().flat_map(|f| &f.silhouettes) {
                         draw_silhouette(snapshot, s);
                     }
                     snapshot.pop();
                 }
             }
-            for p in &frame.points {
+            for p in top.layers().flat_map(|f| &f.points) {
                 draw_point(snapshot, p);
             }
-            for l in &frame.lines {
+            for l in top.layers().flat_map(|f| &f.lines) {
                 draw_line(snapshot, l);
             }
-            for g in &frame.glows {
+            for g in top.layers().flat_map(|f| &f.glows) {
                 draw_glow(snapshot, g);
             }
             if let Some(e) = &frame.eyepiece
@@ -949,10 +964,10 @@ mod imp {
             {
                 draw_eyepiece(widget.upcast_ref(), snapshot, e);
             }
-            for p in &frame.marks {
+            for p in top.layers().flat_map(|f| &f.marks) {
                 draw_point(snapshot, p);
             }
-            for sprite in &frame.sprites {
+            for sprite in top.layers().flat_map(|f| &f.sprites) {
                 snapshot.push_opacity(sprite.alpha.clamp(0.0, 1.0));
                 snapshot.append_texture(
                     &sprite.texture,
@@ -965,7 +980,7 @@ mod imp {
                 );
                 snapshot.pop();
             }
-            if let Some(b) = &frame.bubble
+            if let Some(b) = &top.bubble
                 && b.alpha > 0.004
             {
                 let shape = Shape {
@@ -1050,7 +1065,7 @@ mod imp {
             {
                 draw_card(widget.upcast_ref(), snapshot, c);
             }
-            for t in &frame.texts {
+            for t in top.layers().flat_map(|f| &f.texts) {
                 if t.alpha <= 0.004 || t.text.is_empty() {
                     continue;
                 }

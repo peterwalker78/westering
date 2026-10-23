@@ -155,7 +155,7 @@ struct Cached {
     at: UnixMs,
     size: (f64, f64),
     brightness: f64,
-    frame: Frame,
+    frame: std::rc::Rc<Frame>,
 }
 
 pub(crate) struct Timed {
@@ -859,11 +859,14 @@ impl Game {
             && (0..every).contains(&(real - c.at))
             && c.size == (self.camera.width, self.camera.height)
         {
-            let (mut frame, brightness) = (c.frame.clone(), c.brightness);
-            let (sprites, bubble, embers) = self.guide_frame(real, brightness);
+            let mut frame = Frame {
+                under: Some(c.frame.clone()),
+                ..Frame::default()
+            };
+            let (sprites, bubble, embers) = self.guide_frame(real, c.brightness);
             frame.sprites = sprites;
             frame.bubble = bubble;
-            frame.marks.extend(embers);
+            frame.marks = embers;
             if self.by_day() {
                 frame.silhouettes = self.day_life(real);
             }
@@ -885,21 +888,26 @@ impl Game {
             frame.texts.extend(self.wind_texts(real));
             frame.points.extend(self.wind_ring(real));
         }
+        // What moves every tick goes on top; the rest is kept to draw under
+        // the next few ticks.
+        let mut top = Frame {
+            glows: std::mem::take(&mut frame.glows),
+            sprites: std::mem::take(&mut frame.sprites),
+            bubble: frame.bubble.take(),
+            marks: std::mem::take(&mut frame.marks),
+            silhouettes: std::mem::take(&mut frame.silhouettes),
+            ..Frame::default()
+        };
+        let under = std::rc::Rc::new(frame);
         self.cached = Some(Cached {
             at: real,
             size: (self.camera.width, self.camera.height),
             brightness: self.sprite_brightness,
-            frame: Frame {
-                glows: Vec::new(),
-                sprites: Vec::new(),
-                bubble: None,
-                marks: Vec::new(),
-                silhouettes: Vec::new(),
-                ..frame.clone()
-            },
+            frame: under.clone(),
         });
-        self.overlay(&mut frame, real, dt);
-        frame
+        top.under = Some(under);
+        self.overlay(&mut top, real, dt);
+        top
     }
 
     /// What follows the pointer, drawn fresh every frame over a full or a
