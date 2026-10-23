@@ -12,7 +12,6 @@ mod sky;
 #[cfg(test)]
 mod walk;
 
-pub(crate) use detail::Subject;
 pub(crate) use finds::TonightFind;
 pub(crate) use sky::{envelope, gather, hills};
 
@@ -175,16 +174,6 @@ pub(crate) struct Card {
     pub(crate) shown: UnixMs,
 }
 
-/// What the photograph over the sky is of: one of tonight's finds, or any
-/// pictured object the view has closed in on.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Eye {
-    Find(usize),
-    Piece(usize),
-    /// A planet or the Moon looked at close up, not one of tonight's finds.
-    Body(Body),
-}
-
 /// A full frame kept for reuse, less the wisp and anything alive.
 struct Cached {
     at: UnixMs,
@@ -288,8 +277,9 @@ pub struct Game {
     /// Where Jupiter's moons were drawn this frame, to name them.
     moon_labels: Vec<(f64, f64, &'static str, f32)>,
     pub(crate) photos: crate::eyepiece::Photos,
-    /// The find the eyepiece shows, and how far it has faded in.
-    eye: Option<Eye>,
+    /// What the eyepiece shows, a find or anything pictured the view has
+    /// closed in on, and how far it has faded in.
+    eye: Option<Target>,
     eye_alpha: f64,
     /// A find being told a card at a time.
     pub(crate) tour: Option<crate::tour::Tour>,

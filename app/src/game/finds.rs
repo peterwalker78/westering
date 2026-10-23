@@ -36,9 +36,25 @@ impl std::ops::Deref for TonightFind {
 }
 
 impl Game {
+    /// Which of tonight's finds `target` is, if it's one.
+    pub(crate) fn find_of(&self, target: Target) -> Option<usize> {
+        self.finds.iter().position(|f| f.target == target)
+    }
+
     /// Where find `i` is, as a horizon vector.
     pub(crate) fn find_dir(&self, i: usize, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<Vec3> {
-        match self.finds[i].target {
+        self.target_dir(self.finds[i].target, now, hz, prec)
+    }
+
+    /// Where something in the sky is, as a horizon vector.
+    pub(crate) fn target_dir(
+        &self,
+        target: Target,
+        now: UnixMs,
+        hz: &Mat3,
+        prec: &Mat3,
+    ) -> Option<Vec3> {
+        match target {
             Target::Body(body) => {
                 let s = see(body, self.observer, now);
                 Some(from_alt_az(s.alt, s.az))
@@ -56,7 +72,7 @@ impl Game {
             Target::Figure(f) => self.sky.figures[f]
                 .centre(&self.sky.stars)
                 .map(|(c, _)| apply(hz, apply(prec, c))),
-            Target::Hop(_) => self.stop_dir(self.hop_stop(i)?, hz, prec),
+            Target::Hop(_) => self.stop_dir(self.hop_stop(self.find_of(target)?)?, hz, prec),
             Target::Story(s) => {
                 let anchor = self.sky.tours.stories[s].anchor;
                 self.sky

@@ -19,7 +19,7 @@ pub fn civil_time(at: UnixMs, offset_s: i32) -> String {
     format!("{h12}:{m:02} {half}")
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Target {
     Body(Body),
     /// Index into the showpiece list.

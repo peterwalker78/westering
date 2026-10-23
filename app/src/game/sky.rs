@@ -243,7 +243,7 @@ impl Game {
 
         // A photograph taking over from the dots it replaces.
         self.update_eye(now, hz, prec, dt);
-        let (photo_body, photo_piece) = match self.eye.map(|e| self.eye_of(e)) {
+        let (photo_body, photo_piece) = match self.eye {
             Some(Target::Body(b)) => (Some(b), None),
             Some(Target::Showpiece(p)) => (None, Some(p)),
             _ => (None, None),
