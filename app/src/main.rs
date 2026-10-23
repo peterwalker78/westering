@@ -408,33 +408,42 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
     let spent = std::cell::Cell::new((0.0f64, 0u32, real));
     let profile = args.profile;
     // Keeping company while the window is out of sight, frames stop: a slow
-    // timer keeps the music going and lets the wisp look in. Otherwise it
-    // does nothing.
-    {
+    // timer keeps the music going and lets the wisp look in. It only runs
+    // while keeping company.
+    let company_timer = {
         let (game, music) = (game.clone(), music.clone());
         let (last_frame, last_music) = (last_frame.clone(), last_music.clone());
-        glib::timeout_add_local(std::time::Duration::from_secs(1), move || {
-            let real = wall_clock();
-            if steady_clock() - last_frame.get() > 1_500
-                && let Ok(mut g) = game.try_borrow_mut()
-                && g.keeping()
-            {
-                g.company_tick(real, false);
-                let level = g.music_level(real) * g.volume();
-                drop(g);
-                let dt = (real - last_music.get()).clamp(0, 2_000) as f64 / 1000.0;
-                last_music.set(real);
-                music.borrow_mut().tick(level, dt);
-            }
-            glib::ControlFlow::Continue
-        });
-    }
+        move || {
+            let (game, music) = (game.clone(), music.clone());
+            let (last_frame, last_music) = (last_frame.clone(), last_music.clone());
+            glib::timeout_add_local(std::time::Duration::from_secs(1), move || {
+                let real = wall_clock();
+                if steady_clock() - last_frame.get() > 1_500
+                    && let Ok(mut g) = game.try_borrow_mut()
+                    && g.keeping()
+                {
+                    g.company_tick(real, false);
+                    let level = g.music_level(real) * g.volume();
+                    drop(g);
+                    let dt = (real - last_music.get()).clamp(0, 2_000) as f64 / 1000.0;
+                    last_music.set(real);
+                    music.borrow_mut().tick(level, dt);
+                }
+                glib::ControlFlow::Continue
+            })
+        }
+    };
+    let company = std::cell::Cell::new(None::<glib::SourceId>);
     {
         let game = game.clone();
         let window = window.clone();
         let sheet = sheet.clone();
         let go = go.clone();
         view.add_tick_callback(move |view, _clock| {
+            // Out of sight there's nothing to draw.
+            if window.is_suspended() {
+                return glib::ControlFlow::Continue;
+            }
             let real = wall_clock();
             let pace = game.borrow().frame_ms(real);
             let on_sky = !sheet.reveals_child();
@@ -497,6 +506,11 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
                     } else {
                         spent.set((sum, n + 1, since));
                     }
+                }
+                match (g.keeping(), company.take()) {
+                    (true, None) => company.set(Some(company_timer())),
+                    (false, Some(id)) => id.remove(),
+                    (_, id) => company.set(id),
                 }
                 let quit = g.quit;
                 let request = g.take_request();
