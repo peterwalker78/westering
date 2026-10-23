@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -246,9 +246,13 @@ pub struct Journal {
 fn read<T: DeserializeOwned + Default>(path: &Path) -> T {
     match fs::read_to_string(path) {
         Ok(text) => toml::from_str(&text).unwrap_or_else(|e| {
+            // Started afresh, but the old file is set aside first, so the
+            // next save can't write over what couldn't be read.
+            let aside = set_aside(path);
             eprintln!(
-                "westering: {} could not be read ({e}); starting it afresh",
-                path.display()
+                "westering: {} could not be read ({e}); starting it afresh, the old one kept as {}",
+                path.display(),
+                aside.display()
             );
             T::default()
         }),
@@ -256,14 +260,57 @@ fn read<T: DeserializeOwned + Default>(path: &Path) -> T {
     }
 }
 
-/// Writes beside the file and renames over it, so a crash never leaves half a file.
+/// Moves a file to the first free `name.broken`, `name.broken-2`, ... beside it.
+fn set_aside(path: &Path) -> PathBuf {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    let aside = (1..)
+        .map(|n| match n {
+            1 => path.with_file_name(format!("{name}.broken")),
+            n => path.with_file_name(format!("{name}.broken-{n}")),
+        })
+        .find(|p| !p.exists())
+        .expect("a free name");
+    let _ = fs::rename(path, &aside);
+    aside
+}
+
+/// Writes beside the file, flushes it to disk and renames over it, so a
+/// crash or a power cut never leaves half a file.
 fn write_atomic(path: &Path, text: &str) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
     let tmp = path.with_extension("tmp");
-    fs::write(&tmp, text)?;
+    let mut file = fs::File::create(&tmp)?;
+    file.write_all(text.as_bytes())?;
+    file.sync_all()?;
     fs::rename(&tmp, path)
+}
+
+/// Whether a kept file's text reads as what it should hold.
+fn reads_as(name: &str, text: &str) -> bool {
+    fn ok<T: DeserializeOwned>(text: &str) -> bool {
+        toml::from_str::<T>(text).is_ok()
+    }
+    match name {
+        "found.toml" => ok::<FoundFile>(text),
+        "weights.toml" => ok::<WeightFile>(text),
+        "people.toml" => ok::<PersonFile>(text),
+        "plans.toml" => ok::<PlanFile>(text),
+        "courses.toml" => ok::<CourseFile>(text),
+        "asked.toml" => ok::<AskedFile>(text),
+        "drawings.toml" => ok::<DrawingFile>(text),
+        "settings.toml" => ok::<Settings>(text),
+        _ => front_matter::<Night>(text).is_some(),
+    }
+}
+
+/// A night page's front matter: the first closing `+++` that leaves whole
+/// TOML behind it, since a line of someone's own words could start with one.
+fn front_matter<T: DeserializeOwned>(page: &str) -> Option<T> {
+    let rest = page.strip_prefix("+++\n")?;
+    rest.match_indices("\n+++")
+        .find_map(|(i, _)| toml::from_str(&rest[..i]).ok())
 }
 
 fn write<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
@@ -426,9 +473,7 @@ impl Journal {
     }
 
     pub fn night(&self, key: &str) -> Option<Night> {
-        let text = fs::read_to_string(self.night_path(key)).ok()?;
-        let front = text.strip_prefix("+++\n")?.split_once("\n+++")?.0;
-        toml::from_str(front).ok()
+        front_matter(&fs::read_to_string(self.night_path(key)).ok()?)
     }
 
     pub fn save_night(&self, night: &Night) -> io::Result<()> {
@@ -714,7 +759,8 @@ impl Journal {
     }
 
     /// Replaces everything kept with a backup's contents. Nothing is touched
-    /// unless the whole backup reads cleanly.
+    /// unless every file in the backup reads cleanly and has been written
+    /// out in full beside the old ones.
     pub fn restore(&mut self, text: &str) -> io::Result<usize> {
         let backup: Backup = toml::from_str(text).map_err(io::Error::other)?;
         let safe = |path: &str| {
@@ -733,13 +779,36 @@ impl Journal {
                 bad.path
             )));
         }
+        if let Some(bad) = backup.file.iter().find(|f| !reads_as(&f.path, &f.text)) {
+            return Err(io::Error::other(format!(
+                "a file in it is damaged: {}",
+                bad.path
+            )));
+        }
+        let stage = self.dir.join("restoring");
+        let _ = fs::remove_dir_all(&stage);
+        let staged = backup
+            .file
+            .iter()
+            .try_for_each(|f| write_atomic(&stage.join(&f.path), &f.text));
+        if let Err(e) = staged {
+            let _ = fs::remove_dir_all(&stage);
+            return Err(e);
+        }
+        // Everything is on disk: only renames from here.
         for name in KEPT.iter().chain(["settings.toml"].iter()) {
-            let _ = fs::remove_file(self.dir.join(name));
+            let new = stage.join(name);
+            if new.exists() {
+                fs::rename(new, self.dir.join(name))?;
+            } else {
+                let _ = fs::remove_file(self.dir.join(name));
+            }
         }
         let _ = fs::remove_dir_all(self.dir.join("logbook"));
-        for f in &backup.file {
-            write_atomic(&self.dir.join(&f.path), &f.text)?;
+        if stage.join("logbook").exists() {
+            fs::rename(stage.join("logbook"), self.dir.join("logbook"))?;
         }
+        let _ = fs::remove_dir_all(&stage);
         *self = Journal::open(&self.dir);
         Ok(backup.file.len())
     }
@@ -866,7 +935,8 @@ mod tests {
             answers: vec![Answer {
                 question: "polaris".into(),
                 prompt: "Who would pick up?".into(),
-                text: "Sam".into(),
+                // Someone's words can hold a line that looks like the fence.
+                text: "Sam\n+++ and Jo".into(),
                 person: Some("Sam".into()),
                 star: Some(424),
             }],
@@ -1021,6 +1091,40 @@ mod tests {
         assert!(fresh.restore("not a backup").is_err());
         let _ = fs::remove_dir_all(&dir);
         let _ = fs::remove_dir_all(&other);
+    }
+
+    #[test]
+    fn a_damaged_backup_changes_nothing() {
+        let dir = scratch("damaged");
+        let mut j = two_nights(&dir);
+        let before = j.backup("2026-09-28");
+        let mut backup: Backup = toml::from_str(&before).unwrap();
+        let weights = backup.file.iter_mut().find(|f| f.path == "weights.toml");
+        weights.unwrap().text = "weight = 3".into();
+        assert!(j.restore(&toml::to_string(&backup).unwrap()).is_err());
+        assert_eq!(j.backup("2026-09-28"), before);
+        assert!(!dir.join("restoring").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_is_set_aside_not_written_over() {
+        let dir = scratch("unreadable");
+        fs::create_dir_all(&dir).unwrap();
+        let odd = "[[person]]\nname = 4\n";
+        fs::write(dir.join("people.toml"), odd).unwrap();
+        let mut j = Journal::open(&dir);
+        assert!(j.people.is_empty());
+        j.person_mut("Sam");
+        j.save_people().unwrap();
+        let kept = fs::read_to_string(dir.join("people.toml.broken")).unwrap();
+        assert_eq!(kept, odd);
+        // A second one doesn't replace the first.
+        fs::write(dir.join("people.toml"), "person = [").unwrap();
+        Journal::open(&dir);
+        assert!(dir.join("people.toml.broken").exists());
+        assert!(dir.join("people.toml.broken-2").exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
