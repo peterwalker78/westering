@@ -47,6 +47,20 @@ jobs:
         run: |
           cd built
           sha256sum westering-x86_64.flatpak > westering-x86_64.flatpak.sha256
+      - name: Sign
+        # Slipstream checks the bundle against this signature once its file for this app names
+        # the public key. Without the secret the release still goes out, unsigned.
+        env:
+          EXTRA_SIGNING_KEY: ${{ secrets.EXTRA_SIGNING_KEY }}
+        run: |
+          if [ -z "$EXTRA_SIGNING_KEY" ]; then
+            echo "::warning::EXTRA_SIGNING_KEY isn't set, so the bundle goes out unsigned"
+            exit 0
+          fi
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$EXTRA_SIGNING_KEY" >"$key"
+          ssh-keygen -q -Y sign -f "$key" -n slipstream-extra built/westering-x86_64.flatpak
       - name: Attach to the release
         # A release that is already there keeps its notes and gets these files.
         # A new one stays a draft until the files are on it, so "latest" never
