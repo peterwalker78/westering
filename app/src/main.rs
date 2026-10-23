@@ -37,7 +37,7 @@ use settings::Settings;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use ui::PromptBar;
+use ui::{PromptBar, wall_clock};
 use view::SkyView;
 use westering_core::coords::Observer;
 use westering_core::journal::Journal;
@@ -88,10 +88,6 @@ fn parse_args() -> Args {
         }
     }
     args
-}
-
-pub fn wall_clock() -> UnixMs {
-    glib::real_time() / 1000
 }
 
 /// For pacing frames: never steps back when the wall clock is set.
