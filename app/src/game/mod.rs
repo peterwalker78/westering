@@ -12,8 +12,8 @@ mod sky;
 #[cfg(test)]
 mod walk;
 
-pub(crate) use detail::Subject;
 pub(crate) use finds::TonightFind;
+pub(crate) use sky::{envelope, gather, hills};
 
 use crate::camera::Camera;
 use crate::field::{Field, Rgb, noise3};
@@ -22,8 +22,10 @@ use gtk::gdk;
 use gtk::gdk::prelude::TextureExt;
 use westering_core::catalogues::Kind;
 use westering_core::coords::{
-    Mat3, Observer, Vec3, alt_az, apply, from_alt_az, horizon, precession, refraction, unit,
+    Mat3, Observer, Vec3, alt_az, apply, dot, from_alt_az, horizon, normalise, precession,
+    refraction, transpose, turn, unit,
 };
+use westering_core::ease::smoothstep;
 use westering_core::ephem::{Body, moon_age, moon_phase_name};
 use westering_core::finale::{Handoff, handoff};
 use westering_core::finds::{Find, Target, night_key, night_of, tonight};
@@ -172,16 +174,6 @@ pub(crate) struct Card {
     pub(crate) shown: UnixMs,
 }
 
-/// What the photograph over the sky is of: one of tonight's finds, or any
-/// pictured object the view has closed in on.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Eye {
-    Find(usize),
-    Piece(usize),
-    /// A planet or the Moon looked at close up, not one of tonight's finds.
-    Body(Body),
-}
-
 /// A full frame kept for reuse, less the wisp and anything alive.
 struct Cached {
     at: UnixMs,
@@ -285,8 +277,9 @@ pub struct Game {
     /// Where Jupiter's moons were drawn this frame, to name them.
     moon_labels: Vec<(f64, f64, &'static str, f32)>,
     pub(crate) photos: crate::eyepiece::Photos,
-    /// The find the eyepiece shows, and how far it has faded in.
-    eye: Option<Eye>,
+    /// What the eyepiece shows, a find or anything pictured the view has
+    /// closed in on, and how far it has faded in.
+    eye: Option<Target>,
     eye_alpha: f64,
     /// A find being told a card at a time.
     pub(crate) tour: Option<crate::tour::Tour>,
@@ -402,81 +395,9 @@ const LATE_FINDS: usize = 5;
 pub(crate) fn late(now: UnixMs, offset_s: i32) -> bool {
     westering_core::time::clock(now, offset_s).0 < 5
 }
-const RETICLE: Rgb = [0.78, 0.84, 1.0];
-
-pub(crate) fn smoothstep(x: f64) -> f64 {
-    let x = x.clamp(0.0, 1.0);
-    x * x * (3.0 - 2.0 * x)
-}
-
-/// Fades in over `rise`, holds, and fades out over `fall`.
-pub(crate) fn envelope(age: UnixMs, rise: UnixMs, hold: UnixMs, fall: UnixMs) -> f64 {
-    if age < 0 {
-        0.0
-    } else if age < rise {
-        smoothstep(age as f64 / rise as f64)
-    } else if age < rise + hold {
-        1.0
-    } else {
-        1.0 - smoothstep((age - rise - hold) as f64 / fall.max(1) as f64)
-    }
-}
-
-/// The gentle hills along the horizon, in degrees of altitude.
-pub(crate) fn hills(az: f64) -> f64 {
-    let a = az.to_radians();
-    (0.75
-        + 0.45 * (3.0 * a + 0.7).sin()
-        + 0.3 * (7.0 * a + 2.1).sin()
-        + 0.18 * (13.0 * a + 0.3).sin())
-    .max(0.15)
-}
-
-/// How many magnitudes fainter the view reaches when zoomed in to `fov`,
-/// the way a telescope gathers more light than the eye.
-pub(crate) fn gather(fov: f64) -> f64 {
-    2.5 * (60.0 / fov).clamp(1.0, 100.0).log10()
-}
-
-/// Stars brighter than this are drawn as true points; fainter ones on the lattice.
-const BRIGHT: f64 = 3.0;
-
-/// A bright star or planet as a crisp point with a halo, sized by its light.
-fn point(x: f64, y: f64, color: Rgb, amount: f32, halo: f32) -> crate::view::Point {
-    crate::view::Point {
-        x,
-        y,
-        radius: (1.05 + 0.62 * amount).min(4.4),
-        color,
-        alpha: (0.5 + 0.35 * amount).min(1.0),
-        halo: (0.25 + amount / 2.2).min(1.0) * halo,
-    }
-}
-
-/// How much light a star of magnitude `mag` puts on its dot.
-fn light(mag: f64) -> f32 {
-    (1.6 * 10f64.powf(-0.4 * (mag - 1.0)).powf(0.55)) as f32
-}
-
-pub(crate) fn transpose(m: &Mat3) -> Mat3 {
-    [
-        [m[0][0], m[1][0], m[2][0]],
-        [m[0][1], m[1][1], m[2][1]],
-        [m[0][2], m[1][2], m[2][2]],
-    ]
-}
-
-pub(crate) fn dot3(a: Vec3, b: Vec3) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
 
 pub(crate) fn angle_between(a: Vec3, b: Vec3) -> f64 {
-    dot3(a, b).clamp(-1.0, 1.0).acos().to_degrees()
-}
-
-/// Shortest signed turn from one azimuth to another.
-pub(crate) fn turn(from: f64, to: f64) -> f64 {
-    (to - from + 540.0).rem_euclid(360.0) - 180.0
+    dot(a, b).clamp(-1.0, 1.0).acos().to_degrees()
 }
 
 impl Game {
@@ -604,7 +525,7 @@ impl Game {
             .map(|(s, &dir)| Prepared {
                 dir,
                 mag: s.mag as f64,
-                light: light(s.mag as f64),
+                light: sky::light(s.mag as f64),
                 tint: westering_core::stars::tint(s.bv),
                 rate: 0.9 + (s.hr % 7) as f64 * 0.23,
                 phase: s.hr as f64,

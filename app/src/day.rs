@@ -8,11 +8,12 @@
 //! step outside.
 
 use crate::field::noise3;
-use crate::game::{Card, Game, Row, smoothstep, turn};
+use crate::game::{Card, Game, Row};
 use crate::guide::Aim;
 use crate::view::{Frame, Point, Text};
 use gtk::gdk;
-use westering_core::coords::{Observer, compass};
+use westering_core::coords::{Observer, compass, turn};
+use westering_core::ease::smoothstep;
 use westering_core::ephem::Body;
 use westering_core::finale::whereabouts;
 use westering_core::ground::{self, Ground, Shape, Thing, Today};

@@ -1,6 +1,7 @@
 //! The widget the sky is drawn on. It holds one finished frame at a time:
-//! the dot field's texture, masked into round dots on the GPU, and a few
-//! lines of text.
+//! the dot field's texture, masked into round dots on the GPU, and over it
+//! the points, lines and glows, the photograph, the wisp and its bubble,
+//! the compass, the keys, the card and the words.
 
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -609,6 +610,109 @@ fn draw_card(widget: &gtk::Widget, snapshot: &gtk::Snapshot, c: &CardView) {
     }
 }
 
+/// The wisp's speech bubble, with its tail and, while it has more to
+/// say, three dots brightening in turn.
+fn draw_bubble(widget: &gtk::Widget, snapshot: &gtk::Snapshot, b: &Bubble) {
+    let shape = Shape {
+        size: 15.0,
+        bold: None,
+        wrap: Some(b.width),
+        centred: false,
+    };
+    let layout = shaped(widget, &b.text, shape);
+    let (lw, lh) = layout.pixel_size();
+    let pad = 14.0f32;
+    let dots = if b.more.is_some() { 14.0 } else { 0.0 };
+    let rect = graphene::Rect::new(
+        b.x as f32,
+        b.bottom as f32 - lh as f32 - 2.0 * pad - dots,
+        (lw as f32).max(60.0) + 2.0 * pad,
+        lh as f32 + 2.0 * pad + dots,
+    );
+    let a = b.alpha as f32;
+    snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(rect, 14.0));
+    snapshot.append_color(&gdk::RGBA::new(0.05, 0.06, 0.11, 0.86 * a), &rect);
+    snapshot.pop();
+    // A small tail down towards the wisp.
+    let tail = graphene::Rect::new(b.x as f32 + 34.0, b.bottom as f32 - 7.0, 12.0, 12.0);
+    if b.tail {
+        snapshot.save();
+        snapshot.translate(&graphene::Point::new(tail.x() + 6.0, tail.y() + 6.0));
+        snapshot.rotate(45.0);
+        snapshot.append_color(
+            &gdk::RGBA::new(0.05, 0.06, 0.11, 0.86 * a),
+            &graphene::Rect::new(-6.0, -6.0, 12.0, 12.0),
+        );
+        snapshot.restore();
+    }
+    snapshot.save();
+    snapshot.translate(&graphene::Point::new(rect.x() + pad, rect.y() + pad));
+    snapshot.append_layout(&layout, &gdk::RGBA::new(1.0, 0.96, 0.88, 0.95 * a));
+    snapshot.restore();
+    if let Some((t, how)) = b.more {
+        // Says so in words, beside three dots brightening in turn.
+        let shape = Shape {
+            size: 11.0,
+            bold: None,
+            wrap: None,
+            centred: false,
+        };
+        let more = shaped(widget, how, shape);
+        let (mw, mh) = more.pixel_size();
+        snapshot.save();
+        snapshot.translate(&graphene::Point::new(
+            rect.x() + rect.width() - pad - 28.0 - mw as f32,
+            rect.y() + rect.height() - 12.0 - mh as f32 / 2.0,
+        ));
+        snapshot.append_layout(&more, &gdk::RGBA::new(1.0, 0.9, 0.72, 0.55 * a));
+        snapshot.restore();
+        for k in 0..3 {
+            let phase = ((t * 1.6 - k as f64 * 0.22).rem_euclid(1.0) * std::f64::consts::TAU).sin();
+            let lit = 0.35 + 0.5 * phase.max(0.0) as f32;
+            let cx = rect.x() + rect.width() - pad - 20.0 + k as f32 * 8.0;
+            let cy = rect.y() + rect.height() - 12.0;
+            let dot = graphene::Rect::new(cx - 2.2, cy - 2.2, 4.4, 4.4);
+            snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(dot, 2.2));
+            snapshot.append_color(&gdk::RGBA::new(1.0, 0.9, 0.72, lit * a), &dot);
+            snapshot.pop();
+        }
+    }
+}
+
+/// A line of words, with a soft shadow to keep it clear of the dots.
+fn draw_text(widget: &gtk::Widget, snapshot: &gtk::Snapshot, t: &Text) {
+    if t.alpha <= 0.004 || t.text.is_empty() {
+        return;
+    }
+    let shape = Shape {
+        size: t.size,
+        bold: Some(t.bold),
+        wrap: t.wrap,
+        centred: t.align == Align::Centre,
+    };
+    let layout = shaped(widget, &t.text, shape);
+    let (lw, _) = layout.pixel_size();
+    let x = match (t.align, t.wrap) {
+        (Align::Left, _) => t.x,
+        // Pango centres wrapped lines within the wrap width itself.
+        (Align::Centre, Some(wrap)) => t.x - wrap / 2.0,
+        (Align::Centre, None) => t.x - lw as f64 / 2.0,
+    };
+    snapshot.save();
+    snapshot.translate(&graphene::Point::new(x as f32, t.y as f32));
+    let c = t.color;
+    // A soft dark shadow keeps words clear of the dots behind.
+    snapshot.push_shadow(&[gsk::Shadow::new(
+        gdk::RGBA::new(0.0, 0.01, 0.03, 0.7 * t.alpha as f32),
+        0.0,
+        1.0,
+        3.0,
+    )]);
+    snapshot.append_layout(&layout, &gdk::RGBA::new(c[0], c[1], c[2], t.alpha as f32));
+    snapshot.pop();
+    snapshot.restore();
+}
+
 /// A line with round ends and a faint glow either side of it.
 fn draw_line(snapshot: &gtk::Snapshot, l: &Line) {
     if l.alpha <= 0.004 {
@@ -715,7 +819,7 @@ fn draw_glow(snapshot: &gtk::Snapshot, g: &Glow) {
     }
 }
 
-fn draw_eyepiece(_widget: &gtk::Widget, snapshot: &gtk::Snapshot, e: &Eyepiece) {
+fn draw_eyepiece(snapshot: &gtk::Snapshot, e: &Eyepiece) {
     let a = e.alpha as f32;
     let (x, y, r) = (
         (e.x + e.offset.0) as f32,
@@ -909,47 +1013,7 @@ mod imp {
                 &gdk::RGBA::new(bg[0], bg[1], bg[2], 1.0),
                 &graphene::Rect::new(0.0, 0.0, w, h),
             );
-            if let Some(texture) = &frame.texture {
-                let pitch = frame.pitch;
-                let scale = widget.scale_factor();
-                let tile = {
-                    let mut cached = self.tile.borrow_mut();
-                    match &*cached {
-                        Some((p, s, t)) if *p == pitch && *s == scale => t.clone(),
-                        _ => {
-                            let t = crate::field::dot_tile(pitch, scale as f64);
-                            *cached = Some((pitch, scale, t.clone()));
-                            t
-                        }
-                    }
-                };
-                let bounds = graphene::Rect::new(
-                    0.0,
-                    0.0,
-                    frame.cols as f32 * pitch,
-                    frame.rows as f32 * pitch,
-                );
-                let cell = graphene::Rect::new(0.0, 0.0, pitch, pitch);
-                snapshot.push_mask(gsk::MaskMode::Alpha);
-                snapshot.push_repeat(&bounds, Some(&cell));
-                snapshot.append_texture(&tile, &cell);
-                snapshot.pop();
-                snapshot.pop();
-                snapshot.append_scaled_texture(texture, gsk::ScalingFilter::Nearest, &bounds);
-                snapshot.pop();
-                // Living things are drawn in the same dots as everything else.
-                if top.layers().any(|f| !f.silhouettes.is_empty()) {
-                    snapshot.push_mask(gsk::MaskMode::Alpha);
-                    snapshot.push_repeat(&bounds, Some(&cell));
-                    snapshot.append_texture(&tile, &cell);
-                    snapshot.pop();
-                    snapshot.pop();
-                    for s in top.layers().flat_map(|f| &f.silhouettes) {
-                        draw_silhouette(snapshot, s);
-                    }
-                    snapshot.pop();
-                }
-            }
+            self.draw_dots(snapshot, &top);
             for p in top.layers().flat_map(|f| &f.points) {
                 draw_point(snapshot, p);
             }
@@ -962,7 +1026,7 @@ mod imp {
             if let Some(e) = &frame.eyepiece
                 && e.alpha > 0.004
             {
-                draw_eyepiece(widget.upcast_ref(), snapshot, e);
+                draw_eyepiece(snapshot, e);
             }
             for p in top.layers().flat_map(|f| &f.marks) {
                 draw_point(snapshot, p);
@@ -983,73 +1047,7 @@ mod imp {
             if let Some(b) = &top.bubble
                 && b.alpha > 0.004
             {
-                let shape = Shape {
-                    size: 15.0,
-                    bold: None,
-                    wrap: Some(b.width),
-                    centred: false,
-                };
-                let layout = shaped(widget.upcast_ref(), &b.text, shape);
-                let (lw, lh) = layout.pixel_size();
-                let pad = 14.0f32;
-                let dots = if b.more.is_some() { 14.0 } else { 0.0 };
-                let rect = graphene::Rect::new(
-                    b.x as f32,
-                    b.bottom as f32 - lh as f32 - 2.0 * pad - dots,
-                    (lw as f32).max(60.0) + 2.0 * pad,
-                    lh as f32 + 2.0 * pad + dots,
-                );
-                let a = b.alpha as f32;
-                snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(rect, 14.0));
-                snapshot.append_color(&gdk::RGBA::new(0.05, 0.06, 0.11, 0.86 * a), &rect);
-                snapshot.pop();
-                // A small tail down towards the wisp.
-                let tail =
-                    graphene::Rect::new(b.x as f32 + 34.0, b.bottom as f32 - 7.0, 12.0, 12.0);
-                if b.tail {
-                    snapshot.save();
-                    snapshot.translate(&graphene::Point::new(tail.x() + 6.0, tail.y() + 6.0));
-                    snapshot.rotate(45.0);
-                    snapshot.append_color(
-                        &gdk::RGBA::new(0.05, 0.06, 0.11, 0.86 * a),
-                        &graphene::Rect::new(-6.0, -6.0, 12.0, 12.0),
-                    );
-                    snapshot.restore();
-                }
-                snapshot.save();
-                snapshot.translate(&graphene::Point::new(rect.x() + pad, rect.y() + pad));
-                snapshot.append_layout(&layout, &gdk::RGBA::new(1.0, 0.96, 0.88, 0.95 * a));
-                snapshot.restore();
-                if let Some((t, how)) = b.more {
-                    // Says so in words, beside three dots brightening in turn.
-                    let shape = Shape {
-                        size: 11.0,
-                        bold: None,
-                        wrap: None,
-                        centred: false,
-                    };
-                    let more = shaped(widget.upcast_ref(), how, shape);
-                    let (mw, mh) = more.pixel_size();
-                    snapshot.save();
-                    snapshot.translate(&graphene::Point::new(
-                        rect.x() + rect.width() - pad - 28.0 - mw as f32,
-                        rect.y() + rect.height() - 12.0 - mh as f32 / 2.0,
-                    ));
-                    snapshot.append_layout(&more, &gdk::RGBA::new(1.0, 0.9, 0.72, 0.55 * a));
-                    snapshot.restore();
-                    for k in 0..3 {
-                        let phase = ((t * 1.6 - k as f64 * 0.22).rem_euclid(1.0)
-                            * std::f64::consts::TAU)
-                            .sin();
-                        let lit = 0.35 + 0.5 * phase.max(0.0) as f32;
-                        let cx = rect.x() + rect.width() - pad - 20.0 + k as f32 * 8.0;
-                        let cy = rect.y() + rect.height() - 12.0;
-                        let dot = graphene::Rect::new(cx - 2.2, cy - 2.2, 4.4, 4.4);
-                        snapshot.push_rounded_clip(&gsk::RoundedRect::from_rect(dot, 2.2));
-                        snapshot.append_color(&gdk::RGBA::new(1.0, 0.9, 0.72, lit * a), &dot);
-                        snapshot.pop();
-                    }
-                }
+                draw_bubble(widget.upcast_ref(), snapshot, b);
             }
             if let Some(c) = &frame.compass {
                 draw_compass(widget.upcast_ref(), snapshot, w, h, c);
@@ -1066,36 +1064,7 @@ mod imp {
                 draw_card(widget.upcast_ref(), snapshot, c);
             }
             for t in top.layers().flat_map(|f| &f.texts) {
-                if t.alpha <= 0.004 || t.text.is_empty() {
-                    continue;
-                }
-                let shape = Shape {
-                    size: t.size,
-                    bold: Some(t.bold),
-                    wrap: t.wrap,
-                    centred: t.align == Align::Centre,
-                };
-                let layout = shaped(widget.upcast_ref(), &t.text, shape);
-                let (lw, _) = layout.pixel_size();
-                let x = match (t.align, t.wrap) {
-                    (Align::Left, _) => t.x,
-                    // Pango centres wrapped lines within the wrap width itself.
-                    (Align::Centre, Some(wrap)) => t.x - wrap / 2.0,
-                    (Align::Centre, None) => t.x - lw as f64 / 2.0,
-                };
-                snapshot.save();
-                snapshot.translate(&graphene::Point::new(x as f32, t.y as f32));
-                let c = t.color;
-                // A soft dark shadow keeps words clear of the dots behind.
-                snapshot.push_shadow(&[gsk::Shadow::new(
-                    gdk::RGBA::new(0.0, 0.01, 0.03, 0.7 * t.alpha as f32),
-                    0.0,
-                    1.0,
-                    3.0,
-                )]);
-                snapshot.append_layout(&layout, &gdk::RGBA::new(c[0], c[1], c[2], t.alpha as f32));
-                snapshot.pop();
-                snapshot.restore();
+                draw_text(widget.upcast_ref(), snapshot, t);
             }
             // The whole table of keys goes over everything else on the sky.
             if let Some(l) = &frame.legend
@@ -1109,6 +1078,55 @@ mod imp {
                     &gdk::RGBA::new(0.0, 0.0, 0.0, frame.veil.min(1.0)),
                     &graphene::Rect::new(0.0, 0.0, w, h),
                 );
+            }
+        }
+
+        /// The dot field: the texture masked into round dots, and the
+        /// silhouettes of living things in the same dots.
+        fn draw_dots(&self, snapshot: &gtk::Snapshot, top: &Frame) {
+            let widget = self.obj();
+            let frame = top.base();
+            let Some(texture) = &frame.texture else {
+                return;
+            };
+            let pitch = frame.pitch;
+            let scale = widget.scale_factor();
+            let tile = {
+                let mut cached = self.tile.borrow_mut();
+                match &*cached {
+                    Some((p, s, t)) if *p == pitch && *s == scale => t.clone(),
+                    _ => {
+                        let t = crate::field::dot_tile(pitch, scale as f64);
+                        *cached = Some((pitch, scale, t.clone()));
+                        t
+                    }
+                }
+            };
+            let bounds = graphene::Rect::new(
+                0.0,
+                0.0,
+                frame.cols as f32 * pitch,
+                frame.rows as f32 * pitch,
+            );
+            let cell = graphene::Rect::new(0.0, 0.0, pitch, pitch);
+            snapshot.push_mask(gsk::MaskMode::Alpha);
+            snapshot.push_repeat(&bounds, Some(&cell));
+            snapshot.append_texture(&tile, &cell);
+            snapshot.pop();
+            snapshot.pop();
+            snapshot.append_scaled_texture(texture, gsk::ScalingFilter::Nearest, &bounds);
+            snapshot.pop();
+            // Living things are drawn in the same dots as everything else.
+            if top.layers().any(|f| !f.silhouettes.is_empty()) {
+                snapshot.push_mask(gsk::MaskMode::Alpha);
+                snapshot.push_repeat(&bounds, Some(&cell));
+                snapshot.append_texture(&tile, &cell);
+                snapshot.pop();
+                snapshot.pop();
+                for s in top.layers().flat_map(|f| &f.silhouettes) {
+                    draw_silhouette(snapshot, s);
+                }
+                snapshot.pop();
             }
         }
     }

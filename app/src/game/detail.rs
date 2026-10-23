@@ -4,29 +4,15 @@
 
 use super::*;
 
-/// What a click in free look is about.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Subject {
-    /// One of tonight's finds.
-    Find(usize),
-    Body(Body),
-    /// A showpiece or a deep-sky object, by index.
-    Piece(usize),
-    /// A named star, by HR number.
-    Star(u16),
-    /// Something with nothing more to tell.
-    Plain,
-}
-
 /// The most paragraphs a card holds, so it stays on the screen.
 const MOST_PARAGRAPHS: usize = 5;
 
 impl Game {
-    /// Everything to say about a subject: kicker, title, the paragraphs, and
-    /// a photograph's id if there is one.
+    /// Everything to say about something: kicker, title, the paragraphs,
+    /// and a photograph's id if there is one.
     pub(crate) fn detail(
         &self,
-        subject: Subject,
+        target: Target,
         now: UnixMs,
     ) -> Option<(String, String, String, Option<String>)> {
         let hz = horizon(self.observer, now);
@@ -37,8 +23,8 @@ impl Game {
             westering_core::finale::whereabouts(alt, az)
         };
         let photo = |id: &str| self.photos.credit(id).map(|_| id.to_owned());
-        let (kicker, title, mut paragraphs, picture) = match subject {
-            Subject::Find(i) => {
+        let (kicker, title, mut paragraphs, picture) = match (self.find_of(target), target) {
+            (Some(i), _) => {
                 let find = &self.finds[i];
                 let here = self.find_dir(i, now, &hz, &prec).map(place);
                 match find.target {
@@ -74,12 +60,13 @@ impl Game {
                             .photos
                             .of_constellation(&figure.abbrev)
                             .map(|c| c.id.clone());
-                        ("Constellation".to_owned(), figure.name.clone(), all, pic).with_place(here)
+                        (self.kind_word(i).to_owned(), figure.name.clone(), all, pic)
+                            .with_place(here)
                     }
                     _ => return None,
                 }
             }
-            Subject::Body(b) => {
+            (None, Target::Body(b)) => {
                 let s = see(b, self.observer, now);
                 let name = {
                     let n = b.name();
@@ -88,21 +75,17 @@ impl Game {
                         .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
                         .unwrap_or_default()
                 };
-                let kind = if b == Body::Moon {
-                    "Our Moon"
-                } else {
-                    "Planet"
-                };
+                let kind = target.kind_word(&self.sky.lists.showpieces);
                 (kind.to_owned(), name, self.body_facts(b), photo(b.id()))
                     .with_place(Some(westering_core::finale::whereabouts(s.alt, s.az)))
             }
-            Subject::Piece(p) => {
+            (None, Target::Showpiece(p)) => {
                 let piece = &self.sky.lists.showpieces[p];
                 let v = apply(&hz, apply(&prec, unit(piece.ra, piece.dec)));
                 let (k, t, all, pic) = self.piece_detail(p);
                 (k, t, all, pic).with_place(Some(place(v)))
             }
-            Subject::Star(hr) => {
+            (None, Target::Star(hr)) => {
                 let v = self
                     .sky
                     .stars
@@ -111,7 +94,7 @@ impl Game {
                 let (k, t, all, pic) = self.star_detail(hr, year)?;
                 (k, t, all, pic).with_place(v.map(place))
             }
-            Subject::Plain => return None,
+            (None, _) => return None,
         };
         paragraphs.dedup();
         paragraphs.truncate(MOST_PARAGRAPHS);
@@ -150,16 +133,7 @@ impl Game {
                     + ".",
             );
         }
-        let kind = match piece.kind {
-            Kind::Cluster => "Star cluster",
-            Kind::Galaxy => "Galaxy",
-            Kind::Nebula => "Nebula",
-            Kind::Double => "Double star",
-            Kind::Star => "Star",
-            Kind::Dark => "Dark cloud",
-            Kind::Cloud => "Star cloud",
-            Kind::Asterism => "Asterism",
-        };
+        let kind = Target::Showpiece(p).kind_word(&self.sky.lists.showpieces);
         let pic = self.photos.credit(&piece.id).map(|c| c.id.clone());
         (kind.to_owned(), piece.name.clone(), all, pic)
     }
@@ -192,14 +166,15 @@ impl Game {
             all.truncate(MOST_PARAGRAPHS - 1);
             all.push(wide);
         }
-        Some(("Star".to_owned(), named.name.clone(), all, pic))
+        let kind = Target::Star(hr).kind_word(&self.sky.lists.showpieces);
+        Some((kind.to_owned(), named.name.clone(), all, pic))
     }
 
     /// Shows a subject's card with its left edge at `x`. A photograph the
     /// sky itself is showing isn't shown again on the card.
-    fn show_detail(&mut self, subject: Subject, x: f64, real: UnixMs, in_sky: bool) -> bool {
+    fn show_detail(&mut self, target: Target, x: f64, real: UnixMs, in_sky: bool) -> bool {
         let now = self.sky_now(real);
-        let Some((kicker, title, mut body, picture)) = self.detail(subject, now) else {
+        let Some((kicker, title, mut body, picture)) = self.detail(target, now) else {
             return false;
         };
         // The photograph in the sky: what it shows that an eye wouldn't,
@@ -215,10 +190,7 @@ impl Game {
         self.card = Some(Card {
             footnote: credit.map(|c| format!("Photograph: {}", c.credit)),
             picture: picture.filter(|_| !in_sky),
-            find: match subject {
-                Subject::Find(i) => Some(i),
-                _ => None,
-            },
+            find: self.find_of(target),
             x,
             kicker,
             title,
@@ -229,46 +201,9 @@ impl Game {
         true
     }
 
-    /// What a subject is, as a find's target.
-    fn subject_target(&self, subject: Subject) -> Option<Target> {
-        Some(match subject {
-            Subject::Find(i) => self.finds[i].target.clone(),
-            Subject::Body(b) => Target::Body(b),
-            Subject::Piece(p) => Target::Showpiece(p),
-            Subject::Star(hr) => Target::Star(hr),
-            Subject::Plain => return None,
-        })
-    }
-
-    fn subject_dir(&self, subject: Subject, now: UnixMs, hz: &Mat3, prec: &Mat3) -> Option<Vec3> {
-        match subject {
-            Subject::Find(i) => self.find_dir(i, now, hz, prec),
-            Subject::Body(b) => {
-                let s = see(b, self.observer, now);
-                Some(from_alt_az(s.alt, s.az))
-            }
-            Subject::Piece(p) => {
-                let piece = &self.sky.lists.showpieces[p];
-                Some(apply(hz, apply(prec, unit(piece.ra, piece.dec))))
-            }
-            Subject::Star(hr) => self
-                .sky
-                .stars
-                .index_of(hr)
-                .map(|idx| apply(hz, self.star_dirs[idx])),
-            Subject::Plain => None,
-        }
-    }
-
-    /// The photograph the sky shows of a subject close up, if it has one.
-    pub(super) fn inspect_eye(&self, subject: Subject) -> Option<Eye> {
-        let in_sky = |id: &str| self.photos.credit(id).is_some_and(|c| !c.card_only);
-        match subject {
-            Subject::Find(i) => self.photo_id(i).map(|_| Eye::Find(i)),
-            Subject::Piece(p) => in_sky(&self.sky.lists.showpieces[p].id).then_some(Eye::Piece(p)),
-            Subject::Body(b) => in_sky(b.id()).then_some(Eye::Body(b)),
-            Subject::Star(_) | Subject::Plain => None,
-        }
+    /// The photograph the sky shows of something close up, if it has one.
+    pub(super) fn inspect_eye(&self, target: Target) -> Option<Target> {
+        self.eye_photo(target).map(|_| target)
     }
 
     /// Pixels per degree at a field of view.
@@ -280,22 +215,27 @@ impl Game {
     /// Free look's click: the view glides in until the thing fills its
     /// side of the screen, photograph and all, with its card beside it and
     /// the wisp between the two. Esc glides back out to where it was.
-    pub(crate) fn inspect(&mut self, subject: Subject, clicked_x: f64, real: UnixMs) -> bool {
-        if self.inspecting().is_some_and(|i| i.subject == subject) {
+    pub(crate) fn inspect(
+        &mut self,
+        subject: Option<Target>,
+        clicked_x: f64,
+        real: UnixMs,
+    ) -> bool {
+        let Some(target) = subject else {
+            return false;
+        };
+        if self.inspecting().is_some_and(|i| i.subject == target) {
             return true;
         }
         let now = self.sky_now(real);
         let (hz, prec) = (horizon(self.observer, now), precession(now));
-        let Some(target) = self.subject_target(subject) else {
-            return false;
-        };
-        if self.subject_dir(subject, now, &hz, &prec).is_none() {
+        if self.target_dir(target, now, &hz, &prec).is_none() {
             return false;
         }
         let cam = self.camera;
         let (w, h) = (cam.width, cam.height);
         let small = compact(w, h);
-        let eye = self.inspect_eye(subject);
+        let eye = self.inspect_eye(target);
         let mut fov = self.zoom_for_target(&target);
         let half = |g: &Game, fov: f64| match (&target, eye) {
             (_, Some(_)) => g.target_half(&target, fov),
@@ -342,14 +282,14 @@ impl Game {
             return false;
         };
         *slot = Some(Inspect {
-            subject,
+            subject: target,
             before,
             fov,
             at_x: ox,
             steering: true,
             arrived: false,
         });
-        if !self.show_detail(subject, card_x, real, eye.is_some()) {
+        if !self.show_detail(target, card_x, real, eye.is_some()) {
             if let Some(slot) = self.inspect_slot() {
                 *slot = None;
             }
@@ -389,7 +329,7 @@ impl Game {
         let (subject, final_fov, at_x, arrived) = (ins.subject, ins.fov, ins.at_x, ins.arrived);
         let now = self.sky_now(self.last_real);
         let (hz, prec) = (horizon(self.observer, now), precession(now));
-        let Some(v) = self.subject_dir(subject, now, &hz, &prec) else {
+        let Some(v) = self.target_dir(subject, now, &hz, &prec) else {
             return;
         };
         let (alt, az) = alt_az(v);
@@ -458,7 +398,7 @@ impl Game {
 
 /// Something clicked in free look, looked at close up.
 pub(crate) struct Inspect {
-    pub(crate) subject: Subject,
+    pub(crate) subject: Target,
     /// The view before the first click, azimuth, altitude and field, to go
     /// back to.
     before: (f64, f64, f64),

@@ -38,8 +38,8 @@ impl Game {
                     let mut m = 0.0;
                     if milky > 0.0 {
                         let eq = apply(&to_eq, v);
-                        let b = dot3(eq, ngp).clamp(-1.0, 1.0).asin().to_degrees();
-                        let l = dot3(eq, gy).atan2(dot3(eq, gc));
+                        let b = dot(eq, ngp).clamp(-1.0, 1.0).asin().to_degrees();
+                        let l = dot(eq, gy).atan2(dot(eq, gc));
                         let core = ((1.0 + l.cos()) / 2.0).powi(3);
                         let width = 6.5 + 7.0 * core;
                         let band = (-(b / width).powi(2)).exp();
@@ -64,7 +64,7 @@ impl Game {
                     milky_here = m;
                     let lattice = 0.024f32;
                     let air = (0.03 * (-(alt / 9.0)).exp()) as f32;
-                    let sunward = ((dot3(v, sun) + 1.0) / 2.0).powi(3) as f32;
+                    let sunward = ((dot(v, sun) + 1.0) / 2.0).powi(3) as f32;
                     let dusk = twilight * (0.18 + 0.5 * sunward);
                     [
                         lattice * 0.8 + air * 0.7 + dusk * (0.45 + 0.5 * sunward) + m * 0.82,
@@ -182,7 +182,7 @@ impl Game {
             if star.mag > shown {
                 break;
             }
-            if dot3(star.dir, ahead) < cos_reach {
+            if dot(star.dir, ahead) < cos_reach {
                 continue;
             }
             let (mag, star_light) = match algol {
@@ -243,7 +243,7 @@ impl Game {
 
         // A photograph taking over from the dots it replaces.
         self.update_eye(now, hz, prec, dt);
-        let (photo_body, photo_piece) = match self.eye.map(|e| self.eye_of(e)) {
+        let (photo_body, photo_piece) = match self.eye {
             Some(Target::Body(b)) => (Some(b), None),
             Some(Target::Showpiece(p)) => (None, Some(p)),
             _ => (None, None),
@@ -416,18 +416,13 @@ impl Game {
             let v = from_alt_az(jup.alt, jup.az);
             if let Some((jx, jy)) = cam.project(v) {
                 let toward = |w: Vec3| {
-                    let along = dot3(w, v);
-                    let t = [
+                    let along = dot(w, v);
+                    let t = normalise([
                         w[0] - along * v[0],
                         w[1] - along * v[1],
                         w[2] - along * v[2],
-                    ];
-                    let n = dot3(t, t).sqrt().max(1e-12);
-                    let nudge = [
-                        v[0] + t[0] / n * 1e-5,
-                        v[1] + t[1] / n * 1e-5,
-                        v[2] + t[2] / n * 1e-5,
-                    ];
+                    ]);
+                    let nudge = [v[0] + t[0] * 1e-5, v[1] + t[1] * 1e-5, v[2] + t[2] * 1e-5];
                     cam.project(nudge).map(|(a, b)| {
                         let (dx, dy) = (a - jx, b - jy);
                         let l = (dx * dx + dy * dy).sqrt().max(1e-12);
@@ -972,4 +967,55 @@ impl Game {
         }
         out
     }
+}
+
+const RETICLE: Rgb = [0.78, 0.84, 1.0];
+
+/// Fades in over `rise`, holds, and fades out over `fall`.
+pub(crate) fn envelope(age: UnixMs, rise: UnixMs, hold: UnixMs, fall: UnixMs) -> f64 {
+    if age < 0 {
+        0.0
+    } else if age < rise {
+        smoothstep(age as f64 / rise as f64)
+    } else if age < rise + hold {
+        1.0
+    } else {
+        1.0 - smoothstep((age - rise - hold) as f64 / fall.max(1) as f64)
+    }
+}
+
+/// The gentle hills along the horizon, in degrees of altitude.
+pub(crate) fn hills(az: f64) -> f64 {
+    let a = az.to_radians();
+    (0.75
+        + 0.45 * (3.0 * a + 0.7).sin()
+        + 0.3 * (7.0 * a + 2.1).sin()
+        + 0.18 * (13.0 * a + 0.3).sin())
+    .max(0.15)
+}
+
+/// How many magnitudes fainter the view reaches when zoomed in to `fov`,
+/// the way a telescope gathers more light than the eye.
+pub(crate) fn gather(fov: f64) -> f64 {
+    2.5 * (60.0 / fov).clamp(1.0, 100.0).log10()
+}
+
+/// Stars brighter than this are drawn as true points; fainter ones on the lattice.
+const BRIGHT: f64 = 3.0;
+
+/// A bright star or planet as a crisp point with a halo, sized by its light.
+fn point(x: f64, y: f64, color: Rgb, amount: f32, halo: f32) -> crate::view::Point {
+    crate::view::Point {
+        x,
+        y,
+        radius: (1.05 + 0.62 * amount).min(4.4),
+        color,
+        alpha: (0.5 + 0.35 * amount).min(1.0),
+        halo: (0.25 + amount / 2.2).min(1.0) * halo,
+    }
+}
+
+/// How much light a star of magnitude `mag` puts on its dot.
+pub(super) fn light(mag: f64) -> f32 {
+    (1.6 * 10f64.powf(-0.4 * (mag - 1.0)).powf(0.55)) as f32
 }

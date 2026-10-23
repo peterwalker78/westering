@@ -308,14 +308,12 @@ impl Game {
             self.random() - 0.5,
             self.random() - 0.5,
         ];
-        let along = dot3(seed, radiant);
-        let p = [
+        let along = dot(seed, radiant);
+        let p = normalise([
             seed[0] - along * radiant[0],
             seed[1] - along * radiant[1],
             seed[2] - along * radiant[2],
-        ];
-        let n = dot3(p, p).sqrt().max(1e-9);
-        let p = [p[0] / n, p[1] / n, p[2] / n];
+        ]);
         let a = (12.0 + self.random() * 40.0).to_radians();
         let from = [
             radiant[0] * a.cos() + p[0] * a.sin(),
