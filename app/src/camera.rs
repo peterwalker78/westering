@@ -1,7 +1,7 @@
 //! Where the view is looking, and the stereographic projection from the sky
 //! onto the window. Horizon vectors are `[north, east, up]`.
 
-use westering_core::coords::{Vec3, from_alt_az};
+use westering_core::coords::{Vec3, dot, from_alt_az, normalise};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
@@ -20,15 +20,6 @@ pub struct Camera {
 pub const FOV_WIDEST: f64 = 120.0;
 /// Close enough to fill the view with a planet's disc.
 pub const FOV_NARROWEST: f64 = 0.01;
-
-fn dot(a: Vec3, b: Vec3) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-fn normalise(v: Vec3) -> Vec3 {
-    let n = dot(v, v).sqrt().max(1e-12);
-    [v[0] / n, v[1] / n, v[2] / n]
-}
 
 fn cross(a: Vec3, b: Vec3) -> Vec3 {
     [

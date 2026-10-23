@@ -8,6 +8,7 @@ pub mod catalogues;
 pub mod chart;
 pub mod company;
 pub mod coords;
+pub mod ease;
 pub mod ephem;
 pub mod events;
 pub mod figures;

@@ -5,6 +5,7 @@
 //! and wobbles when it lands.
 
 use crate::view::Point;
+use westering_core::ease::smoothstep;
 use westering_core::time::UnixMs;
 
 struct Ember {
@@ -57,7 +58,7 @@ fn noise(t: f64, seed: u64) -> f64 {
     let i = t.floor();
     let f = t - i;
     let (a, b) = (slope(i as i64) * f, slope(i as i64 + 1) * (f - 1.0));
-    let u = f * f * (3.0 - 2.0 * f);
+    let u = smoothstep(f);
     (a + (b - a) * u) * 2.0
 }
 

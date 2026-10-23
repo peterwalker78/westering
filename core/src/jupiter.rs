@@ -113,7 +113,7 @@ pub fn pole() -> Vec3 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::coords::Vec3;
+    use crate::coords::{dot, normalise};
 
     /// (unix ms, body, ra, dec) from JPL Horizons (tools/horizons-jupiter.py).
     const FIXTURES: &[(i64, &str, f64, f64)] = &[
@@ -149,15 +149,6 @@ mod tests {
         (1800000000000, "callisto", 147.8264008, 14.0475117),
     ];
 
-    fn dot(a: Vec3, b: Vec3) -> f64 {
-        a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-    }
-
-    fn norm(a: Vec3) -> Vec3 {
-        let n = dot(a, a).sqrt();
-        [a[0] / n, a[1] / n, a[2] / n]
-    }
-
     #[test]
     fn the_moons_are_where_horizons_says() {
         // Jupiter's equatorial radius in km, and an AU.
@@ -177,7 +168,7 @@ mod tests {
             let east = [-ra.sin(), ra.cos(), 0.0];
             let north = [-dec.sin() * ra.cos(), -dec.sin() * ra.sin(), dec.cos()];
             let p = pole();
-            let p = norm([
+            let p = normalise([
                 p[0] - dot(p, jd) * jd[0],
                 p[1] - dot(p, jd) * jd[1],
                 p[2] - dot(p, jd) * jd[2],

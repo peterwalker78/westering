@@ -21,7 +21,7 @@ use westering_core::questions::{days_between, key_of};
 use westering_core::session::Phase;
 use westering_core::time::UnixMs;
 use westering_core::time::{DAY, civil_date, clock, weekday};
-use westering_core::wisp::{Feel, Gesture, Mode, Trend, Wisp};
+use westering_core::wisp::{Feel, Gesture, Mode, Wisp};
 
 /// A place on the screen, in pixels.
 type Spot = (f64, f64);
@@ -165,7 +165,7 @@ impl Guide {
         let mut wisp = Wisp::new(FLYING.0, FLYING.1);
         wisp.set_breath_outside(true);
         // It wakes as the sky arrives.
-        wisp.update(0.05, Mode::Away, Trend::Steady, false, true, false);
+        wisp.update(Mode::Away);
         Guide {
             wisp,
             line: None,
@@ -958,9 +958,7 @@ impl Game {
             _ if self.talk.prompt.is_some() => Mode::Holding,
             _ => Mode::Resting,
         };
-        self.guide
-            .wisp
-            .update(0.05, mode, Trend::Steady, false, true, false);
+        self.guide.wisp.update(mode);
         self.guide.wisp.set_feel(self.wisp_feel(real));
         self.guide
             .wisp

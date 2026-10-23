@@ -817,7 +817,7 @@ fn draw_compass(
     // 160 degrees across the strip, the view's heading in the middle.
     let span = 160.0;
     let at = |az: f64| {
-        let d = (az - c.heading + 540.0).rem_euclid(360.0) - 180.0;
+        let d = westering_core::coords::turn(c.heading, az);
         (d.abs() <= span / 2.0).then(|| x0 + strip_w / 2.0 + (d / span) as f32 * strip_w)
     };
     for step in (0..360).step_by(5) {

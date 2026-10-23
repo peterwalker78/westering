@@ -305,7 +305,7 @@ pub fn noise3(x: f64, y: f64, z: f64) -> f64 {
     }
     let (xi, yi, zi) = (x.floor(), y.floor(), z.floor());
     let (xf, yf, zf) = (x - xi, y - yi, z - zi);
-    let s = |t: f64| t * t * (3.0 - 2.0 * t);
+    let s = westering_core::ease::smoothstep;
     let (u, v, w) = (s(xf), s(yf), s(zf));
     let (xi, yi, zi) = (xi as i64, yi as i64, zi as i64);
     let lerp = |a: f64, b: f64, t: f64| a + (b - a) * t;
