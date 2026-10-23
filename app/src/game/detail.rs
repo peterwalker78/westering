@@ -60,7 +60,8 @@ impl Game {
                             .photos
                             .of_constellation(&figure.abbrev)
                             .map(|c| c.id.clone());
-                        ("Constellation".to_owned(), figure.name.clone(), all, pic).with_place(here)
+                        (self.kind_word(i).to_owned(), figure.name.clone(), all, pic)
+                            .with_place(here)
                     }
                     _ => return None,
                 }
@@ -74,11 +75,7 @@ impl Game {
                         .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
                         .unwrap_or_default()
                 };
-                let kind = if b == Body::Moon {
-                    "Our Moon"
-                } else {
-                    "Planet"
-                };
+                let kind = target.kind_word(&self.sky.lists.showpieces);
                 (kind.to_owned(), name, self.body_facts(b), photo(b.id()))
                     .with_place(Some(westering_core::finale::whereabouts(s.alt, s.az)))
             }
@@ -136,16 +133,7 @@ impl Game {
                     + ".",
             );
         }
-        let kind = match piece.kind {
-            Kind::Cluster => "Star cluster",
-            Kind::Galaxy => "Galaxy",
-            Kind::Nebula => "Nebula",
-            Kind::Double => "Double star",
-            Kind::Star => "Star",
-            Kind::Dark => "Dark cloud",
-            Kind::Cloud => "Star cloud",
-            Kind::Asterism => "Asterism",
-        };
+        let kind = Target::Showpiece(p).kind_word(&self.sky.lists.showpieces);
         let pic = self.photos.credit(&piece.id).map(|c| c.id.clone());
         (kind.to_owned(), piece.name.clone(), all, pic)
     }
@@ -178,7 +166,8 @@ impl Game {
             all.truncate(MOST_PARAGRAPHS - 1);
             all.push(wide);
         }
-        Some(("Star".to_owned(), named.name.clone(), all, pic))
+        let kind = Target::Star(hr).kind_word(&self.sky.lists.showpieces);
+        Some((kind.to_owned(), named.name.clone(), all, pic))
     }
 
     /// Shows a subject's card with its left edge at `x`. A photograph the

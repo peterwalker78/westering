@@ -6,7 +6,6 @@
 
 use crate::game::{Card, Game, envelope};
 use crate::view::{Glow, Text};
-use westering_core::catalogues::Kind;
 use westering_core::coords::{Mat3, alt_az, apply, from_alt_az, unit};
 use westering_core::ephem::Body;
 use westering_core::finds::Target;
@@ -56,19 +55,6 @@ const GLOW_BASE: f64 = 0.3;
 const GLOW_REACH: f64 = 260.0;
 /// A hint fades once the pointer has been still this long.
 const STILL_MS: UnixMs = 4_000;
-
-fn kind_of(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Cluster => "Star cluster",
-        Kind::Galaxy => "Galaxy",
-        Kind::Nebula => "Nebula",
-        Kind::Double => "Double star",
-        Kind::Star => "Star",
-        Kind::Dark => "Dark cloud",
-        Kind::Cloud => "Star cloud",
-        Kind::Asterism => "Asterism",
-    }
-}
 
 impl Game {
     pub fn pointer_moved(&mut self, x: f64, y: f64, real: UnixMs) {
@@ -272,12 +258,9 @@ impl Game {
                                 .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
                                 .unwrap_or_default()
                         },
-                        kind: if body == Body::Moon {
-                            "Our Moon"
-                        } else {
-                            "Planet"
-                        }
-                        .to_owned(),
+                        kind: Target::Body(body)
+                            .kind_word(&self.sky.lists.showpieces)
+                            .to_owned(),
                         more,
                         find: None,
                         subject: Some(Target::Body(body)),
@@ -367,7 +350,9 @@ impl Game {
                         y: 0.0,
                         radius: 0.0,
                         name: s.name.clone(),
-                        kind: "Star".into(),
+                        kind: Target::Star(s.hr)
+                            .kind_word(&self.sky.lists.showpieces)
+                            .to_owned(),
                         more: s.describe(year),
                         find: None,
                         subject: Some(Target::Star(s.hr)),
@@ -398,7 +383,9 @@ impl Game {
                         y: 0.0,
                         radius: 0.0,
                         name: p.name.clone(),
-                        kind: kind_of(p.kind).to_owned(),
+                        kind: Target::Showpiece(pi)
+                            .kind_word(&self.sky.lists.showpieces)
+                            .to_owned(),
                         more: Some(p.fact.clone()),
                         find: None,
                         subject: Some(Target::Showpiece(pi)),
@@ -479,7 +466,7 @@ impl Game {
                         y: 0.0,
                         radius: 0.0,
                         name: self.sky.figures[f].name.clone(),
-                        kind: "Constellation".into(),
+                        kind: self.kind_word(i).to_owned(),
                         more: caught.then(|| self.finds[i].fact.clone()),
                         find: (!caught).then_some(i),
                         subject: Some(self.finds[i].target),
