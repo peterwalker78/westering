@@ -6,6 +6,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, graphene, gsk, pango};
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Align {
@@ -223,18 +224,26 @@ pub struct Frame {
     pub veil: f32,
 }
 
-fn font(widget: &gtk::Widget, size: f64, bold: bool) -> pango::FontDescription {
-    let mut f = widget
-        .pango_context()
-        .font_description()
-        .unwrap_or_default();
-    f.set_absolute_size(size * pango::SCALE as f64);
-    f.set_weight(if bold {
-        pango::Weight::Semibold
-    } else {
-        pango::Weight::Normal
-    });
-    f
+/// What a layout's shape depends on besides its words.
+#[derive(Clone, Copy, PartialEq)]
+struct Shape {
+    size: f64,
+    /// None keeps the font's own weight.
+    bold: Option<bool>,
+    wrap: Option<f64>,
+    centred: bool,
+}
+
+/// Words laid out in an earlier frame, by their text. Shaping is most of
+/// what words cost to draw, and most of them stay put for many frames.
+#[derive(Default)]
+struct Layouts {
+    frame: u64,
+    kept: HashMap<String, Vec<(Shape, u32, pango::Layout, u64)>>,
+}
+
+thread_local! {
+    static LAYOUTS: RefCell<Layouts> = RefCell::default();
 }
 
 fn layout(
@@ -244,13 +253,66 @@ fn layout(
     bold: bool,
     wrap: Option<f64>,
 ) -> pango::Layout {
-    let l = widget.create_pango_layout(Some(text));
-    l.set_font_description(Some(&font(widget, size, bold)));
-    if let Some(w) = wrap {
-        l.set_width((w * pango::SCALE as f64) as i32);
-        l.set_wrap(pango::WrapMode::WordChar);
-    }
-    l
+    let shape = Shape {
+        size,
+        bold: Some(bold),
+        wrap,
+        centred: false,
+    };
+    shaped(widget, text, shape)
+}
+
+fn shaped(widget: &gtk::Widget, text: &str, shape: Shape) -> pango::Layout {
+    let context = widget.pango_context();
+    // A change of font or scale gives the context a new serial.
+    let serial = context.serial();
+    LAYOUTS.with_borrow_mut(|cache| {
+        let frame = cache.frame;
+        if let Some(e) = cache
+            .kept
+            .get_mut(text)
+            .and_then(|v| v.iter_mut().find(|e| e.0 == shape && e.1 == serial))
+        {
+            e.3 = frame;
+            return e.2.clone();
+        }
+        let l = widget.create_pango_layout(Some(text));
+        let mut f = context.font_description().unwrap_or_default();
+        f.set_absolute_size(shape.size * pango::SCALE as f64);
+        if let Some(bold) = shape.bold {
+            f.set_weight(if bold {
+                pango::Weight::Semibold
+            } else {
+                pango::Weight::Normal
+            });
+        }
+        l.set_font_description(Some(&f));
+        if let Some(w) = shape.wrap {
+            l.set_width((w * pango::SCALE as f64) as i32);
+            l.set_wrap(pango::WrapMode::WordChar);
+            if shape.centred {
+                l.set_alignment(pango::Alignment::Center);
+            }
+        }
+        cache
+            .kept
+            .entry(text.to_owned())
+            .or_default()
+            .push((shape, serial, l.clone(), frame));
+        l
+    })
+}
+
+/// Lets go of the layouts this frame didn't use.
+fn sweep_layouts() {
+    LAYOUTS.with_borrow_mut(|cache| {
+        let frame = cache.frame;
+        cache.kept.retain(|_, v| {
+            v.retain(|e| e.3 == frame);
+            !v.is_empty()
+        });
+        cache.frame += 1;
+    });
 }
 
 fn text_at(snapshot: &gtk::Snapshot, l: &pango::Layout, x: f32, y: f32, rgba: gdk::RGBA) {
@@ -815,6 +877,7 @@ mod imp {
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             let began = std::time::Instant::now();
             self.draw(snapshot);
+            sweep_layouts();
             let (ms, n) = self.spent.get();
             self.spent
                 .set((ms + began.elapsed().as_secs_f64() * 1000.0, n + 1));
@@ -905,15 +968,13 @@ mod imp {
             if let Some(b) = &frame.bubble
                 && b.alpha > 0.004
             {
-                let layout = widget.create_pango_layout(Some(&b.text));
-                let mut font = widget
-                    .pango_context()
-                    .font_description()
-                    .unwrap_or_default();
-                font.set_absolute_size(15.0 * pango::SCALE as f64);
-                layout.set_font_description(Some(&font));
-                layout.set_width((b.width * pango::SCALE as f64) as i32);
-                layout.set_wrap(pango::WrapMode::WordChar);
+                let shape = Shape {
+                    size: 15.0,
+                    bold: None,
+                    wrap: Some(b.width),
+                    centred: false,
+                };
+                let layout = shaped(widget.upcast_ref(), &b.text, shape);
                 let (lw, lh) = layout.pixel_size();
                 let pad = 14.0f32;
                 let dots = if b.more.is_some() { 14.0 } else { 0.0 };
@@ -946,13 +1007,13 @@ mod imp {
                 snapshot.restore();
                 if let Some((t, how)) = b.more {
                     // Says so in words, beside three dots brightening in turn.
-                    let more = widget.create_pango_layout(Some(how));
-                    let mut small = widget
-                        .pango_context()
-                        .font_description()
-                        .unwrap_or_default();
-                    small.set_absolute_size(11.0 * pango::SCALE as f64);
-                    more.set_font_description(Some(&small));
+                    let shape = Shape {
+                        size: 11.0,
+                        bold: None,
+                        wrap: None,
+                        centred: false,
+                    };
+                    let more = shaped(widget.upcast_ref(), how, shape);
                     let (mw, mh) = more.pixel_size();
                     snapshot.save();
                     snapshot.translate(&graphene::Point::new(
@@ -993,25 +1054,13 @@ mod imp {
                 if t.alpha <= 0.004 || t.text.is_empty() {
                     continue;
                 }
-                let layout = widget.create_pango_layout(Some(&t.text));
-                let mut font = widget
-                    .pango_context()
-                    .font_description()
-                    .unwrap_or_default();
-                font.set_absolute_size(t.size * pango::SCALE as f64);
-                font.set_weight(if t.bold {
-                    pango::Weight::Semibold
-                } else {
-                    pango::Weight::Normal
-                });
-                layout.set_font_description(Some(&font));
-                if let Some(wrap) = t.wrap {
-                    layout.set_width((wrap * pango::SCALE as f64) as i32);
-                    layout.set_wrap(pango::WrapMode::WordChar);
-                    if t.align == Align::Centre {
-                        layout.set_alignment(pango::Alignment::Center);
-                    }
-                }
+                let shape = Shape {
+                    size: t.size,
+                    bold: Some(t.bold),
+                    wrap: t.wrap,
+                    centred: t.align == Align::Centre,
+                };
+                let layout = shaped(widget.upcast_ref(), &t.text, shape);
                 let (lw, _) = layout.pixel_size();
                 let x = match (t.align, t.wrap) {
                     (Align::Left, _) => t.x,
