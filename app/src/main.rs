@@ -465,7 +465,11 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
                     tonight.fit(size.1 as f64, compact);
                     evening.fit(compact);
                 }
-                g.playing = music.borrow().playing();
+                let m = music.borrow();
+                if g.playing.as_ref() != m.playing() {
+                    g.playing = m.playing().cloned();
+                }
+                drop(m);
                 g.resize(
                     view.width() as f64,
                     view.height() as f64,

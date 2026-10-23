@@ -88,6 +88,8 @@ pub struct Music {
     pub quiet: bool,
     /// The track playing: its style, and which of that style's tracks.
     current: Option<(usize, usize)>,
+    /// Its style and title, worked out once when it starts.
+    title: Option<(String, String)>,
     /// Winding down: only the calmest tracks play.
     settling: bool,
     /// The track playing is too lively to wind down to, and is on its way
@@ -126,6 +128,7 @@ impl Music {
             volume: 0.0,
             quiet,
             current: None,
+            title: None,
             settling: false,
             giving_way: false,
             calm_next: 0,
@@ -151,11 +154,14 @@ impl Music {
 
     /// The style and title of the track playing: "02-moon-unit" is "Moon
     /// unit".
-    pub fn playing(&self) -> Option<(String, String)> {
+    pub fn playing(&self) -> Option<&(String, String)> {
         if self.quiet || self.volume < 0.01 {
             return None;
         }
-        let (pack, track) = self.current?;
+        self.title.as_ref()
+    }
+
+    fn title(&self, pack: usize, track: usize) -> Option<(String, String)> {
         let pack = self.packs.get(pack)?;
         let path = pack.tracks.get(track)?;
         let stem = path.file_stem()?.to_str()?;
@@ -227,6 +233,7 @@ impl Music {
         stream.play();
         self.stream = Some(stream);
         self.current = Some((pack, track));
+        self.title = self.title(pack, track);
     }
 
     /// Eases the volume towards `target` (0 to 1 of full) and moves on to the
@@ -282,7 +289,9 @@ impl Music {
                 if !s.is_playing() {
                     s.play();
                 }
-                s.set_volume(self.volume);
+                if s.volume() != self.volume {
+                    s.set_volume(self.volume);
+                }
             }
             None => self.start_next(),
         }
