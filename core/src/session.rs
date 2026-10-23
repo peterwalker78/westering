@@ -2,6 +2,7 @@
 //! the weights are set down, the hunt, the dimming, the finale and lights
 //! out. It is a pure state machine: the caller passes the time in.
 
+use crate::ease::smoothstep;
 use crate::time::{HOUR, MINUTE, UnixMs};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,11 +98,6 @@ pub struct Session {
     /// When the dimming began. The screen keeps dimming by the clock
     /// while the evening's held for breaths and a line to think over.
     dim_from: UnixMs,
-}
-
-fn smoothstep(x: f64) -> f64 {
-    let x = x.clamp(0.0, 1.0);
-    x * x * (3.0 - 2.0 * x)
 }
 
 impl Session {

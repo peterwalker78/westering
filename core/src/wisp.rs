@@ -15,6 +15,7 @@
 use std::f64::consts::{PI, TAU};
 
 use crate::canvas::{Canvas, Paint, stop};
+use crate::ease::smoothstep;
 use crate::look::Look;
 use crate::oklab::Rgb;
 
@@ -421,12 +422,6 @@ fn breathing(phase: f64) -> f64 {
     }
 }
 
-/// 0-1, eased at both ends; values past 1 hold at 1.
-fn smooth(x: f64) -> f64 {
-    let x = x.clamp(0.0, 1.0);
-    x * x * (3.0 - 2.0 * x)
-}
-
 fn wander(t: f64, seed: f64) -> f64 {
     (t * 0.00031 + seed).sin() * 0.5
         + (t * 0.00073 + seed * 2.1).sin() * 0.3
@@ -589,14 +584,14 @@ fn draw(wisp: &mut Wisp, now: f64, moving: bool, dark: bool, cr: &mut dyn Canvas
                         body_h *= 1.0 - squash + 0.06 * (air * PI).sin();
                     }
                     Gesture::Stretch => {
-                        let s = smooth(bump * 1.4);
+                        let s = smoothstep(bump * 1.4);
                         body_h *= 1.0 + 0.16 * s;
                         body_w *= 1.0 - 0.08 * s;
                         shut = s;
                         face_happy = face_happy.max(s);
                     }
                     Gesture::Yawn => {
-                        let s = smooth(bump * 1.5);
+                        let s = smoothstep(bump * 1.5);
                         body_h *= 1.0 + 0.07 * s;
                         yawn = s;
                         shut = s;

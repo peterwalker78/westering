@@ -325,7 +325,7 @@ impl Game {
         let now = self.clock.sky(real);
         let hz = horizon(self.observer, now);
         let eq = apply(
-            &crate::game::transpose(&hz),
+            &westering_core::coords::transpose(&hz),
             from_alt_az(self.camera.alt, self.camera.az),
         );
         let (ra, dec) = angles(eq);
