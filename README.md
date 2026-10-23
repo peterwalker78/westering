@@ -227,8 +227,9 @@ Any time:
 - The logbook is **plain files**: a Markdown page per night and a few small
   TOML files, in `~/.var/app/io.github.peterwalker78.Westering/data/westering/`.
   Anything in it can be deleted on its own with the bin beside it. The menu
-  can back everything up to one file in your Downloads folder (the only
-  folder the Flatpak can reach), restore a backup, or forget everything.
+  can back everything up to one file wherever you choose (the Flatpak can't
+  reach any of your folders by itself), restore a backup, or forget
+  everything.
 
 ## Get it
 

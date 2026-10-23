@@ -36,7 +36,7 @@ impl Walker {
                 lat: 51.48,
                 lon: 0.0,
             },
-            offset_s: 3600,
+            zone: |_| 3600,
             timings: Timings::STANDARD,
             journal: Journal::open(dir),
         };
@@ -605,6 +605,14 @@ fn free_look_never_turns_or_speaks_by_itself() {
         w.wait(5_000);
         quiet(&w);
     }
+    // Long enough for the tour to have offered winding down: here it waits.
+    let until = w.real + Timings::STANDARD.offer;
+    while w.real < until {
+        w.real += 1_000;
+        w.game.tick(w.real);
+    }
+    assert!(!w.game.offered_wind_down(), "{}", w.seen());
+    quiet(&w);
     // Something in the middle: Space looks closer, Esc backs out.
     let now = w.game.sky_now(w.real);
     let (hz, prec) = (horizon(w.game.observer, now), precession(now));

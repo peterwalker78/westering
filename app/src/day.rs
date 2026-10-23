@@ -641,10 +641,10 @@ impl Game {
             self.say_at(aim, text, real + 1_200, 8_000);
         }
         let now = self.clock.sky(real);
-        let (_, month, d) = civil_date(now, self.offset_s);
+        let (_, month, d) = civil_date(now, self.offset_s(now));
         let mut line = format!(
             "{} {} {} · the Sun is up",
-            westering_core::time::weekday(now, self.offset_s),
+            westering_core::time::weekday(now, self.offset_s(now)),
             d,
             westering_core::time::MONTHS[month as usize - 1]
         );
@@ -711,7 +711,8 @@ impl Game {
                 let dark = crossing(now, DAY, -6.0, false, |at| {
                     see(Body::Sun, self.observer, at).alt
                 });
-                let (h, m) = clock(dark.unwrap_or(now + 40 * MINUTE), self.offset_s);
+                let at = dark.unwrap_or(now + 40 * MINUTE);
+                let (h, m) = clock(at, self.offset_s(at));
                 lines.dusk.replace("{time}", &format!("{h:02}:{m:02}"))
             }
         }
@@ -747,7 +748,7 @@ impl Game {
         let now = self.clock.sky(real);
         let minute = now / (5 * MINUTE);
         if self.day_ref().stamp.is_some_and(|s| s.2 != minute) {
-            let fresh = ground::today(self.observer, now, self.offset_s);
+            let fresh = ground::today(self.observer, now, self.offset_s(now));
             if let Some(day) = &mut self.day {
                 let moon = fresh.moon.clone().or(day.today.moon.take());
                 day.today = ground::Today { moon, ..fresh };

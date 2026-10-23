@@ -430,12 +430,12 @@ impl Game {
         {
             return;
         }
-        let most = if late(now, self.offset_s) {
+        let most = if late(now, self.offset_s(now)) {
             LATE_FINDS
         } else {
             westering_core::finds::MOST
         };
-        let fresh = tonight(&self.sky, self.observer, now, self.offset_s, &|id| {
+        let fresh = tonight(&self.sky, self.observer, now, self.offset_s(now), &|id| {
             self.journal.times_found_before(id, &self.night)
         });
         let mut added = 0;

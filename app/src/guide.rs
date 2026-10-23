@@ -215,9 +215,7 @@ impl Game {
     pub(crate) fn mark_seen(&mut self, key: &str) {
         if !self.seen(key) {
             self.journal.settings.seen.push(key.to_owned());
-            if let Err(e) = self.journal.save_settings() {
-                eprintln!("westering: couldn't save settings: {e}");
-            }
+            self.save_settings();
         }
     }
 
@@ -450,7 +448,8 @@ impl Game {
     }
 
     pub(crate) fn guide_arrival(&mut self, real: UnixMs) {
-        let (_, month, _) = civil_date(self.sky_now(real), self.offset_s);
+        let now = self.sky_now(real);
+        let (_, month, _) = civil_date(now, self.offset_s(now));
         self.guide.wisp.set_season(season(month, self.observer.lat));
         let n = self.to_find();
         let things = match n {
@@ -485,7 +484,7 @@ impl Game {
             format!("{hello} You've found tonight's sky already; look around as long as you like.")
         } else if self.finds.is_empty() {
             format!("{hello} It's still light out, so there's not much to find yet.")
-        } else if crate::game::late(self.sky_now(real), self.offset_s) {
+        } else if crate::game::late(self.sky_now(real), self.offset_s(self.sky_now(real))) {
             format!(
                 "{hello}{things} It's late, so tonight's sky is a short one. W winds down whenever you're ready."
             )
@@ -511,8 +510,8 @@ impl Game {
     /// what the sky has done since.
     fn hello(&self, real: UnixMs) -> String {
         let now = self.sky_now(real);
-        let (hour, _) = clock(now, self.offset_s);
-        let (_, month, _) = civil_date(now, self.offset_s);
+        let (hour, _) = clock(now, self.offset_s(now));
+        let (_, month, _) = civil_date(now, self.offset_s(now));
         let lines = &self.guide.lines;
         if let (Some(last), _) = self.earlier_nights() {
             let days = days_between(&last, &self.night);
@@ -529,7 +528,7 @@ impl Game {
             .greeting(&Tonight {
                 night: &self.night,
                 hour,
-                weekday: weekday(now, self.offset_s),
+                weekday: weekday(now, self.offset_s(now)),
                 moon: &self.page.moon,
                 month,
                 lat: self.observer.lat,
@@ -573,9 +572,9 @@ impl Game {
             return;
         }
         if let Some((kind, at)) = turned(now, self.observer.lat)
-            && last.is_none_or(|l| l < key_of(at, self.offset_s))
+            && last.is_none_or(|l| l < key_of(at, self.offset_s(at)))
         {
-            let text = self.guide.lines.turn(kind, at, now, self.offset_s);
+            let text = self.guide.lines.turn(kind, at, now, self.offset_s(now));
             self.say_at(Aim::Near(0.4, 0.4), text, real + 1_200, 9_000);
             return;
         }
@@ -938,9 +937,10 @@ impl Game {
                 );
             }
         }
-        // A quarter of an hour in: the way to wind down, offered once, in
-        // a pause, at the foot of the screen.
-        if hunting
+        // A while in: the way to wind down, offered once, in
+        // a pause, at the foot of the screen. Free look stays silent; the
+        // offer waits for the list.
+        if touring
             && !self.by_day()
             && self.tour.is_none()
             && self.session.in_phase(real) > self.session.timings.offer
@@ -976,7 +976,8 @@ impl Game {
     fn wisp_feel(&self, real: UnixMs) -> Feel {
         let phase = self.session.phase();
         let writing = self.talk.prompt.as_ref().is_some_and(|p| p.entry);
-        let (hour, _) = westering_core::time::clock(self.sky_now(real), self.offset_s);
+        let now = self.sky_now(real);
+        let (hour, _) = westering_core::time::clock(now, self.offset_s(now));
         Feel {
             listening: writing && real - self.guide.typed_at < 6_000,
             moved: real < self.guide.moved_until,

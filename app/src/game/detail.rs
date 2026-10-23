@@ -31,7 +31,7 @@ impl Game {
     ) -> Option<(String, String, String, Option<String>)> {
         let hz = horizon(self.observer, now);
         let prec = precession(now);
-        let year = civil_date(now, self.offset_s).0;
+        let year = civil_date(now, self.offset_s(now)).0;
         let place = |v: Vec3| {
             let (alt, az) = alt_az(v);
             westering_core::finale::whereabouts(alt, az)

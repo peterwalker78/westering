@@ -98,9 +98,7 @@ impl Game {
             body = format!("{body}\n\n{}", self.sky.tours.hop_closing);
             if !self.journal.settings.seen.iter().any(|k| k == "hop-done") {
                 self.journal.settings.seen.push("hop-done".into());
-                if let Err(e) = self.journal.save_settings() {
-                    eprintln!("westering: couldn't save settings: {e}");
-                }
+                self.save_settings();
             }
         }
         if let Target::Star(hr) = self.finds[i].target

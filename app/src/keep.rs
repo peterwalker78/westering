@@ -148,7 +148,7 @@ impl Game {
             return;
         }
         let now = self.clock.sky(real);
-        let hour = clock(now, self.offset_s);
+        let hour = clock(now, self.offset_s(now));
         if !self.keep.company.as_ref().is_some_and(|c| c.due(now, hour)) {
             return;
         }

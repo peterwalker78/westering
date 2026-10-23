@@ -127,18 +127,6 @@ pub fn horizon_altitude(body: Body) -> f64 {
     }
 }
 
-pub fn next_rise(body: Body, observer: Observer, from: UnixMs, span: UnixMs) -> Option<UnixMs> {
-    crossing(from, span, horizon_altitude(body), true, |t| {
-        see(body, observer, t).alt
-    })
-}
-
-pub fn next_set(body: Body, observer: Observer, from: UnixMs, span: UnixMs) -> Option<UnixMs> {
-    crossing(from, span, horizon_altitude(body), false, |t| {
-        see(body, observer, t).alt
-    })
-}
-
 /// When and where something that's down next comes up: the moment it
 /// climbs through the horizon within `span`, and the bearing it does so
 /// at. `place` gives its altitude and azimuth at a moment.
@@ -190,7 +178,11 @@ mod tests {
     fn the_sun_sets_in_london_at_the_published_time() {
         // Sunset in London on 21 June 2026 is 21:21 BST (20:21 UTC).
         let from = midnight_utc(2026, 6, 21) + 12 * HOUR;
-        let set = next_set(Body::Sun, LONDON, from, DAY).expect("sets");
+        let sun = Body::Sun;
+        let set = crossing(from, DAY, horizon_altitude(sun), false, |t| {
+            see(sun, LONDON, t).alt
+        })
+        .expect("sets");
         let expected = midnight_utc(2026, 6, 21) + 20 * HOUR + 21 * MINUTE;
         assert!(
             (set - expected).abs() < 3 * MINUTE,

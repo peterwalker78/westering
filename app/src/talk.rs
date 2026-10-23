@@ -425,7 +425,7 @@ impl Game {
             plans: &self.journal.plans,
             events: &self.talk.events,
             now: self.clock.sky(self.last_real),
-            offset_s: self.offset_s,
+            offset_s: self.offset_s(self.clock.sky(self.last_real)),
         };
         questions::choose(&self.talk.bank, triggers, &ctx)
     }
@@ -616,7 +616,7 @@ impl Game {
             id,
             what: what.to_owned(),
             who: who.map(str::to_owned),
-            date: key_of(event.at, self.offset_s),
+            date: key_of(event.at, self.offset_s(event.at)),
             event: event.title.clone(),
             made: self.night.clone(),
             outcome: None,

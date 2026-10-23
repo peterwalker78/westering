@@ -87,9 +87,7 @@ impl Game {
     pub(super) fn nudge_volume(&mut self, by: f64, real: UnixMs) {
         let v = (self.volume() + by).clamp(0.0, 1.0);
         self.journal.settings.volume = Some(v);
-        if let Err(e) = self.journal.save_settings() {
-            eprintln!("westering: couldn't save settings: {e}");
-        }
+        self.save_settings();
         self.status(format!("Volume {}%", (v * 100.0).round()), real);
     }
 
@@ -113,9 +111,7 @@ impl Game {
             settings.quiet = true;
             None
         };
-        if let Err(e) = self.journal.save_settings() {
-            eprintln!("westering: couldn't save settings: {e}");
-        }
+        self.save_settings();
         self.status(line.unwrap_or_else(|| "Music off".into()), real);
         if self.keeping() {
             self.wisp_gesture(westering_core::wisp::Gesture::Nod, real);

@@ -201,7 +201,7 @@ impl Game {
             }
         };
         let up = |v: [f64; 3]| alt_az(v).0 > 0.0;
-        let year = civil_date(now, self.offset_s).0;
+        let year = civil_date(now, self.offset_s(now)).0;
 
         // Tonight's finds first: they're what the hunt is about.
         let mut taken: Vec<String> = Vec::new();

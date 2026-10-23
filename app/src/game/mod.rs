@@ -78,7 +78,9 @@ impl Clock {
 pub struct Options {
     pub clock: Clock,
     pub observer: Observer,
-    pub offset_s: i32,
+    /// The local offset from UTC at a moment, in seconds. Asked each time,
+    /// so a window left open as the clocks change keeps the right hour.
+    pub zone: fn(UnixMs) -> i32,
     pub timings: Timings,
     pub journal: Journal,
 }
@@ -198,7 +200,7 @@ pub struct Game {
     pub(crate) prepared: Vec<Prepared>,
     pub(crate) observer: Observer,
     pub(crate) clock: Clock,
-    pub(crate) offset_s: i32,
+    zone: fn(UnixMs) -> i32,
     pub(crate) night: String,
     pub(crate) session: Session,
     pub(crate) finds: Vec<Find>,
@@ -477,11 +479,12 @@ impl Game {
         let Options {
             clock,
             observer,
-            offset_s,
+            zone,
             timings,
             journal,
         } = options;
         let now = clock.sky(real_now);
+        let offset_s = zone(now);
         let ground = westering_core::ground::Ground::bundled();
         let by_day = crate::day::is_day(observer, now);
         // A day visit belongs to today, and shares its page with tonight.
@@ -619,7 +622,7 @@ impl Game {
             prepared,
             observer,
             clock,
-            offset_s,
+            zone,
             night,
             session,
             finds,
@@ -744,10 +747,10 @@ impl Game {
         self.camera.update();
         self.lay_out(now);
 
-        let (_, month, day) = civil_date(now, self.offset_s);
+        let (_, month, day) = civil_date(now, self.offset_s(now));
         let mut line = format!(
             "{} {} {}",
-            weekday(now, self.offset_s),
+            weekday(now, self.offset_s(now)),
             day,
             MONTHS[month as usize - 1]
         );
@@ -798,8 +801,22 @@ impl Game {
         self.journal.settings.style.as_deref()
     }
 
+    /// The local offset from UTC at `at`.
+    pub(crate) fn offset_s(&self, at: UnixMs) -> i32 {
+        (self.zone)(at)
+    }
+
     pub(crate) fn hunting(&self) -> bool {
         self.session.phase() == Phase::Hunt
+    }
+
+    /// Saves the settings; says whether that worked.
+    pub(crate) fn save_settings(&self) -> bool {
+        let saved = self.journal.save_settings();
+        if let Err(e) = &saved {
+            eprintln!("westering: couldn't save settings: {e}");
+        }
+        saved.is_ok()
     }
 
     fn save_page(&self) {
@@ -814,9 +831,9 @@ impl Game {
         self.last_real = real;
         self.settle_releases(real);
         self.logic(real);
-        // Unfocused, or keeping company, the sky and ground change slowly:
-        // they're drawn a few times a second, while the wisp and anything
-        // alive keep moving smoothly on top.
+        if !self.by_day() {
+            self.night_motion(real, dt);
+        }
         // The sky and ground change slowly: at rest they're drawn a few
         // times a second (fewer unfocused, fewer still keeping company),
         // while the wisp and anything alive move smoothly on top.
@@ -836,9 +853,10 @@ impl Game {
             && !telling
             && self.wisp_motion() < 2
             && !self.wants_fast_frames(real);
+        // A clock set back shows as a frame from the future: draw afresh.
         if quiet
             && let Some(c) = &self.cached
-            && real - c.at < every
+            && (0..every).contains(&(real - c.at))
             && c.size == (self.camera.width, self.camera.height)
         {
             let (mut frame, brightness) = (c.frame.clone(), c.brightness);
@@ -852,10 +870,16 @@ impl Game {
             self.overlay(&mut frame, real, dt);
             return frame;
         }
+        // Fades in the sky go by the time since it was last drawn, not
+        // since the last tick.
+        let since = self
+            .cached
+            .as_ref()
+            .map_or(dt, |c| ((real - c.at) as f64 / 1000.0).clamp(0.0, 0.25));
         let mut frame = if self.by_day() {
             self.day_frame(real)
         } else {
-            self.night_frame(real, dt)
+            self.night_frame(real, since)
         };
         if self.winding() {
             frame.texts.extend(self.wind_texts(real));
@@ -917,7 +941,9 @@ impl Game {
         self.guide_tick(real);
     }
 
-    fn night_frame(&mut self, real: UnixMs, dt: f64) -> Frame {
+    /// What moves at night, every tick, whether the sky is drawn afresh
+    /// or not.
+    fn night_motion(&mut self, real: UnixMs, dt: f64) {
         let tempo = self.session.tempo(real);
         self.steer(dt, tempo);
         let now = self.sky_now(real);
@@ -925,6 +951,13 @@ impl Game {
         let prec = precession(now);
         self.update_catch(dt, real, now, &hz, &prec);
         self.spawn_meteors(real, now, &hz);
+    }
+
+    fn night_frame(&mut self, real: UnixMs, dt: f64) -> Frame {
+        let tempo = self.session.tempo(real);
+        let now = self.sky_now(real);
+        let hz = horizon(self.observer, now);
+        let prec = precession(now);
         self.draw(real, now, &hz, &prec, tempo, dt)
     }
 
@@ -960,7 +993,7 @@ impl Game {
                 let now = self.clock.sky(real);
                 let mut last = match self.ending {
                     Some(Ending::Bed) => self.goodnight(),
-                    _ => handoff(&self.sky, self.observer, now, self.offset_s),
+                    _ => handoff(&self.sky, self.observer, now, self.offset_s(now)),
                 };
                 // When someone has written something heavy, the last line is a person.
                 let pole = if self.observer.lat >= 0.0 { 424 } else { 4730 };

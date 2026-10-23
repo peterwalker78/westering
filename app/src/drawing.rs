@@ -467,7 +467,7 @@ impl Game {
                 };
                 // To the nearest ten minutes: it's "about", and easier read.
                 let at = (at + 300_000) / 600_000 * 600_000;
-                let time = westering_core::finds::civil_time(at, self.offset_s);
+                let time = westering_core::finds::civil_time(at, self.offset_s(at));
                 let why = say.replace("{name}", &mark.name).replace("{time}", &time);
                 (az, why)
             } else {

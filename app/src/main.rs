@@ -75,6 +75,12 @@ fn parse_args() -> Args {
                 args.place = value
                     .split_once(',')
                     .and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?)))
+                    .filter(|&(lat, lon): &(f64, f64)| {
+                        (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)
+                    });
+                if args.place.is_none() {
+                    eprintln!("westering: ignoring {arg}");
+                }
             }
             _ => eprintln!("westering: ignoring {arg}"),
         }
@@ -84,6 +90,11 @@ fn parse_args() -> Args {
 
 pub fn wall_clock() -> UnixMs {
     glib::real_time() / 1000
+}
+
+/// For pacing frames: never steps back when the wall clock is set.
+fn steady_clock() -> i64 {
+    glib::monotonic_time() / 1000
 }
 
 fn utc_offset(at: UnixMs) -> i32 {
@@ -160,7 +171,7 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
             speed: args.speed.unwrap_or(1.0),
         },
         observer,
-        offset_s: utc_offset(sky0),
+        zone: utc_offset,
         timings,
         journal,
     };
@@ -389,6 +400,7 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
         game.borrow().style(),
     )));
     game.borrow_mut().styles = music.borrow().styles();
+    // On the steady clock; everything the game sees is on the wall clock.
     let last_frame = Rc::new(std::cell::Cell::new(0i64));
     let last_music = Rc::new(std::cell::Cell::new(real));
     let last_list = std::cell::Cell::new(0i64);
@@ -403,7 +415,7 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
         let (last_frame, last_music) = (last_frame.clone(), last_music.clone());
         glib::timeout_add_local(std::time::Duration::from_secs(1), move || {
             let real = wall_clock();
-            if real - last_frame.get() > 1_500
+            if steady_clock() - last_frame.get() > 1_500
                 && let Ok(mut g) = game.try_borrow_mut()
                 && g.keeping()
             {
@@ -437,8 +449,9 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
                 pace
             };
             let urgent = game.borrow().urgent;
-            if urgent || real - last_frame.get() >= interval {
-                last_frame.set(real);
+            let steady = steady_clock();
+            if urgent || steady - last_frame.get() >= interval {
+                last_frame.set(steady);
                 let mut g = game.borrow_mut();
                 g.urgent = false;
                 g.focused = window.is_active();
@@ -515,7 +528,9 @@ fn build(app: &gtk::Application, args: &Rc<Args>) {
 fn main() -> glib::ExitCode {
     let args = Rc::new(parse_args());
     let mut flags = gio::ApplicationFlags::empty();
-    if args.data.is_some() || args.at.is_some() {
+    // A second window only with a logbook of its own: two on the same
+    // files would each save over the other.
+    if args.data.is_some() {
         flags |= gio::ApplicationFlags::NON_UNIQUE;
     }
     let app = gtk::Application::builder()
