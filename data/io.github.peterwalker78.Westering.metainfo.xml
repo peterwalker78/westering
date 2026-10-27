@@ -33,6 +33,11 @@
   <url type="homepage">https://github.com/peterwalker78/westering</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.6.0" date="2026-10-27">
+      <description>
+        <p>Every evening now has four parts: set it down, explore tonight's list with the wisp, look up at the sky on your own, and wind down. Looking up lights everything with a photograph, now including pictures from Hubble and Webb, Uranus and Neptune, and a closer look glides in on anything you choose. Constellations are drawn whole and as they sit tonight, backing up asks where to save the file, and the evening asks less of the computer.</p>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-10-09">
       <description>
         <p>While it keeps you company, a change of music or volume is said at the top of the window, where it can be seen. It was drawn at the foot, behind the wisp's moss.</p>
