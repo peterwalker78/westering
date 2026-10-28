@@ -246,6 +246,13 @@ It uses the GNOME 50 runtime from Flathub, which Flatpak fetches if it isn't
 there. It ships with the [Slipstream](https://github.com/peterwalker78/slipstream-desktop)
 desktop and runs on any Linux desktop.
 
+## How did it feel?
+
+After a few evenings, say how they went, good or bad, in
+[Discussions](https://github.com/peterwalker78/westering/discussions/new?category=how-did-it-feel).
+The menu's "What it's for" page has the same link, which opens in your browser.
+Something broken goes in [an issue](https://github.com/peterwalker78/westering/issues/new/choose).
+
 ## Build it
 
 Rust (stable) and GTK 4.20 or newer.
