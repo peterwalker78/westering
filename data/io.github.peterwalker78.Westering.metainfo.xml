@@ -33,6 +33,11 @@
   <url type="homepage">https://github.com/peterwalker78/westering</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.6.1" date="2026-10-28">
+      <description>
+        <p>The menu's What it's for page now has a way to say how your evenings went. It opens a short form on GitHub in your browser; Westering itself still has no network access.</p>
+      </description>
+    </release>
     <release version="0.6.0" date="2026-10-27">
       <description>
         <p>Every evening now has four parts: set it down, explore tonight's list with the wisp, look up at the sky on your own, and wind down. Looking up lights everything with a photograph, now including pictures from Hubble and Webb, Uranus and Neptune, and a closer look glides in on anything you choose. Constellations are drawn whole and as they sit tonight, backing up asks where to save the file, and the evening asks less of the computer.</p>
