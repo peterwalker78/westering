@@ -250,7 +250,7 @@ desktop and runs on any Linux desktop.
 
 After a few evenings, say how they went, good or bad, in
 [Discussions](https://github.com/peterwalker78/westering/discussions/new?category=how-did-it-feel).
-The menu's "What it's for" page has the same link, which opens in your browser.
+The top of Settings has the same link, which opens in your browser.
 Something broken goes in [an issue](https://github.com/peterwalker78/westering/issues/new/choose).
 
 ## Build it
