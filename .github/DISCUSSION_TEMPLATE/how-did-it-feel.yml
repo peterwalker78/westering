@@ -1,0 +1,22 @@
+title: "How it went"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Good or bad, short or long. A few lines after an evening or two is plenty.
+  - type: textarea
+    id: wind-down
+    attributes:
+      label: Did it help you wind down?
+      description: How you felt before, during and after.
+    validations:
+      required: true
+  - type: textarea
+    id: afterwards
+    attributes:
+      label: What did you do afterwards?
+      description: Went outside, went to bed, picked the phone back up, anything.
+  - type: textarea
+    id: different
+    attributes:
+      label: What did you skip, or wish were different?

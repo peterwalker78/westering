@@ -1,0 +1,24 @@
+name: Something broke
+description: It crashed, froze, drew something wrong or lost something.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: before
+    attributes:
+      label: What were you doing just before?
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`flatpak info io.github.peterwalker78.Westering` shows it."
+  - type: input
+    id: system
+    attributes:
+      label: Distribution and desktop
+      placeholder: Fedora 44, GNOME
