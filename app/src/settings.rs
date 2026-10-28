@@ -55,6 +55,13 @@ const WHY_THE_SKY: &str = "The stars are the way in. Every story ends on a thoug
 
 const OVER_TIME: &str = "Over weeks, the logbook becomes a quiet record of your evenings: what you saw, what was on your mind and how it turned out, and the people and plans that keep coming up.";
 
+const HOW_IT_WENT: &str = "After a few evenings, say how they went, good or bad. The button opens a short form on GitHub in your browser, where you'll need an account.";
+
+/// Opens in the browser through the portal, so Westering itself still has no
+/// network.
+const HOW_IT_WENT_FORM: &str =
+    "https://github.com/peterwalker78/westering/discussions/new?category=how-did-it-feel";
+
 const CREDITS: [&str; 9] = [
     "Westering is free software under the GNU GPL, version 3 or later.",
     "Stars from the Yale Bright Star Catalogue (Hoffleit and Warren), through the CDS in Strasbourg.",
@@ -451,6 +458,22 @@ impl Settings {
             l.set_max_width_chars(64);
             self.body.append(&l);
         }
+        self.body.append(&label("HOW DID IT FEEL?", "book-heading"));
+        let l = label(HOW_IT_WENT, "book-body");
+        l.set_max_width_chars(64);
+        self.body.append(&l);
+        let open = gtk::Button::with_label("Open the form");
+        open.add_css_class("quiet");
+        open.set_halign(gtk::Align::Start);
+        open.connect_clicked(|b| {
+            let window = b.root().and_downcast::<gtk::Window>();
+            gtk::UriLauncher::new(HOW_IT_WENT_FORM).launch(
+                window.as_ref(),
+                gio::Cancellable::NONE,
+                |_| {},
+            );
+        });
+        self.body.append(&open);
     }
 
     fn page_kept(&self) {
