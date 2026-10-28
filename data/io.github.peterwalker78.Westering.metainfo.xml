@@ -33,6 +33,11 @@
   <url type="homepage">https://github.com/peterwalker78/westering</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.6.2" date="2026-10-28">
+      <description>
+        <p>The way to say how your evenings went has moved to the top of Settings, beside the title.</p>
+      </description>
+    </release>
     <release version="0.6.1" date="2026-10-28">
       <description>
         <p>The menu's What it's for page now has a way to say how your evenings went. It opens a short form on GitHub in your browser; Westering itself still has no network access.</p>
