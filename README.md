@@ -337,4 +337,4 @@ the next style, and after the last turns it off. The menu can choose one too.
 GPL-3.0-or-later. The packed star and constellation data carry their own
 credits above.
 
-AI coding tools are used in writing Westering's code. Every change is built and tested in CI.
+AI coding tools are used in writing Westering's code and its words. Every change is built and tested in CI.
