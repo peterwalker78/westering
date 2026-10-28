@@ -309,7 +309,7 @@ impl Settings {
                 row("Volume", "", &volume),
                 row(
                     "Keep me company",
-                    "Leave the music playing while you get on with something else, in a window of any size. The sky rests, and the wisp looks in on you now and then. K starts and stops it.",
+                    "Leave the music playing while you get on with something else, in a window of any size. The sky rests, and the wisp looks in on you now and then — a word about the night, or a gentle nudge to drink some water, stretch, eat, or send word to someone you've been meaning to. K starts and stops it.",
                     &company,
                 ),
             ],
