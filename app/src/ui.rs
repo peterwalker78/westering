@@ -146,6 +146,17 @@ button.quiet {
   font-size: 13px;
 }
 button.quiet:hover { background: rgba(240, 214, 168, 0.14); }
+/* A dropdown's button, as the menu's other buttons. */
+dropdown > button {
+  background: rgba(255, 255, 255, 0.05);
+  color: #d6dcec;
+  border: none;
+  box-shadow: none;
+  border-radius: 8px;
+  padding: 3px 12px;
+  font-size: 13px;
+}
+dropdown > button:hover, dropdown > button:checked { background: rgba(240, 214, 168, 0.14); }
 button.menu-button {
   background: rgba(7, 9, 19, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.07);
