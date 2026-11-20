@@ -21,6 +21,19 @@ window, .page { background: #070913; color: #dfe3ee; }
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
 }
 .confirm-title { font-size: 19px; color: #f3ecd9; }
+/* Popovers (a dropdown's list, a text field's right-click menu) in the window's
+   colours: GTK's theme paints the list inside one grey of its own. */
+popover > contents, popover > arrow {
+  background-color: #101220;
+  color: #dfe3ee;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+popover > contents { border-radius: 10px; }
+popover listview, popover list, popover scrolledwindow, popover viewport { background: none; color: inherit; }
+popover listview > row, popover modelbutton { border-radius: 7px; color: inherit; }
+popover listview > row:hover, popover listview > row:selected, popover listview > row:selected:hover,
+popover modelbutton:hover { background: rgba(255, 255, 255, 0.06); color: inherit; }
 button.danger {
   background: rgba(255, 128, 104, 0.16);
   color: #ffd8cc;
